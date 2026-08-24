@@ -7,6 +7,7 @@
 | `test_cli.py` | The installed command behaves at the surface: --version prints the package version, and a bare invocation shows help without erroring. |
 | `test_kinds.py` | The kind system behaves: packs load, manifest overrides merge and extend, bad overrides become findings not crashes, field validation is precise per type, and … |
 | `test_lint.py` | Behaviour coverage for every conventions-linter check: the cap and its counting rules, the @exempt grammar, header tags, public @purpose, and README index gene… |
+| `test_store_roundtrip.py` | The fidelity contract, executable: untouched files are never written; touched files keep comments, key order, newline style, and BOM; bodies survive byte-for-b… |
 <!-- END GENERATED INDEX -->
 
 ## What this is

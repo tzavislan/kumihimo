@@ -45,3 +45,24 @@ kinds per PLAN §3.2). The planned deviation above is now real: packs live at
 
 **Verified:** 12 new tests (29 total), mypy strict, ruff, conventions linter —
 all green locally.
+
+## Iteration 3 — 2026-08-23 — K2: store with the fidelity contract
+
+**What now exists:** `core/store.py` (find_root, frontmatter split with
+verbatim bodies, tolerant normalization to Nodes with precise findings,
+dirty-gated atomic saves, BOM/newline preservation, view.yaml helpers,
+scaffold with starter node), `core/plan.py` (the Plan facade: load, nodes,
+node, check placeholder, save), public API re-exported from `kumihimo`.
+
+**Verified:** 15 round-trip tests including strict byte-equality on a CRLF
+file after a field edit; 44 tests total, mypy strict, ruff, linter green.
+
+**Lessons:**
+- ruamel captures `\r` inside comment tokens — frontmatter must be normalized
+  to LF before parsing, with the record's newline style applied only at write.
+- Block-sequence indentation is an emitter setting, not round-trip-preserved:
+  pinned to the canonical two-space-dash style. Fidelity bound documented:
+  untouched files never re-serialize; *edited* files may normalize seq indent.
+- Tool-transport gotcha: writing a literal U+FEFF into source is invisible and
+  survives edits confusingly; store.py uses the escape, tests label the one
+  deliberate literal.

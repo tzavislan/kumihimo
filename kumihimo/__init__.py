@@ -1,11 +1,18 @@
 """
 @file        kumihimo/__init__.py
-@purpose     Public entry point of the kumihimo package: version constant and, as
-             milestones land, the re-exported public API (Plan, Node, Finding).
+@purpose     Public entry point of the kumihimo package: the version constant and
+             the re-exported public API (Plan, Node, Finding, KumihimoError).
 @layer       package-root
 @tags        public-api, version
-@related     kumihimo/cli/app.py (the CLI over this API)
+@related     kumihimo/core/plan.py (Plan lives there),
+             kumihimo/cli/app.py (the CLI over this API)
 @design      PLAN.md §7.2
 """
 
+from kumihimo.core.errors import CycleError, KumihimoError
+from kumihimo.core.model import Finding, Node
+from kumihimo.core.plan import Plan
+
 __version__ = "0.1.0.dev0"
+
+__all__ = ["CycleError", "Finding", "KumihimoError", "Node", "Plan", "__version__"]

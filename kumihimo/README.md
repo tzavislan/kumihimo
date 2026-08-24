@@ -3,7 +3,7 @@
 <!-- BEGIN GENERATED INDEX -- do not edit by hand -->
 | file | purpose |
 |---|---|
-| `__init__.py` | Public entry point of the kumihimo package: version constant and, as milestones land, the re-exported public API (Plan, Node, Finding). |
+| `__init__.py` | Public entry point of the kumihimo package: the version constant and the re-exported public API (Plan, Node, Finding, KumihimoError). |
 <!-- END GENERATED INDEX -->
 
 ## What this is

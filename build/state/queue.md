@@ -28,7 +28,7 @@ Accept: field validation errors are precise (node, field, why); packs load by
 name; unknown-kind is a Finding, not a crash.
 
 ### K2 — Store: load and byte-fidelity save
-status: todo
+status: done (iteration 3)
 needs: [K1]
 PLAN.md §3.3. Parse `kumihimo.yaml` + `nodes/**/*.md` (frontmatter via
 ruamel round-trip, body raw); save preserves untouched files byte-for-byte,
