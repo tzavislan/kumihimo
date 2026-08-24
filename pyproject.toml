@@ -55,9 +55,11 @@ path = "kumihimo/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["kumihimo"]
-# The built frontend is gitignored but ships in the wheel; `artifacts` exists
-# for exactly this. CI/release builds frontend/ before `uv build`.
-artifacts = ["kumihimo/server/static/**"]
+
+[tool.hatch.build.targets.wheel.hooks.custom]
+# Ships the gitignored, Vite-built kumihimo/server/static inside the wheel —
+# but only when it exists, so Node stays optional. See hatch_build.py.
+path = "hatch_build.py"
 
 [tool.ruff]
 line-length = 100
