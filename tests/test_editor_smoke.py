@@ -50,10 +50,12 @@ def editor(tmp_path: Path) -> Iterator[Path]:
     with socket.socket() as probe:
         if probe.connect_ex(("127.0.0.1", PORT)) == 0:
             pytest.skip(f"port {PORT} busy")
-    # Launch the console script directly: terminating a `uv run` wrapper on
-    # Windows orphans the actual server, which then squats on the port.
-    exe = Path(__file__).resolve().parent.parent / ".venv" / "Scripts" / "kumihimo.exe"
-    command = ([str(exe)] if exe.is_file() else ["uv", "run", "kumihimo"]) + [
+    # Launch the console script directly: signaling a `uv run` wrapper leaves
+    # the actual server running (orphaned on Windows, TERM-shielded on Linux).
+    venv = Path(__file__).resolve().parent.parent / ".venv"
+    candidates = (venv / "Scripts" / "kumihimo.exe", venv / "bin" / "kumihimo")
+    exe = next((str(c) for c in candidates if c.is_file()), None)
+    command = ([exe] if exe else ["uv", "run", "kumihimo"]) + [
         "edit",
         str(root),
         "--no-open",
@@ -72,8 +74,13 @@ def editor(tmp_path: Path) -> Iterator[Path]:
             pytest.fail("editor server never came up")
         yield root
     finally:
+        # Teardown must never fail a passed test: escalate TERM -> KILL.
         process.terminate()
-        process.wait(timeout=10)
+        try:
+            process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=10)
 
 
 def drag(page: object, source_selector: str, target_selector: str) -> None:
