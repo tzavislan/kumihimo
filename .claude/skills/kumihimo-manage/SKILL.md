@@ -98,3 +98,9 @@ is alive, and a gap in it is itself a finding for the next retro.
   facts (artifacts-vs-hook, uv build sdist→wheel) live in hatch_build.py's
   header and the roadmap node, where the next packager will look. Nothing
   pruned.
+- 2026-08-24 — retro at M5 close (iteration 15): iteration skill gained
+  skips-guard-one-precondition (the smoke's first draft laundered a real
+  failure into a skip) and spawn-the-exe-not-the-wrapper. Playwright/RF
+  specifics (attached-not-visible, label-addressed selects, minimap overlay)
+  stayed in the smoke test's comments where the next e2e author will look.
+  Nothing pruned.

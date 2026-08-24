@@ -92,7 +92,14 @@ ResizeObserver measurement never runs).
 
 **Windows note:** running `kumihimo edit`/server processes hold the venv's
 console-script exe; uv cannot reinstall past them. Stop background servers
-before builds and syncs.
+before builds and syncs. And when a test must spawn the server, spawn
+`.venv/Scripts/kumihimo.exe` directly — terminating a `uv run` wrapper
+orphans the real process, which then squats on the port.
+
+**A skip guards exactly one precondition.** The smoke test's first draft
+wrapped its whole browser block in `except Error: skip` and laundered a real
+failure into a 37-second "skip" (iteration 15). Catch precisely the missing-
+dependency case; let everything else fail loudly.
 
 Two rules learned from real incidents in iterations 3 and 6, where errors
 were committed under a green-sounding report:

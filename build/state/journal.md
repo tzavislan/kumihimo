@@ -377,3 +377,13 @@ v0.1) through the MCP tools.
 - Field selects are addressed by label, not index (the pack's field order
   is not the form's contract).
 - The minimap overlays the canvas corner; drag the leftmost node.
+
+## retro: 2 lessons through iteration 15 — M5 close
+
+Read: iteration 15. Folded: (1) a skip guards exactly one precondition —
+everything else fails loudly → iteration skill Step 5; (2) spawn the venv
+exe, not the `uv run` wrapper, for terminable test servers → the Windows
+note. Considered, not folded: Playwright/React Flow specifics (attached vs
+visible, label-addressed selects, minimap overlay) — they live as comments
+in the smoke test, where the next e2e author will look. Training log
+appended. Nothing pruned. loop.json: iteration=15, last_retro_iteration=15.
