@@ -21,6 +21,7 @@ from kumihimo.cli.export_cmd import export
 from kumihimo.cli.link_cmd import link
 from kumihimo.cli.mcp_cmd import mcp
 from kumihimo.cli.new_cmd import new
+from kumihimo.cli.set_cmd import set_cmd
 
 app = typer.Typer(
     name="kumihimo",
@@ -32,6 +33,7 @@ app = typer.Typer(
 app.command("new")(new)
 app.command("add")(add)
 app.command("link")(link)
+app.command("set")(set_cmd)
 app.command("check")(check)
 app.command("braid")(braid)
 app.command("export")(export)

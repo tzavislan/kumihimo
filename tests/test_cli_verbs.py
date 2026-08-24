@@ -120,3 +120,21 @@ def test_check_on_not_a_plan_exits_2(tmp_path: Path) -> None:
     result = runner.invoke(app, ["check", str(tmp_path)], env=WIDE)
     assert result.exit_code == 2
     assert "not a kumihimo plan" in result.output
+
+
+def test_set_updates_title_fields_and_unsets(tmp_path: Path) -> None:
+    plan = str(tmp_path / "demo")
+    runner.invoke(app, ["new", plan], env=WIDE)
+    runner.invoke(app, ["add", plan, "t", "--body", "b", "--field", "effort=S"], env=WIDE)
+    result = runner.invoke(
+        app,
+        ["set", plan, "t", "--title", "Titled", "--field", "acceptance=a,b", "--unset", "effort"],
+        env=WIDE,
+    )
+    assert result.exit_code == 0
+    node = Plan.load(plan).nodes["t"]
+    assert node.title == "Titled"
+    assert node.fields["acceptance"] == ["a", "b"]
+    assert "effort" not in node.fields
+    missing = runner.invoke(app, ["set", plan, "ghost", "--title", "x"], env=WIDE)
+    assert missing.exit_code == 2

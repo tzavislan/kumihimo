@@ -47,7 +47,7 @@ def _coerce(spec: FieldSpec | None, raw: str) -> Any:
     return [item.strip() for item in raw.split(",") if item.strip()]
 
 
-def _parse_fields(plan: Plan, kind: str, pairs: list[str]) -> dict[str, Any]:
+def parse_fields(plan: Plan, kind: str, pairs: list[str]) -> dict[str, Any]:
     """Split key=value flags and coerce each through the kind's specs.
 
     @purpose  One malformed pair should name itself, not half-apply.
@@ -79,7 +79,7 @@ def add(
     """
     try:
         plan = Plan.load(plan_path)
-        fields = _parse_fields(plan, kind, field)
+        fields = parse_fields(plan, kind, field)
         split_needs = tuple(n for item in needs for n in item.split(",") if n)
         split_in = tuple(g for item in in_ for g in item.split(",") if g)
         node = ops.add_node(

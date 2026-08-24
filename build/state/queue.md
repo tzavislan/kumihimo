@@ -92,7 +92,7 @@ status: done (iteration 12) — M2 complete
 needs: [K9]
 
 ### K16 — CLI `set` verb (update titles/fields/body from the shell)
-status: todo
+status: done (iteration 16)
 needs: —
 Discovered while dogfooding K11: the CLI can create and link nodes but not
 update them — roadmap titles had to go through the ops layer in Python.
