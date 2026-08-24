@@ -85,6 +85,13 @@ were committed under a green-sounding report:
 `ruff format` runs first and *applies* (CI checks with `--check`; locally you
 want the fix, not the complaint).
 
+**When the item produces an artifact — a braid, an export, a rendered page —
+read the artifact itself, top to bottom, before calling the item done.**
+Substring assertions passed on output that had cp1252-corrupted dashes,
+Python list reprs, and duplicated diagram nodes (iteration 10); only reading
+it caught them. For braid-affecting changes this reading happens on the
+regenerated goldens, where the diff is the review.
+
 For anything that changes braid output: regenerate goldens deliberately, read
 the diff, and treat it as part of the review — a golden updated without being
 read is a test deleted. For claims about *prompt effectiveness*, follow

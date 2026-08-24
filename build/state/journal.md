@@ -245,3 +245,13 @@ here on, milestone prompts are braided, not hand-written.
 **Prompt effectiveness: partially verified.** The braid was read end to end
 and is well-formed and actionable; whether it *steers* an agent well is
 verified only when M3 is actually built from it. Claimed exactly that far.
+
+## retro: 1 lesson through iteration 12 — M2 close
+
+Read: iterations 9-12. Folded: **read-the-artifact** (iteration 10's four
+eyeball-caught issues) → kumihimo-iteration Step 5, with the goldens named
+as where that reading happens for braid changes. Considered, not folded:
+Jinja dict.items/trim_blocks specifics (live in code comments beside the
+templates, where the next template author will actually be looking).
+Nothing pruned. Training log appended in kumihimo-manage.
+loop.json: iteration=12, last_retro_iteration=12.

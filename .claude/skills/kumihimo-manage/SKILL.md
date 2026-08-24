@@ -79,3 +79,8 @@ is alive, and a gap in it is itself a finding for the next retro.
   the gated-verification rules (two real incidents) and the
   numbers-from-executed-commands rule; nothing pruned; manage skill created
   the same day at Thomas's direction.
+- 2026-08-23 — retro at M2 close (iterations 9-12): iteration skill gained
+  read-the-artifact (substring assertions passed on corrupted braid output in
+  iteration 10; reading it caught four issues). Jinja/trim_blocks specifics
+  stayed in code comments and the journal — site-specific, not procedural.
+  Nothing pruned.
