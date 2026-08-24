@@ -1,0 +1,8 @@
+layout:
+  api-endpoints: {x: 40, y: 200}
+  headers-and-429: {x: 600, y: 130}
+  per-org-quotas: {x: 320, y: 320}
+  pick-algorithm: {x: 40, y: 60}
+  rate-limit-core: {x: 320, y: 130}
+  redis-outage: {x: 320, y: 20}
+  ship-guarded-api: {x: 600, y: 20}

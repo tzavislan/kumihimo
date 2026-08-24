@@ -124,3 +124,27 @@ demo path (85 total), battery green and gated.
 **Note for K5's earlier lesson:** second ungated-commit slip happened at K5
 close (unused import; caught immediately). The && gate is now the committed
 habit; both incidents go to the M1 retro together.
+
+## Iteration 8 — 2026-08-23 — K7: API-Guard example — M1 complete
+
+**What now exists:** `examples/apiguard/` — the PLAN.md §3.3 worked example
+as a real plan: seven nodes across all five engineering kinds, a milestone
+grouping four members, an annotation edge with a relation label, a layout
+sidecar. Tests hold it to its promises: checks completely clean (zero
+findings), braid order pinned exactly, a hand-introduced cycle is named
+end-to-end through the CLI, and a field edit is exactly a one-line diff.
+
+**Verified:** 4 integration tests (89 total), full gated battery.
+
+**Deviation note:** PLAN.md's manifest example extends `task` with `effort`
+for illustration; the shipped engineering pack grew `effort` natively at K1,
+so the example manifest needs no override. PLAN.md stands as written (it is
+the planning record); the docs at M6 will show a custom-field example with a
+genuinely new field.
+
+**M1 demo, run for real:** `uv run kumihimo check examples/apiguard` →
+"7 node(s), 8 edge(s): 0 error(s), 0 warning(s)" (actual output; a first
+draft of this entry said 10 edges from mental arithmetic instead of running
+it — the verification bar exists for exactly that). Cycle demo and
+one-line-diff demo run as tests. Prompt-effectiveness: n/a until M2 (no
+braid yet) — nothing claimed.

@@ -66,7 +66,7 @@ and `link` are flag-driven (no editor spawning); `check` prints Findings via
 rich with exit code. Accept: the M1 demo path works end to end.
 
 ### K7 — API-Guard example + M1 demo test
-status: todo
+status: done (iteration 8) — M1 complete
 needs: [K6]
 PLAN.md §3.3 worked example as `examples/apiguard/`, built via the CLI, with
 an integration test: build, validate, introduce a cycle, watch `check` name

@@ -1,0 +1,10 @@
+format: 1
+plan: API Guard
+description: Add per-key rate limiting to the public API.
+kinds:
+  from: engineering
+compile:
+  strategy: grouped
+  preamble: |
+    You are implementing this plan in the api repo. Work strictly in the
+    order given. Stop and ask if a settled decision proves wrong.

@@ -7,6 +7,7 @@
 | `test_boundaries.py` | Enforces PLAN.md §7.1 invariant 3: core/ and compile/ import no client-layer or UI/server/template library code. The boundary is a test, not a good intention (… |
 | `test_cli.py` | The installed command behaves at the surface: --version prints the package version, and a bare invocation shows help without erroring. |
 | `test_cli_verbs.py` | The M1 demo path, end to end through the real CLI: new → add → link → check, plus field coercion, error exit codes, --strict, and the cycle named in check outp… |
+| `test_example_apiguard.py` | Holds the shipped example to its promises: it validates clean, its braid order is deterministic and exactly what the graph implies, a hand-introduced cycle is … |
 | `test_graph.py` | The ordering invariant, executable: braid_order is identical under any insertion order, priority then id breaks ties, cycles are named as exact paths (self-loo… |
 | `test_kinds.py` | The kind system behaves: packs load, manifest overrides merge and extend, bad overrides become findings not crashes, field validation is precise per type, and … |
 | `test_lint.py` | Behaviour coverage for every conventions-linter check: the cap and its counting rules, the @exempt grammar, header tags, public @purpose, and README index gene… |
