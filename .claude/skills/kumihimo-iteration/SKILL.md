@@ -70,8 +70,20 @@ change.
 Run the full battery yourself; paste nothing you did not run:
 
 ```bash
-uv run ruff check . && uv run ruff format . && uv run mypy && uv run pytest -q && uv run python tools/lint.py --fix && uv run python tools/lint.py
+uv run ruff format . && uv run ruff check . && uv run mypy && uv run pytest -q && uv run python tools/lint.py --fix && uv run python tools/lint.py
 ```
+
+Two rules learned from real incidents in iterations 3 and 6, where errors
+were committed under a green-sounding report:
+
+- **Never pipe a gating check.** `mypy | tail -1` reports *tail's* exit code;
+  both incidents were exactly this shape. If you must trim output, gate first,
+  trim separately.
+- **The commit sits at the end of the `&&` chain.** Printing exit codes and
+  reading them is not gating; a `;`-separated chain commits anyway.
+
+`ruff format` runs first and *applies* (CI checks with `--check`; locally you
+want the fix, not the complaint).
 
 For anything that changes braid output: regenerate goldens deliberately, read
 the diff, and treat it as part of the review — a golden updated without being
@@ -88,6 +100,10 @@ Update folder READMEs (`--fix` handles indexes; prose is yours to write),
 CHANGELOG.md under Unreleased, and any PLAN.md-relevant deviation goes in the
 journal — PLAN.md itself is the record of what was *planned*; do not rewrite
 history.
+
+**Every number in a journal entry comes from an executed command.** Iteration
+8's first draft reported an edge count computed in the head; it was wrong.
+Run the demo, paste what it printed.
 
 ## Step 7 — Commit and close
 

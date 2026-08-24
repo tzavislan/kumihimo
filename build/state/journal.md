@@ -148,3 +148,22 @@ draft of this entry said 10 edges from mental arithmetic instead of running
 it — the verification bar exists for exactly that). Cycle demo and
 one-line-diff demo run as tests. Prompt-effectiveness: n/a until M2 (no
 braid yet) — nothing claimed.
+
+## retro: 2 lessons through iteration 8 — M1 close
+
+Read: iterations 1-8. Durable lessons folded:
+
+1. **Gated verification** (incidents in iterations 3 and 6: piped exit codes,
+   then printed-but-ungated codes; both committed errors under green-sounding
+   reports) → kumihimo-iteration Step 5: never pipe a gating check; the
+   commit sits at the end of the && chain; format applies before checks.
+2. **Journal numbers come from executed commands** (iteration 8 edge-count
+   fabricated by arithmetic, caught before commit) → kumihimo-iteration
+   Step 6.
+
+Considered, not folded: ruamel CRLF/indent behavior (lives in store.py
+comments and round-trip tests, where the next reader needs it); the literal
+U+FEFF transport gotcha (one-off, documented at the site). Nothing pruned —
+the skills are eight iterations old.
+
+loop.json: iteration=8, last_retro_iteration=8.
