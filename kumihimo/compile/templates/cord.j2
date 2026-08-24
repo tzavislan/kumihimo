@@ -1,0 +1,46 @@
+# Braid: {{ plan.name }}
+{% if plan.description %}
+{{ plan.description }}
+
+{% endif %}
+{% if preamble %}
+{{ preamble }}
+
+{% endif %}
+{% if diagram %}
+## Plan shape
+
+```mermaid
+{{ diagram }}
+```
+{% endif %}
+
+## How to read this braid
+
+Work the numbered items strictly in order. Each item's *After* line names its
+real prerequisites — an item that does not name the one above it is
+independent of it and may be reordered or parallelized. Settled decisions are
+constraints, not suggestions. Open decisions and questions block whatever
+depends on them: resolve or escalate before proceeding past one.
+{% if stubs %}
+Already in place, outside this braid: {{ stubs }}.
+{% endif %}
+{% for section in sections %}
+{% if section.title %}
+## {{ section.title }}
+{% endif %}
+{% if section.intro %}
+{{ section.intro }}
+{% endif %}
+{% for item in section.entries %}
+{{ item }}
+{% endfor %}
+{% endfor %}
+{% if epilogue %}
+{{ epilogue }}
+{% endif %}
+{% if warnings %}
+{% for warning in warnings %}
+> braid warning: {{ warning }}
+{% endfor %}
+{% endif %}

@@ -11,6 +11,7 @@
 
 from __future__ import annotations
 
+import sys
 from typing import NoReturn
 
 import typer
@@ -18,6 +19,19 @@ from rich.console import Console
 
 console = Console()
 err_console = Console(stderr=True)
+
+
+def write_artifact(text: str) -> None:
+    """Write compiler output to stdout as UTF-8, whatever the console claims.
+
+    @purpose  Windows consoles default to cp1252, which silently corrupts
+              em-dashes and unicode in piped braids — the artifact's bytes are
+              the product, so the artifact writer owns its encoding.
+    """
+    stdout = sys.stdout
+    if hasattr(stdout, "reconfigure"):
+        stdout.reconfigure(encoding="utf-8")
+    stdout.write(text)
 
 
 def die(message: str) -> NoReturn:

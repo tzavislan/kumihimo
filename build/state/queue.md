@@ -76,7 +76,7 @@ Accept: matches the plan's worked example; doubles as fixture for M2 goldens.
 ## M2 — The braid (coarse; split before starting)
 
 ### K8 — Braid pipeline: select, order, render, weave + linear/grouped
-status: todo
+status: done (iteration 10)
 needs: [K7]
 
 ### K9 — Engineering pack templates + goldens

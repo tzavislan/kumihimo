@@ -13,13 +13,28 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 from kumihimo.core import kinds as kinds_module
 from kumihimo.core import store, validate
 from kumihimo.core.errors import KumihimoError
 from kumihimo.core.model import Finding, KindDef, Manifest, Node
 from kumihimo.core.store import LoadedPlan, NodeRecord
+
+_BRAIDER: Callable[..., str] | None = None
+
+
+def register_braider(braider: Callable[..., str]) -> None:
+    """Install the compile layer's braid function behind Plan.braid.
+
+    @purpose  Dependency inversion for invariant 3: core never imports compile;
+              compile registers itself here when it loads (kumihimo/__init__
+              guarantees that for library users).
+    """
+    global _BRAIDER
+    _BRAIDER = braider
 
 
 class Plan:
@@ -106,6 +121,16 @@ class Plan:
                   order — the one validation answer every surface renders.
         """
         return validate.check(self)
+
+    def braid(self, **kwargs: Any) -> str:
+        """Compile this plan (or a slice) into one prompt; see compile.braid.
+
+        @purpose  The public sugar over the pipeline — accepts strategy, where,
+                  from_, until, in_, diagram, dry; returns the woven text.
+        """
+        if _BRAIDER is None:
+            raise KumihimoError("compile layer not loaded; import kumihimo, not kumihimo.core")
+        return _BRAIDER(self, **kwargs)
 
     def save(self) -> list[str]:
         """Write every dirty record; return the rel paths written.

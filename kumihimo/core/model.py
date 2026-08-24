@@ -121,6 +121,7 @@ class CompileSettings(BaseModel):
     preamble: str = ""
     epilogue: str = ""
     diagram: bool = True
+    cord: str | None = None
 
 
 class Manifest(BaseModel):

@@ -178,3 +178,30 @@ close (demo → changelog → retro → push *proposal*), release prep — with 
 **Training log** the retro skill is now required to append to; an unbroken
 log is the proof the training loop is alive. CLAUDE.md points at it as the
 umbrella; retro's fold-targets name all three skills.
+
+## Iteration 10 — 2026-08-23 — K8: the braid pipeline
+
+**What now exists:** `compile/` grew its real shape — select.py (filters
+compose by intersection; excluded direct deps become stubs), strategies/
+(registry + entry-points; linear; grouped with lead/tail pseudo-sections and
+group-level-cycle fallback-with-warning), render.py (sandboxed Jinja,
+template resolution manifest→pack→default, full context contract), weave.py
+(global numbering, cord assembly, blank-collapse), diagram.py (mermaid with
+membership subgraphs + dot with clusters), braid.py (check-error gate, --dry),
+export.py. `Plan.braid` works via a registration hook so core never imports
+compile (the boundary test forced the honest design). CLI verbs `braid` and
+`export`.
+
+**Verified:** 13 pipeline tests (102 total at commit), plus an eyeball pass
+of real output that caught four issues the assertions didn't: cp1252 stdout
+corrupting em-dashes on Windows (artifact writer now forces UTF-8), Python
+list reprs in the default template, group nodes duplicated in mermaid, and
+cramped cord spacing. All fixed and re-read.
+
+**Lessons:**
+- Jinja resolves `dict.items` (the method) before the key named `items` —
+  section dicts use `entries`.
+- trim_blocks eats the newline after every block tag: put newlines inside
+  expression output in inline-composed templates.
+- Substring assertions pass on ugly output; **reading the artifact is part of
+  verifying a compiler.** Candidate for the iteration skill at the M2 retro.

@@ -5,6 +5,7 @@
 |---|---|
 | `conftest.py` | Shared fixtures: a factory that lays a plan directory on disk from a dict of node files, so every test builds real plans the way users have them — as files. |
 | `test_boundaries.py` | Enforces PLAN.md §7.1 invariant 3: core/ and compile/ import no client-layer or UI/server/template library code. The boundary is a test, not a good intention (… |
+| `test_braid.py` | The pipeline behaves: selection filters and cones compose, stubs bridge cut edges, the check-error gate holds, both strategies produce their promised sections,… |
 | `test_cli.py` | The installed command behaves at the surface: --version prints the package version, and a bare invocation shows help without erroring. |
 | `test_cli_verbs.py` | The M1 demo path, end to end through the real CLI: new → add → link → check, plus field coercion, error exit codes, --strict, and the cycle named in check outp… |
 | `test_example_apiguard.py` | Holds the shipped example to its promises: it validates clean, its braid order is deterministic and exactly what the graph implies, a hand-introduced cycle is … |
