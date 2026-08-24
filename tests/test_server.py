@@ -1,0 +1,78 @@
+"""
+@file        tests/test_server.py
+@purpose     The watching server behaves: the payload carries the canvas
+             contract, the WebSocket sends the initial state and then whatever
+             the broadcaster publishes, the unbuilt-frontend fallback is honest,
+             and the watch filter ignores exactly the churn it should.
+@layer       tests
+@tags        server, payload, websocket, watch-filter
+@related     kumihimo/server/app.py (under test),
+             kumihimo/server/watch.py (filter + broadcaster under test)
+@design      PLAN.md §5.2, roadmap item server-watch
+"""
+
+from pathlib import Path
+
+from fastapi.testclient import TestClient
+
+from kumihimo.server.app import build_app
+from kumihimo.server.payload import plan_payload
+from kumihimo.server.watch import is_relevant
+
+EXAMPLE = Path(__file__).resolve().parent.parent / "examples" / "apiguard"
+
+
+def test_payload_carries_the_canvas_contract() -> None:
+    payload = plan_payload(EXAMPLE)
+    assert payload["plan"] == "API Guard"
+    assert len(payload["nodes"]) == 7
+    node = next(n for n in payload["nodes"] if n["id"] == "rate-limit-core")
+    assert node["effective"]["status"] == "todo"
+    assert "status" not in node["fields"]
+    assert node["links"] == [{"to": "redis-outage", "rel": "threatened-by"}]
+    assert payload["layout"]["api-endpoints"] == {"x": 40, "y": 200}
+    assert payload["kinds"]["task"]["fields"]["effort"]["options"] == ["S", "M", "L"]
+    assert payload["findings"] == []
+
+
+def test_api_plan_route_serves_the_payload(tmp_path: Path) -> None:
+    client = TestClient(build_app(EXAMPLE, static_dir=tmp_path))
+    response = client.get("/api/plan")
+    assert response.status_code == 200
+    assert response.json()["plan"] == "API Guard"
+
+
+def test_unbuilt_frontend_fallback_is_honest(tmp_path: Path) -> None:
+    client = TestClient(build_app(EXAMPLE, static_dir=tmp_path))
+    response = client.get("/")
+    assert response.status_code == 200
+    assert "not built" in response.text
+    assert "/api/plan" in response.text
+
+
+def test_built_frontend_is_served_when_present(tmp_path: Path) -> None:
+    (tmp_path / "index.html").write_bytes(b"<!doctype html><title>canvas</title>ok")
+    client = TestClient(build_app(EXAMPLE, static_dir=tmp_path))
+    assert "canvas" in client.get("/").text
+
+
+def test_websocket_sends_initial_then_published_payloads(tmp_path: Path) -> None:
+    app = build_app(EXAMPLE, static_dir=tmp_path)
+    client = TestClient(app)
+    with client.websocket_connect("/api/ws") as websocket:
+        first = websocket.receive_json()
+        assert first["plan"] == "API Guard"
+        app.state.broadcaster.publish({"plan": "pushed", "nodes": []})
+        second = websocket.receive_json()
+        assert second["plan"] == "pushed"
+
+
+def test_watch_filter_matches_plan_files_only() -> None:
+    root = EXAMPLE
+    assert is_relevant(root, str(root / "nodes" / "rate-limit-core.md"))
+    assert is_relevant(root, str(root / "kumihimo.yaml"))
+    assert is_relevant(root, str(root / "view.yaml"))
+    assert not is_relevant(root, str(root / "nodes" / "draft.md.tmp"))
+    assert not is_relevant(root, str(root / ".git" / "index"))
+    assert not is_relevant(root, str(root.parent / "elsewhere.md"))
+    assert not is_relevant(root, str(root / "notes.txt"))

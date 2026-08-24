@@ -9,6 +9,7 @@
 | `braid_cmd.py` | `kumihimo braid` — pull the cord: compile a plan (or a slice via --where/--from/--until/--in) to stdout or a file, with --dry for the order alone. Output goes … |
 | `check_cmd.py` | `kumihimo check` — render every finding as a table, summarize the plan, and exit 1 on errors (or on warnings too, under --strict). |
 | `common.py` | What every verb shares: the stdout/stderr consoles and the one way to die — expected errors print as a styled message and exit 2, never as a traceback. |
+| `edit_cmd.py` | `kumihimo edit` — serve the plan's live canvas on localhost and open the browser. Read-only through M4; the write path is M5. |
 | `export_cmd.py` | `kumihimo export` — the plan as a diagram source: Mermaid (GitHub renders it natively) or Graphviz DOT, to stdout or a file. |
 | `link_cmd.py` | `kumihimo link` — draw one edge: --needs for dependency, --in for membership, --to/--rel for annotation. Cycle refusals surface with their path. |
 | `mcp_cmd.py` | `kumihimo mcp` — serve one plan over MCP stdio so an agent can inspect, restructure, and braid it. Blocks until the client disconnects. |

@@ -16,6 +16,7 @@ import kumihimo
 from kumihimo.cli.add_cmd import add
 from kumihimo.cli.braid_cmd import braid
 from kumihimo.cli.check_cmd import check
+from kumihimo.cli.edit_cmd import edit
 from kumihimo.cli.export_cmd import export
 from kumihimo.cli.link_cmd import link
 from kumihimo.cli.mcp_cmd import mcp
@@ -35,6 +36,7 @@ app.command("check")(check)
 app.command("braid")(braid)
 app.command("export")(export)
 app.command("mcp")(mcp)
+app.command("edit")(edit)
 
 
 def _version_callback(value: bool) -> None:
