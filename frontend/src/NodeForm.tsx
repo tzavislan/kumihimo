@@ -117,7 +117,9 @@ export function NodeForm({ node, kinds, onApply }: NodeFormProps) {
               value={typeof fieldText[name] === "string" ? (fieldText[name] as string) : ""}
               onChange={(event) => setFieldText({ ...fieldText, [name]: event.target.value })}
             >
-              <option value="">(unset)</option>
+              <option value="">
+                {spec.default != null ? `(default: ${String(spec.default)})` : "(unset)"}
+              </option>
               {spec.options.map((option) => (
                 <option key={option} value={option}>
                   {option}

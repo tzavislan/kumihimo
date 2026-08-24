@@ -22,6 +22,8 @@ The files are the only source of truth. The editor, the CLI, and the MCP
 server are thin clients over one operations layer; everything lives in git and
 diffs cleanly.
 
+![The Kumihimo editor: a plan graph with kind-colored nodes, three edge styles, and the selected node's form in the sidebar](assets/canvas-editor.png)
+
 ## Ten minutes to your first braid
 
 Install (Python 3.11+):
@@ -60,7 +62,9 @@ kumihimo braid myplan       # one prompt on stdout — paste it into your agent
 The braid opens with your plan's preamble, embeds the graph as a Mermaid
 diagram, and walks the nodes in dependency order — settled decisions stated as
 constraints, every task carrying an honest *After:* line and a *Done when:*
-checklist.
+checklist:
+
+![The braid preview: the compiled prompt with its embedded Mermaid diagram and reading rubric](assets/braid-modal.png)
 
 ## Where to go next
 

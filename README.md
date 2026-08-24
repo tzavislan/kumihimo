@@ -7,6 +7,8 @@ cord. This tool works the same way: you lay out a plan as a **graph of
 plain-text files**, and Kumihimo *braids* that graph into a single,
 well-ordered **prompt** an LLM or coding agent can act on.
 
+<img src="docs/assets/canvas-editor.png" alt="The Kumihimo editor: a plan graph with kind-colored nodes, dependency and membership edges, and the selected node's form in the sidebar" width="100%">
+
 - **See it.** `kumihimo edit` opens a live canvas — kind-colored nodes,
   dependency/membership/annotation edges drawn distinctly, drag to arrange,
   click to edit. The canvas follows the files: change a node in vim (or let
@@ -17,8 +19,12 @@ well-ordered **prompt** an LLM or coding agent can act on.
 - **Let Claude drive it.** `kumihimo mcp` serves the plan over MCP — eleven
   tools to read, restructure, validate, and braid — so an agent can maintain
   the plan it executes. This repo's own roadmap is a Kumihimo plan
-  ([plans/roadmap](plans/roadmap)), and its milestone prompts are braided,
-  not hand-written.
+  ([plans/roadmap](plans/roadmap)), its milestone prompts were braided, not
+  hand-written, and the canvas below is that roadmap the morning v0.1
+  finished — every thread done, the release node blocked on a human with a
+  tag:
+
+  <img src="docs/assets/canvas-roadmap.png" alt="Kumihimo's own v0.1 roadmap on the canvas: milestones M3-M6 with every task done and the release node blocked" width="100%">
 
 The files are the only source of truth — Markdown with YAML frontmatter, in
 git, diffing cleanly. The editor, CLI, and MCP server are thin clients over
@@ -52,6 +58,12 @@ acceptance:
 Middleware on every authenticated route. Fail *open* on Redis errors —
 availability beats enforcement.
 ```
+
+…and the braid compiles the graph into one prompt — preamble, embedded
+Mermaid shape, settled decisions stated as constraints, every task with an
+honest *After:* line and *Done when:* checklist:
+
+<img src="docs/assets/braid-modal.png" alt="The braid preview modal: the compiled prompt with its embedded Mermaid diagram and reading rubric" width="100%">
 
 The core is domain-agnostic: it understands identity, prose, order (`needs`),
 membership (`in`), and annotation (`links`) — everything else comes from

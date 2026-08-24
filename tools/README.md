@@ -4,6 +4,7 @@
 | file | purpose |
 |---|---|
 | `lint.py` | Enforces the repo conventions in CI: the 600-code-line file cap with the @exempt escape, the @file/@purpose docstring tag scheme, and per-folder READMEs whose … |
+| `screenshots.py` | Regenerates the documentation screenshots: serves the shipped example plans with the real editor, drives headless chromium, and writes retina PNGs into docs/as… |
 <!-- END GENERATED INDEX -->
 
 ## What this is

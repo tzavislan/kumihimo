@@ -236,7 +236,11 @@ export default function App() {
     [applyOp],
   );
 
-  if (!payload) {
+  // Mounting the canvas before positions exist would let fitView fire on the
+  // placeholder {0,0} cluster and then watch the real layout slide away.
+  const positionsReady =
+    payload !== null && (payload.nodes.length === 0 || Object.keys(positions).length > 0);
+  if (!payload || !positionsReady) {
     return <div className="kumi-loading">loading plan…</div>;
   }
   const errors = payload.findings.filter((finding) => finding.level === "error");
