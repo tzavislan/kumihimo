@@ -10,6 +10,7 @@
 | `test_cli_verbs.py` | The M1 demo path, end to end through the real CLI: new → add → link → check, plus field coercion, error exit codes, --strict, and the cycle named in check outp… |
 | `test_editor_smoke.py` | The M5 tripwire, in a real browser: build a three-node plan entirely in the GUI (add via form, draw a needs edge between handles, edit a field, drag a node), b… |
 | `test_example_apiguard.py` | Holds the shipped example to its promises: it validates clean, its braid order is deterministic and exactly what the graph implies, a hand-introduced cycle is … |
+| `test_example_fieldnotes.py` | PLAN.md §10.4's test, executable: a deliberately non-engineering plan whose kinds live entirely in its manifest (no pack) checks clean, braids through its own … |
 | `test_golden.py` | The braid's byte-identity contract: apiguard compiled with each strategy must equal the committed golden exactly. A template change that alters output must upd… |
 | `test_graph.py` | The ordering invariant, executable: braid_order is identical under any insertion order, priority then id breaks ties, cycles are named as exact paths (self-loo… |
 | `test_kinds.py` | The kind system behaves: packs load, manifest overrides merge and extend, bad overrides become findings not crashes, field validation is precise per type, and … |

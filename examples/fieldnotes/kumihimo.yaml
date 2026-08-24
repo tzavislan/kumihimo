@@ -1,0 +1,49 @@
+format: 1
+plan: Fieldnotes
+description: >-
+  Research and outline for an essay, "Plain text outlives its editors." Not an
+  engineering plan on purpose: every kind here is defined in this manifest —
+  if this file were not enough to express it, the core would be too opinionated.
+kinds:
+  question:
+    fields:
+      status:
+        type: choice
+        options: [open, answered]
+        default: open
+      answer:
+        type: str
+  source:
+    fields:
+      cite:
+        type: str
+        required: true
+      stance:
+        type: choice
+        options: [supporting, opposing, mixed]
+    template: |
+      {% if number %}
+      ### {{ number }}. Source: {{ node.title }}
+
+      {% endif %}
+      Cite as: {{ node.fields.cite }}{% if node.fields.stance %} ({{ node.fields.stance }}){% endif %}
+
+
+      {{ node.body }}
+  claim:
+    fields:
+      confidence:
+        type: choice
+        options: [low, medium, high]
+        default: medium
+  section:
+    fields:
+      words:
+        type: int
+compile:
+  strategy: linear
+  preamble: |
+    You are drafting an essay from this research graph. Work in order: read
+    the sources, weigh the claims (confidence is stated), and only then draft
+    the sections. Where a question is still open, flag it in the draft rather
+    than inventing an answer.
