@@ -7,6 +7,14 @@ All notable changes to Kumihimo. Format follows
 ## [Unreleased]
 
 ### Added
+- M6, the release pass: the documentation site (mkdocs-material — tutorial,
+  concepts, how-tos for custom kinds/MCP/editor, full CLI/format/MCP/API
+  reference; deployed to GitHub Pages on every push to main);
+  `examples/fieldnotes`, a research plan whose kinds live entirely in its
+  manifest — the proof the core is domain-agnostic; `kumihimo set` (the
+  update verb dogfooding found missing); CI jobs for the frontend, the
+  real-browser editor smoke, and strict docs builds; a tag-triggered release
+  workflow publishing to PyPI via trusted publishing; RELEASING.md.
 - M5, the editor: every gesture on the canvas writes through the same ops
   layer as the CLI and MCP — drag nodes (positions land in view.yaml only),
   draw needs/membership/annotation edges between handles with a mode

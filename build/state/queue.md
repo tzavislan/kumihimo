@@ -114,5 +114,10 @@ status: done (iteration 15) — M5 complete
 needs: [K13]
 
 ### K15 — v0.1 release pass (docs site, examples, PyPI)
-status: todo
+status: needs-thomas (iteration 17) — everything preparable is done
 needs: [K12, K14]
+Docs site built strict-clean; fieldnotes example proves the agnostic core;
+CI grew frontend/smoke/docs jobs; docs.yml deploys Pages; release.yml
+publishes on tag via trusted publishing. Remaining acts are Thomas's alone:
+create the GitHub repo and push, PyPI pending-publisher + Pages one-time
+setup, version cut, tag. Checklist: RELEASING.md.

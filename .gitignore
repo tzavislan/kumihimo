@@ -10,9 +10,12 @@ build/lib/
 .ruff_cache/
 .coverage
 
-# Frontend (lands at M4)
+# Frontend build products
 node_modules/
 kumihimo/server/static/
+
+# Docs build output
+site/
 
 # OS / editor noise
 .DS_Store

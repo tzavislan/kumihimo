@@ -29,3 +29,52 @@ jobs:
         run: uv run pytest -q
       - name: Conventions (tools/lint.py)
         run: uv run python tools/lint.py
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install
+        run: npm --prefix frontend ci
+      - name: Typecheck
+        run: npm --prefix frontend run typecheck
+      - name: Build
+        run: npm --prefix frontend run build
+
+  editor-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Build frontend
+        run: npm --prefix frontend ci && npm --prefix frontend run build
+      - name: Sync environment
+        run: uv sync
+      - name: Install chromium
+        run: uv run playwright install --with-deps chromium
+      - name: Editor smoke (real browser)
+        run: uv run pytest -q tests/test_editor_smoke.py
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Sync environment
+        run: uv sync
+      - name: Build docs (strict)
+        run: uv run mkdocs build --strict

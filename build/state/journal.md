@@ -387,3 +387,40 @@ note. Considered, not folded: Playwright/React Flow specifics (attached vs
 visible, label-addressed selects, minimap overlay) — they live as comments
 in the smoke test, where the next e2e author will look. Training log
 appended. Nothing pruned. loop.json: iteration=15, last_retro_iteration=15.
+
+## Iteration 16 — 2026-08-24 — K16: kumihimo set
+
+**What now exists:** the update verb the roadmap dogfood found missing —
+title, kind, body, priority, --field with the same spec-driven coercion as
+add, --unset. parse_fields promoted to the cli layer's shared surface.
+**Verified:** 8 CLI tests (126 total), gated battery.
+
+## Iteration 17 — 2026-08-24 — K15: the release pass — M6 prepared
+
+**What now exists:** the docs site (mkdocs-material: ten-minute tutorial,
+concepts, how-tos for custom kinds / Claude-over-MCP / the editor, reference
+for CLI, file formats, MCP tools, and the Python API via mkdocstrings) —
+`mkdocs build --strict` clean in 1.4s; `examples/fieldnotes` (8 nodes,
+4 manifest-only kinds, one inline template, 0 findings — PLAN §10.4's
+agnostic-core test passed with zero core changes); CI grown to four jobs
+(matrix checks, frontend typecheck+build, real-browser editor smoke, strict
+docs); docs.yml deploying Pages on push to main; release.yml publishing
+sdist + canvas-carrying wheel on tag via trusted publishing; README rewritten
+to the truth (everything on it now works); RELEASING.md checklist.
+
+**Verified:** mkdocs strict build (real run), fieldnotes checked and braided
+(real output read: the manifest's inline template renders), 128 tests green
+including the browser smoke, gated battery.
+
+**Remaining for v0.1, all Thomas's acts by design:** create the public repo
+and push; PyPI pending-publisher + Pages one-time setup; version cut; tag.
+The roadmap's `ready()` is empty — the plan itself says the tool's work is
+done.
+
+## retro: 0 lessons through iteration 17 — M6 close
+
+Read: iterations 16-17. Nothing durable to fold: both iterations executed
+the existing rules without incident (the gates gated, artifacts were read,
+numbers came from runs). Honest empty retro per the retro skill — the
+cadence stays trustworthy precisely because this entry exists. Training log
+appended. loop.json: iteration=17, last_retro_iteration=17.

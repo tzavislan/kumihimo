@@ -7,5 +7,6 @@ acceptance:
   - mkdocs build clean in CI
   - published to GitHub Pages
 title: Documentation site
+status: done
 ---
 mkdocs-material: the ten-minute tutorial, concepts (graph model, kinds, the braid, files-as-truth), how-to guides (custom kinds and templates, MCP setup, editor), reference (API via mkdocstrings, CLI, file formats, MCP tools).

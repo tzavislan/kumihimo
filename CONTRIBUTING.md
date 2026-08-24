@@ -26,6 +26,21 @@ uv run python tools/lint.py
 
 `tools/lint.py --fix` regenerates folder-README indexes when they're stale.
 
+Touching the canvas? The frontend lives in `frontend/` (React + TypeScript +
+React Flow; same `@file`/`@purpose` headers in `/** */` blocks):
+
+```
+npm --prefix frontend ci
+npm --prefix frontend run typecheck
+npm --prefix frontend run build        # writes kumihimo/server/static
+uv run playwright install chromium     # once
+uv run pytest -q tests/test_editor_smoke.py
+```
+
+The smoke test drives the real server and the real built frontend in headless
+chromium; it skips (never silently passes) when the frontend isn't built or
+chromium isn't installed.
+
 ## House rules
 
 [CONVENTIONS.md](CONVENTIONS.md) is short and enforced: the `@file`/`@purpose`

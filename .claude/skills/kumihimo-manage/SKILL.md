@@ -104,3 +104,6 @@ is alive, and a gap in it is itself a finding for the next retro.
   specifics (attached-not-visible, label-addressed selects, minimap overlay)
   stayed in the smoke test's comments where the next e2e author will look.
   Nothing pruned.
+- 2026-08-24 — retro at M6 close (iterations 16-17): honest empty — both
+  iterations executed the existing rules without incident. Nothing folded,
+  nothing pruned; the entry exists so the log stays unbroken.
