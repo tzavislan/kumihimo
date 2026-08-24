@@ -37,7 +37,7 @@ Accept: golden round-trip tests over nasty fixtures (comments, CRLF, unicode,
 odd indentation) pass load→save unchanged.
 
 ### K3 — Graph: deterministic order, slices, cycles
-status: todo
+status: done (iteration 4)
 needs: [K1]
 PLAN.md §4.1 step 2. Kahn with sorted ready-queue, ties by (priority desc,
 id asc); ancestors/descendants cones; cycle detection that names the path.

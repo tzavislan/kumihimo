@@ -71,3 +71,13 @@ file after a field edit; 44 tests total, mypy strict, ruff, linter green.
   tail's 0 — ruff and mypy each had a live error when the commit claimed
   green. Never pipe a gating check; read exit codes unmasked. Candidate for
   the iteration skill at the M1 retro.
+
+## Iteration 4 — 2026-08-23 — K3: deterministic graph ordering
+
+**What now exists:** `core/graph.py` — braid_order (Kahn, sorted ready-heap,
+priority-desc/id-asc ties, insertion-order-proof), find_cycle naming the exact
+path deterministically (self-loops included), ancestor/descendant cones for
+slicing. Dangling needs never block ordering; they are validation's finding.
+
+**Verified:** 9 graph tests (53 total), mypy strict, ruff, exit codes read
+unmasked this time.
