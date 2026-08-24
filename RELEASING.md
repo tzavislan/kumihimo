@@ -6,8 +6,9 @@ Releases are Thomas's act; automation does the labor after the tag.
 
 1. On PyPI: add a **pending trusted publisher** for `kumihimo` → owner
    `tzavislan`, repo `kumihimo`, workflow `release.yml`, environment `pypi`.
-2. On GitHub: create the `pypi` environment; enable **Pages** with source
-   "GitHub Actions" (the docs workflow deploys on every push to main).
+2. On GitHub: create the `pypi` environment. (Pages is already enabled with
+   source "GitHub Actions" — the docs site is live at
+   https://tzavislan.github.io/kumihimo/ and redeploys on every push to main.)
 
 ## Every release
 
