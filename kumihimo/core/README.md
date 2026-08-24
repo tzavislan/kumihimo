@@ -4,6 +4,9 @@
 | file | purpose |
 |---|---|
 | `__init__.py` | The plan model and every operation on it: load, validate, order, mutate, save. Imports no CLI, server, MCP, or template code — that boundary is enforced by tes… |
+| `errors.py` | The exception vocabulary every layer shares: one base error for expected failures clients turn into messages, and the cycle error that carries its path. |
+| `kinds.py` | The kind system: loads shipped packs, merges manifest overrides into resolved KindDefs, validates node fields against them, and applies defaults. This is where… |
+| `model.py` | The pure data model: nodes with their two semantic edge kinds and annotation links, findings, field specs, kind definitions, and the manifest. No IO, no behavi… |
 <!-- END GENERATED INDEX -->
 
 ## What this is

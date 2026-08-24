@@ -1,0 +1,44 @@
+# The engineering pack — starter kinds for implementation plans fed to coding
+# agents (PLAN.md §3.2). Templates land at M2; these are the field schemas.
+
+task:
+  fields:
+    status:
+      type: choice
+      options: [todo, doing, done, blocked]
+      default: todo
+    effort:
+      type: choice
+      options: [S, M, L]
+    acceptance:
+      type: list
+
+milestone:
+  fields:
+    target:
+      type: str
+
+decision:
+  fields:
+    status:
+      type: choice
+      options: [open, settled]
+      default: open
+    choice:
+      type: str
+
+risk:
+  fields:
+    impact:
+      type: str
+    mitigation:
+      type: str
+
+question:
+  fields:
+    status:
+      type: choice
+      options: [open, answered]
+      default: open
+    answer:
+      type: str

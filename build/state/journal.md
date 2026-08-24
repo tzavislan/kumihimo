@@ -31,3 +31,17 @@ verified** (no remote yet; first push will show it).
 `kumihimo/packs/` rather than `kumihimo/compile/packs/` so `core` can load
 kind schemas without importing `compile` (boundary integrity) — noted ahead
 of K1, where it lands.
+
+## Iteration 2 — 2026-08-23 — K1: model types and kind system
+
+**What now exists:** `core/errors.py` (KumihimoError, CycleError carrying its
+path), `core/model.py` (Node with needs/in/links/priority/fields, Finding,
+FieldSpec, KindDef, CompileSettings, Manifest, slug regex, default_title),
+`core/kinds.py` (pack loading via importlib.resources, resolve_kinds merging
+pack + manifest overrides with findings-not-crashes, per-type field
+validation, effective_fields defaults), `packs/engineering/kinds.yaml` (five
+kinds per PLAN §3.2). The planned deviation above is now real: packs live at
+`kumihimo/packs/`.
+
+**Verified:** 12 new tests (29 total), mypy strict, ruff, conventions linter —
+all green locally.

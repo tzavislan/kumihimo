@@ -19,7 +19,7 @@ CONVENTIONS.md, CONTRIBUTING.md, CHANGELOG.md; both skills; this state.
 ## M1 — Core model and store
 
 ### K1 — Model types and kind system
-status: todo
+status: done (iteration 2)
 needs: —
 PLAN.md §3.1-3.2. `core/model.py` (Node, Plan data, Finding), `core/kinds.py`
 (KindDef, FieldSpec, pack loading + manifest overrides), `kumihimo/packs/

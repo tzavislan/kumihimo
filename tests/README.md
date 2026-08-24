@@ -5,6 +5,7 @@
 |---|---|
 | `test_boundaries.py` | Enforces PLAN.md §7.1 invariant 3: core/ and compile/ import no client-layer or UI/server/template library code. The boundary is a test, not a good intention (… |
 | `test_cli.py` | The installed command behaves at the surface: --version prints the package version, and a bare invocation shows help without erroring. |
+| `test_kinds.py` | The kind system behaves: packs load, manifest overrides merge and extend, bad overrides become findings not crashes, field validation is precise per type, and … |
 | `test_lint.py` | Behaviour coverage for every conventions-linter check: the cap and its counting rules, the @exempt grammar, header tags, public @purpose, and README index gene… |
 <!-- END GENERATED INDEX -->
 
