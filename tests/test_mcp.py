@@ -82,10 +82,15 @@ def test_ready_applies_the_satisfaction_rule(plan_dir: PlanFactory) -> None:
     assert "done-dep" not in ready_ids  # already done
 
 
-def test_roadmap_ready_names_the_next_milestone_work() -> None:
-    ready_ids = [node["id"] for node in tools.ready(Path("plans") / "roadmap")]
-    assert "mcp-tools" in ready_ids
-    assert "mcp-config" not in ready_ids  # blocked behind mcp-tools
+def test_roadmap_stays_structurally_clean() -> None:
+    # The roadmap's statuses move as work completes (an earlier version of
+    # this test pinned them and broke the moment dogfooding marked M3 done),
+    # so pin only what must always hold: the plan validates clean and ready()
+    # never surfaces a node whose own status isn't todo.
+    root = Path("plans") / "roadmap"
+    assert Plan.load(root).check() == []
+    for node in tools.ready(root):
+        assert node["fields"].get("status", "todo") == "todo"
 
 
 def test_server_registers_all_eleven_tools() -> None:
