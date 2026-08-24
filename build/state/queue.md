@@ -59,7 +59,7 @@ changed. Accept: rename fixes every referrer; ops on a missing node fail
 cleanly; nothing bypasses store save.
 
 ### K6 — CLI verbs: new, add, link, check
-status: todo
+status: done (iteration 7)
 needs: [K4, K5]
 PLAN.md §1. `new` scaffolds manifest+nodes/ with the engineering pack; `add`
 and `link` are flag-driven (no editor spawning); `check` prints Findings via

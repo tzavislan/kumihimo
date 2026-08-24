@@ -107,3 +107,20 @@ and the view entry). Slug rule doubles as path-traversal protection —
 tested: `../escape` and friends cannot reach ops.
 
 **Verified:** 15 ops tests (78 total), whole battery green, exit codes read.
+
+## Iteration 7 — 2026-08-23 — K6: CLI verbs
+
+**What now exists:** `kumihimo new/add/link/check` — new scaffolds and says
+what to do next; add coerces --field values through the kind's specs (ints,
+bools, comma-lists) so typed fields work from a shell; link draws one edge
+per call and surfaces cycle refusals with their path; check renders the
+findings table with an exit code scripts can gate on (--strict makes
+warnings fail). KumihimoErrors print as one styled line and exit 2 — never a
+traceback.
+
+**Verified:** 7 CLI integration tests including the full new→add→link→check
+demo path (85 total), battery green and gated.
+
+**Note for K5's earlier lesson:** second ungated-commit slip happened at K5
+close (unused import; caught immediately). The && gate is now the committed
+habit; both incidents go to the M1 retro together.

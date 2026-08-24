@@ -13,6 +13,10 @@
 import typer
 
 import kumihimo
+from kumihimo.cli.add_cmd import add
+from kumihimo.cli.check_cmd import check
+from kumihimo.cli.link_cmd import link
+from kumihimo.cli.new_cmd import new
 
 app = typer.Typer(
     name="kumihimo",
@@ -20,6 +24,11 @@ app = typer.Typer(
     no_args_is_help=True,
     add_completion=False,
 )
+
+app.command("new")(new)
+app.command("add")(add)
+app.command("link")(link)
+app.command("check")(check)
 
 
 def _version_callback(value: bool) -> None:
