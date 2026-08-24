@@ -110,7 +110,7 @@ status: done (iteration 14) — M4 complete
 needs: [K9]
 
 ### K14 — Editor write path (frozen surface, PLAN.md §5.3)
-status: todo
+status: done (iteration 15) — M5 complete
 needs: [K13]
 
 ### K15 — v0.1 release pass (docs site, examples, PyPI)

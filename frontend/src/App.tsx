@@ -1,15 +1,15 @@
 /**
  * @file        frontend/src/App.tsx
- * @purpose     The canvas: payload in (fetch, then live socket), React Flow out
- *              — kind-colored nodes, the three edge kinds drawn distinctly,
- *              view.yaml positions honored with elk filling the gaps, an
- *              auto-layout button, findings in the sidebar, and a read-only
- *              detail panel for the selected node.
+ * @purpose     The editor: payload in (fetch + live socket), React Flow out,
+ *              and every gesture — drag, connect, form save, add, delete,
+ *              rename, edge removal — posted as one op envelope. View.yaml
+ *              positions honored with elk filling gaps, braid preview, dirty-
+ *              vs-HEAD indicator, findings live in the sidebar.
  * @layer       frontend
- * @tags        react-flow, canvas, live, elk, sidebar
+ * @tags        react-flow, editor, ops, live, elk, sidebar
  * @related     frontend/src/api.ts (the wire),
- *              frontend/src/layout.ts (elk),
- *              frontend/src/KumiNode.tsx (the node component)
+ *              frontend/src/NodeForm.tsx (the selected node's form),
+ *              kumihimo/server/ops_api.py (where every gesture lands)
  * @design      PLAN.md §5.1-5.3
  */
 import {
@@ -19,19 +19,24 @@ import {
   Position as FlowPosition,
   ReactFlow,
   useNodesState,
+  type Connection,
   type Edge,
+  type EdgeMouseHandler,
   type Node,
   type NodeHandle,
   type NodeMouseHandler,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { fetchPlan, openLive } from "./api";
+import { fetchBraid, fetchDirty, fetchPlan, openLive, postOp } from "./api";
 import { FALLBACK_COLOR, KIND_COLORS, KumiNode } from "./KumiNode";
 import { elkPositions, NODE_HEIGHT, NODE_WIDTH } from "./layout";
+import { NodeForm } from "./NodeForm";
 import type { Payload, PlanNode, Position } from "./types";
 
 const NODE_TYPES = { kumi: KumiNode };
+
+type EdgeMode = "needs" | "in" | "link";
 
 // Static handle geometry (React Flow's SSR recipe): with node dimensions and
 // handle coordinates declared, edges render without any browser measure pass —
@@ -97,12 +102,42 @@ function buildEdges(payload: Payload): Edge[] {
   return edges;
 }
 
+function unlinkEnvelope(edgeId: string): Record<string, unknown> | null {
+  if (edgeId.startsWith("needs:")) {
+    const [dep, node] = edgeId.slice(6).split("->");
+    return { op: "unlink", src: node, needs: dep };
+  }
+  if (edgeId.startsWith("in:")) {
+    const [member, group] = edgeId.slice(3).split("->");
+    return { op: "unlink", src: member, in: group };
+  }
+  if (edgeId.startsWith("link:")) {
+    const [src, toRel] = edgeId.slice(5).split("->");
+    const separator = toRel.indexOf(":");
+    return { op: "unlink", src, to: separator === -1 ? toRel : toRel.slice(0, separator) };
+  }
+  return null;
+}
+
 /** The whole application. */
 export default function App() {
   const [payload, setPayload] = useState<Payload | null>(null);
   const [positions, setPositions] = useState<Record<string, Position>>({});
   const [useViewLayout, setUseViewLayout] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedEdge, setSelectedEdge] = useState<string | null>(null);
+  const [edgeMode, setEdgeMode] = useState<EdgeMode>("needs");
+  const [linkRel, setLinkRel] = useState("see-also");
+  const [notice, setNotice] = useState<string | null>(null);
+  const [braidText, setBraidText] = useState<string | null>(null);
+  const [dirty, setDirty] = useState<{ tracked: boolean; dirty: string[] }>({
+    tracked: false,
+    dirty: [],
+  });
+  const [newNode, setNewNode] = useState({ id: "", kind: "task", title: "" });
+  // While a drag or connect gesture is in flight, payload echoes must not
+  // rebuild the nodes under the pointer — the gesture would be cancelled.
+  const [interacting, setInteracting] = useState(false);
 
   useEffect(() => {
     fetchPlan().then(setPayload).catch(console.error);
@@ -111,25 +146,37 @@ export default function App() {
 
   useEffect(() => {
     if (!payload) return;
+    fetchDirty().then(setDirty).catch(() => undefined);
     let cancelled = false;
     elkPositions(payload.nodes).then((auto) => {
       if (cancelled) return;
-      const merged = useViewLayout ? { ...auto, ...payload.layout } : auto;
-      setPositions(merged);
+      // Drags land in view.yaml and echo back through payload.layout, so no
+      // extra local merging: view mode is auto + the sidecar, auto mode is elk.
+      setPositions(useViewLayout ? { ...auto, ...payload.layout } : auto);
     });
     return () => {
       cancelled = true;
     };
   }, [payload, useViewLayout]);
 
+  const applyOp = useCallback(async (envelope: Record<string, unknown>) => {
+    const result = await postOp(envelope);
+    if (result.ok) {
+      setPayload(result.payload);
+      setNotice(null);
+    } else if (result.status === 409) {
+      setNotice(`Conflict: ${result.detail}`);
+    } else {
+      setNotice(result.detail);
+    }
+  }, []);
+
   // Two React Flow v12 controlled-mode traps live here. (1) Without
   // onNodesChange, measure updates are dropped and edges never draw. (2) Any
-  // setNodes with fresh objects loses `measured`, and the ResizeObserver won't
-  // refire for unchanged sizes — edges would vanish permanently after every
-  // payload echo or layout toggle. So rebuilds carry `measured` over.
+  // setNodes with fresh objects loses `measured` — so rebuilds carry it over.
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   useEffect(() => {
-    if (!payload) return;
+    if (!payload || interacting) return;
     setNodes((previous) => {
       const byId = new Map(previous.map((node) => [node.id, node]));
       return payload.nodes.map((node) => {
@@ -139,8 +186,6 @@ export default function App() {
           type: "kumi",
           position: positions[node.id] ?? { x: 0, y: 0 },
           data: { node, color: colorFor(payload, node) },
-          // Declared dimensions and handle geometry (the CSS fixes both) make
-          // edge rendering measurement-independent — see STATIC_HANDLES.
           width: NODE_WIDTH,
           height: NODE_HEIGHT,
           handles: STATIC_HANDLES,
@@ -148,14 +193,48 @@ export default function App() {
         };
       });
     });
-  }, [payload, positions, setNodes]);
+  }, [payload, positions, setNodes, interacting]);
 
   const edges = useMemo(() => (payload ? buildEdges(payload) : []), [payload]);
   const selected = payload?.nodes.find((node) => node.id === selectedId) ?? null;
 
   const onNodeClick: NodeMouseHandler = useCallback((_, node) => {
     setSelectedId(node.id);
+    setSelectedEdge(null);
   }, []);
+
+  const onEdgeClick: EdgeMouseHandler = useCallback((_, edge) => {
+    setSelectedEdge(edge.id);
+  }, []);
+
+  const onConnect = useCallback(
+    (connection: Connection) => {
+      if (!connection.source || !connection.target) return;
+      if (edgeMode === "needs") {
+        void applyOp({ op: "link", src: connection.target, needs: connection.source });
+      } else if (edgeMode === "in") {
+        void applyOp({ op: "link", src: connection.source, in: connection.target });
+      } else {
+        void applyOp({
+          op: "link",
+          src: connection.source,
+          to: connection.target,
+          rel: linkRel || "see-also",
+        });
+      }
+    },
+    [applyOp, edgeMode, linkRel],
+  );
+
+  const onNodeDragStop = useCallback(
+    (_: unknown, node: Node) => {
+      setInteracting(false);
+      const rounded = { x: Math.round(node.position.x), y: Math.round(node.position.y) };
+      setPositions((current) => ({ ...current, [node.id]: rounded }));
+      void applyOp({ op: "set_positions", positions: { [node.id]: rounded } });
+    },
+    [applyOp],
+  );
 
   if (!payload) {
     return <div className="kumi-loading">loading plan…</div>;
@@ -167,13 +246,94 @@ export default function App() {
     <div className="kumi-shell">
       <aside className="kumi-side">
         <h1>{payload.plan}</h1>
-        {payload.description ? <p className="kumi-desc">{payload.description}</p> : null}
         <p className="kumi-counts">
-          {payload.nodes.length} nodes · {edges.length} edges · read-only (editing lands at M5)
+          {payload.nodes.length} nodes · {edges.length} edges
+          {dirty.tracked
+            ? dirty.dirty.length
+              ? ` · ${dirty.dirty.length} file(s) differ from HEAD`
+              : " · clean vs HEAD"
+            : ""}
         </p>
-        <button onClick={() => setUseViewLayout((value) => !value)}>
-          {useViewLayout ? "Auto-layout (ignore view.yaml)" : "Use view.yaml positions"}
-        </button>
+        {notice ? (
+          <div className="kumi-notice" onClick={() => setNotice(null)}>
+            {notice}
+          </div>
+        ) : null}
+        <div className="kumi-actions">
+          <button onClick={() => setUseViewLayout((value) => !value)}>
+            {useViewLayout ? "Auto-layout" : "Use view.yaml"}
+          </button>
+          <button
+            className="kumi-primary"
+            onClick={() => fetchBraid().then(setBraidText).catch((err) => setNotice(String(err)))}
+          >
+            Braid
+          </button>
+        </div>
+        <h2>New edge draws as</h2>
+        <div className="kumi-actions">
+          <select value={edgeMode} onChange={(event) => setEdgeMode(event.target.value as EdgeMode)}>
+            <option value="needs">needs (dependency)</option>
+            <option value="in">in (membership)</option>
+            <option value="link">link (annotation)</option>
+          </select>
+          {edgeMode === "link" ? (
+            <input value={linkRel} onChange={(event) => setLinkRel(event.target.value)} />
+          ) : null}
+        </div>
+        {selectedEdge ? (
+          <div className="kumi-actions">
+            <button
+              onClick={() => {
+                const envelope = unlinkEnvelope(selectedEdge);
+                if (envelope) void applyOp(envelope);
+                setSelectedEdge(null);
+              }}
+            >
+              Remove edge {selectedEdge}
+            </button>
+          </div>
+        ) : null}
+        <h2>Add node</h2>
+        <div className="kumi-add">
+          <input
+            placeholder="id-slug"
+            value={newNode.id}
+            onChange={(event) => setNewNode({ ...newNode, id: event.target.value })}
+          />
+          <select
+            value={newNode.kind}
+            onChange={(event) => setNewNode({ ...newNode, kind: event.target.value })}
+          >
+            {Object.keys(payload.kinds).map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+          <input
+            placeholder="title (optional)"
+            value={newNode.title}
+            onChange={(event) => setNewNode({ ...newNode, title: event.target.value })}
+          />
+          <button
+            className="kumi-primary"
+            disabled={!newNode.id}
+            onClick={() => {
+              void applyOp({
+                op: "add_node",
+                node_id: newNode.id,
+                kind: newNode.kind,
+                title: newNode.title || null,
+              }).then(() => {
+                setSelectedId(newNode.id);
+                setNewNode({ id: "", kind: newNode.kind, title: "" });
+              });
+            }}
+          >
+            Add
+          </button>
+        </div>
         <h2>
           Check: {errors.length} error{errors.length === 1 ? "" : "s"}, {warnings.length} warning
           {warnings.length === 1 ? "" : "s"}
@@ -186,25 +346,9 @@ export default function App() {
           ))}
         </ul>
         {selected ? (
-          <div className="kumi-detail">
-            <h2>{selected.title}</h2>
-            <p className="kumi-detail-meta">
-              {selected.kind} · {selected.id}
-            </p>
-            <table>
-              <tbody>
-                {Object.entries(selected.effective).map(([name, value]) => (
-                  <tr key={name}>
-                    <td>{name}</td>
-                    <td>{Array.isArray(value) ? value.join("; ") : String(value)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <pre className="kumi-body">{selected.body.trim() || "(empty body)"}</pre>
-          </div>
+          <NodeForm node={selected} kinds={payload.kinds} onApply={(env) => void applyOp(env)} />
         ) : (
-          <p className="kumi-hint">Click a node for details.</p>
+          <p className="kumi-hint">Click a node to edit it; drag between handles to draw an edge.</p>
         )}
       </aside>
       <main className="kumi-canvas">
@@ -214,9 +358,16 @@ export default function App() {
           onNodesChange={onNodesChange}
           nodeTypes={NODE_TYPES}
           onNodeClick={onNodeClick}
+          onEdgeClick={onEdgeClick}
+          onConnect={onConnect}
+          onConnectStart={() => setInteracting(true)}
+          onConnectEnd={() => setInteracting(false)}
+          onNodeDragStart={() => setInteracting(true)}
+          onNodeDragStop={onNodeDragStop}
           fitView
-          nodesDraggable={false}
-          nodesConnectable={false}
+          fitViewOptions={{ maxZoom: 1.25, padding: 0.2 }}
+          nodesDraggable
+          nodesConnectable
           edgesReconnectable={false}
         >
           <Background />
@@ -224,6 +375,22 @@ export default function App() {
           <Controls showInteractive={false} />
         </ReactFlow>
       </main>
+      {braidText !== null ? (
+        <div className="kumi-modal" onClick={() => setBraidText(null)}>
+          <div className="kumi-modal-box" onClick={(event) => event.stopPropagation()}>
+            <div className="kumi-actions">
+              <button
+                className="kumi-primary"
+                onClick={() => void navigator.clipboard.writeText(braidText)}
+              >
+                Copy
+              </button>
+              <button onClick={() => setBraidText(null)}>Close</button>
+            </div>
+            <pre className="kumi-braid">{braidText}</pre>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

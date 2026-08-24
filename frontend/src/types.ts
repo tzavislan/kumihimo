@@ -14,6 +14,7 @@ export interface LinkRef {
 }
 
 export interface PlanNode {
+  digest: string;
   id: string;
   kind: string;
   title: string;

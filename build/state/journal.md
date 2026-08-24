@@ -343,3 +343,37 @@ Considered, not folded: packaging facts (artifacts-vs-hook, uv build
 sdist→wheel) — they live in hatch_build.py's header and the wheel-assets
 roadmap node, where the next packager will actually look. Training log
 appended. Nothing pruned. loop.json: iteration=14, last_retro_iteration=14.
+
+## Iteration 15 — 2026-08-24 — editor-ops, editor-conflicts, playwright-smoke — M5 complete
+
+**What now exists:** the write path end to end. Server: POST /api/ops (one
+discriminated-union envelope per gesture, single-writer lock, digest 409s
+that clobber nothing, positions to view.yaml only — sorted, flow-style),
+GET /api/braid, GET /api/dirty; payload nodes carry digests. Frontend: drag
+(→ view.yaml), connect with a needs/in/link mode selector, add-node form,
+NodeForm (title, kind, schema-driven fields, body, save-with-digest, rename,
+delete), edge removal, braid modal with copy, dirty indicator, conflict
+notices. Product fixes found by driving it: rebuild-freeze while a gesture
+is in flight (a payload echo mid-drag cancelled the gesture), fitView zoom
+capped at 1.25 (a three-node plan zoomed to 2x pushed handles off-viewport),
+12px handles (6px targets are brutal for humans and robots alike).
+
+**Verified:** 7 ops-API tests including a full HTTP editor session leaving
+byte-canonical files and a 409 that preserved the concurrent edit; the
+Playwright smoke PASSING in real headless chromium — three nodes added via
+form, two needs edges drawn handle-to-handle, a schema-driven field saved,
+a node dragged into view.yaml, the braid read out of the modal with correct
+order, and the build.md file byte-equal to its canonical form. 125 tests
+total. The roadmap's concurrent-writers question answered (no proxy in
+v0.1) through the MCP tools.
+
+**Test-craft lessons, some at my own expense:**
+- The first smoke draft wrapped the whole browser block in
+  `except Error: skip` and laundered a real failure into a 37-second
+  "skip". Skips guard exactly one precondition; everything else fails.
+- Terminating a `uv run` wrapper on Windows orphans the real server, which
+  then squats on the port — spawn the venv exe directly.
+- Playwright counts SVG edge groups as "hidden"; wait state="attached".
+- Field selects are addressed by label, not index (the pack's field order
+  is not the form's contract).
+- The minimap overlays the canvas corner; drag the leftmost node.

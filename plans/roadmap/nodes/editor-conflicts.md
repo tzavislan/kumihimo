@@ -7,5 +7,6 @@ acceptance:
   - a stale-digest op is rejected and the canvas refreshes
   - the loss window is documented
 title: Digest conflict checks
+status: done
 ---
 Each op carries the file digest it was based on; stale digests reject the op instead of clobbering a concurrent edit from vim or MCP. Last-writer-wins beyond that, documented honestly.

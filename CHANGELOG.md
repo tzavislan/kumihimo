@@ -7,6 +7,15 @@ All notable changes to Kumihimo. Format follows
 ## [Unreleased]
 
 ### Added
+- M5, the editor: every gesture on the canvas writes through the same ops
+  layer as the CLI and MCP — drag nodes (positions land in view.yaml only),
+  draw needs/membership/annotation edges between handles with a mode
+  selector, add nodes from a form, edit title/kind/schema-driven fields/body
+  with saves carrying the file's digest (stale digests answer 409 and
+  clobber nothing), rename with referrer fixup, delete, remove edges, braid
+  preview with copy, and a dirty-vs-HEAD indicator. A Playwright smoke test
+  builds a three-node plan entirely in the GUI, braids it, and holds the
+  files to byte-canonical forms.
 - M4, the live canvas: `kumihimo edit` serves a localhost page that renders
   the plan — kind-colored nodes, needs/membership/link edges drawn
   distinctly with relation labels, view.yaml positions honored with elk
