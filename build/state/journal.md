@@ -81,3 +81,16 @@ slicing. Dangling needs never block ordering; they are validation's finding.
 
 **Verified:** 9 graph tests (53 total), mypy strict, ruff, exit codes read
 unmasked this time.
+
+## Iteration 5 — 2026-08-23 — K4: validation rules
+
+**What now exists:** `core/validate.py` — per-node rules (missing/unknown
+kind, field-schema breaches via kinds.validate_fields, dangling
+needs/in/links naming edge kind and target, empty bodies) and whole-graph
+rules (the cycle as one error with its path, orphans, dependencies on
+still-open nodes via the generic status=="open" test), sorted errors-first
+deterministically. `Plan.check()` wired through it; a clean two-node plan
+checks to exactly [].
+
+**Verified:** 10 validate tests (63 total), mypy strict, ruff, conventions
+linter, exit codes unmasked.

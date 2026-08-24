@@ -16,7 +16,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from kumihimo.core import kinds as kinds_module
-from kumihimo.core import store
+from kumihimo.core import store, validate
 from kumihimo.core.errors import KumihimoError
 from kumihimo.core.model import Finding, KindDef, Manifest, Node
 from kumihimo.core.store import LoadedPlan, NodeRecord
@@ -102,10 +102,10 @@ class Plan:
     def check(self) -> list[Finding]:
         """Everything wrong or suspicious about the plan, errors first.
 
-        @purpose  The load findings today; K4 adds the rule findings
-                  (cycles, dangling edges, field validation, orphans).
+        @purpose  Load findings plus every rule in validate.py, in deterministic
+                  order — the one validation answer every surface renders.
         """
-        return list(self.load_findings)
+        return validate.check(self)
 
     def save(self) -> list[str]:
         """Write every dirty record; return the rel paths written.

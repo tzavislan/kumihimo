@@ -45,7 +45,7 @@ Accept: order is identical across OS/Python; cycle error lists the cycle in
 edge order.
 
 ### K4 — Validation (`check` findings)
-status: todo
+status: done (iteration 5)
 needs: [K2, K3]
 PLAN.md §3.4. Every listed error and warning as Findings with node/file
 context. Accept: each rule has a test that triggers it and one that doesn't.

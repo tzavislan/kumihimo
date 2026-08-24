@@ -10,6 +10,7 @@
 | `model.py` | The pure data model: nodes with their two semantic edge kinds and annotation links, findings, field specs, kind definitions, and the manifest. No IO, no behavi… |
 | `plan.py` | The Plan facade — the object users import: load a directory, look at nodes and kinds, check it, save what changed. Orchestrates store and kinds; grows check() … |
 | `store.py` | The on-disk truth: locates a plan, parses the manifest and node files (frontmatter round-tripped through ruamel, body kept as raw bytes-in-string), and writes … |
+| `validate.py` | Every rule `check` enforces, as findings: unknown/missing kinds, field-schema breaches, dangling edges, the cycle (with its path), orphans, dependencies on sti… |
 <!-- END GENERATED INDEX -->
 
 ## What this is

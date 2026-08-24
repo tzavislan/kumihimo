@@ -3,12 +3,14 @@
 <!-- BEGIN GENERATED INDEX -- do not edit by hand -->
 | file | purpose |
 |---|---|
+| `conftest.py` | Shared fixtures: a factory that lays a plan directory on disk from a dict of node files, so every test builds real plans the way users have them — as files. |
 | `test_boundaries.py` | Enforces PLAN.md §7.1 invariant 3: core/ and compile/ import no client-layer or UI/server/template library code. The boundary is a test, not a good intention (… |
 | `test_cli.py` | The installed command behaves at the surface: --version prints the package version, and a bare invocation shows help without erroring. |
 | `test_graph.py` | The ordering invariant, executable: braid_order is identical under any insertion order, priority then id breaks ties, cycles are named as exact paths (self-loo… |
 | `test_kinds.py` | The kind system behaves: packs load, manifest overrides merge and extend, bad overrides become findings not crashes, field validation is precise per type, and … |
 | `test_lint.py` | Behaviour coverage for every conventions-linter check: the cap and its counting rules, the @exempt grammar, header tags, public @purpose, and README index gene… |
 | `test_store_roundtrip.py` | The fidelity contract, executable: untouched files are never written; touched files keep comments, key order, newline style, and BOM; bodies survive byte-for-b… |
+| `test_validate.py` | Every check rule triggers on the file that breaks it and stays quiet on one that doesn't: kinds, fields, dangling edges, the cycle path, orphans, open dependen… |
 <!-- END GENERATED INDEX -->
 
 ## What this is
