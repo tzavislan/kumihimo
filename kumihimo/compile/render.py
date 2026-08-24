@@ -181,5 +181,10 @@ def build_context(
             {"id": group_id, "title": plan.nodes[group_id].title} if group_id is not None else None
         ),
         "in_others": in_others,
+        "links": [
+            {"to": link.to, "rel": link.rel, "title": plan.nodes[link.to].title}
+            for link in node.links
+            if link.to in plan.nodes
+        ],
         "independent": independent,
     }

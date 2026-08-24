@@ -1,0 +1,14 @@
+{% if number %}
+### {{ number }}. Question: {{ node.title }}
+
+{% endif %}
+{% if node.fields.status == "answered" and node.fields.answer %}
+**Answered:** {{ node.fields.answer }}
+{% else %}
+**OPEN QUESTION** — do not silently assume an answer; ask, or flag the assumption you make.
+{% if dependents %}
+Blocks: {{ dependents | map(attribute="title") | join(", ") }}.
+{% endif %}
+{% endif %}
+
+{{ node.body }}

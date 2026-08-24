@@ -80,7 +80,7 @@ status: done (iteration 10)
 needs: [K7]
 
 ### K9 — Engineering pack templates + goldens
-status: todo
+status: done (iteration 11)
 needs: [K8]
 
 ### K10 — Mermaid/DOT export + `--dry`

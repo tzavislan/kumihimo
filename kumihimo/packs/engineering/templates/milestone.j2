@@ -1,0 +1,9 @@
+{% if number %}
+### {{ number }}. Milestone: {{ node.title }}
+
+{% endif %}
+{% if node.fields.target %}
+*Target:* {{ node.fields.target }}
+{% endif %}
+
+{{ node.body }}

@@ -1,0 +1,12 @@
+{% if number %}
+### {{ number }}. Risk: {{ node.title }}
+
+{% endif %}
+{% if node.fields.impact %}
+*Impact if it lands:* {{ node.fields.impact }}
+{% endif %}
+{% if node.fields.mitigation %}
+*Standing mitigation:* {{ node.fields.mitigation }}
+{% endif %}
+
+{{ node.body }}

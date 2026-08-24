@@ -1,0 +1,14 @@
+{% if number %}
+### {{ number }}. Decision: {{ node.title }}
+
+{% endif %}
+{% if node.fields.status == "settled" %}
+**Settled — treat as a constraint:** {{ node.fields.choice }}
+{% else %}
+**OPEN DECISION** — resolve before touching{{ ":" }} {% if dependents %}{{ dependents | map(attribute="title") | join(", ") }}{% else %}anything that comes to depend on it{% endif %}.
+{% endif %}
+{% if after %}
+*After:* {{ after }}
+{% endif %}
+
+{{ node.body }}

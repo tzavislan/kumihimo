@@ -1,0 +1,28 @@
+{% if number %}
+### {{ number }}. {{ node.title }}{% if node.fields.effort %} · effort {{ node.fields.effort }}{% endif %}{% if node.fields.status and node.fields.status != "todo" %} · {{ node.fields.status }}{% endif %}
+
+{% endif %}
+{% if after %}
+*After:* {{ after }}
+{% else %}
+*After:* nothing — ready as soon as you reach it.
+{% endif %}
+{% if independent %}
+*Independent of the item above — reorderable.*
+{% endif %}
+{% if in_others %}
+*Also part of:* {{ in_others | join(", ") }}
+{% endif %}
+
+{{ node.body }}
+{% if links %}
+
+See also: {% for link in links %}{{ link.title }} ({{ link.rel }}){% if not loop.last %}; {% endif %}{% endfor %}.
+{% endif %}
+{% if node.fields.acceptance %}
+
+Done when:
+{% for item in node.fields.acceptance %}
+- [ ] {{ item }}
+{% endfor %}
+{% endif %}

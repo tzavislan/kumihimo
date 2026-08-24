@@ -205,3 +205,21 @@ cramped cord spacing. All fixed and re-read.
   expression output in inline-composed templates.
 - Substring assertions pass on ugly output; **reading the artifact is part of
   verifying a compiler.** Candidate for the iteration skill at the M2 retro.
+
+## Iteration 11 — 2026-08-23 — K9: engineering templates and goldens
+
+**What now exists:** the five pack templates
+(`kumihimo/packs/engineering/templates/*.j2`) — tasks with effort/status
+badges, honest After lines, See-also links, and Done-when checklists; settled
+decisions as stated constraints; open decisions/questions as loud blockers
+naming what they block; risks with impact and standing mitigation; milestones
+as section intros that don't repeat their own header. Render context gained
+`links` (with titles). Goldens frozen for both strategies
+(`tests/golden/apiguard-{grouped,linear}.md`) with exact-equality tests.
+
+**Verified:** full grouped AND linear artifacts read end to end (the linear
+one had never been looked at before freezing — that reading is the point of
+the golden ritual), 104 tests green, gated battery.
+
+**Prompt effectiveness: not verified.** The braid has not yet been run
+against a real agent; that claim waits for K11's dogfood or an explicit run.
