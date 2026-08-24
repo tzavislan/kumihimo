@@ -4,9 +4,13 @@ Agent context for this repository. Read this, then [PLAN.md](PLAN.md) — the
 plan is the design authority; deviations from it are recorded in
 [build/state/journal.md](build/state/journal.md), never silently.
 
-**Building?** The work queue is [build/state/queue.md](build/state/queue.md),
-one pass is [`/kumihimo-iteration`](.claude/skills/kumihimo-iteration/SKILL.md),
-and lessons fold back into the skills via
+**Running the project?**
+[`/kumihimo-manage`](.claude/skills/kumihimo-manage/SKILL.md) is the umbrella
+— status, queue grooming, milestone close, release prep — and carries the
+Training log. The work queue is [build/state/queue.md](build/state/queue.md),
+one build pass is
+[`/kumihimo-iteration`](.claude/skills/kumihimo-iteration/SKILL.md), and
+lessons fold back into all three skills via
 [`/kumihimo-retro`](.claude/skills/kumihimo-retro/SKILL.md) at each milestone
 close.
 

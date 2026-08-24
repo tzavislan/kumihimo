@@ -167,3 +167,14 @@ U+FEFF transport gotcha (one-off, documented at the site). Nothing pruned —
 the skills are eight iterations old.
 
 loop.json: iteration=8, last_retro_iteration=8.
+
+## Iteration 9 — 2026-08-23 — kumihimo-manage skill (Thomas, mid-session)
+
+Thomas asked mid-session to "make sure there is a Kumihimo manage skill that
+gets trained." Iteration + retro covered building and training but not the
+management surface. Added `.claude/skills/kumihimo-manage/` — orient, status
+from evidence, queue grooming, build dispatch, milestone verification and
+close (demo → changelog → retro → push *proposal*), release prep — with a
+**Training log** the retro skill is now required to append to; an unbroken
+log is the proof the training loop is alive. CLAUDE.md points at it as the
+umbrella; retro's fold-targets name all three skills.

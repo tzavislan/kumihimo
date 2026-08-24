@@ -26,6 +26,8 @@ At each milestone close, or when `loop.json`'s `iteration` is 10+ past
    the journal.
 3. **Fold each lesson into the right home**, smallest diff that carries it:
    - how to run an iteration → `.claude/skills/kumihimo-iteration/SKILL.md`
+   - how to manage the project (status, queue, milestones, releases) →
+     `.claude/skills/kumihimo-manage/SKILL.md`
    - a repo rule or invariant → `CLAUDE.md`
    - a coding/documentation rule → `CONVENTIONS.md` (and, if enforceable,
      queue a linter check for it — unenforced rules rot)
@@ -34,8 +36,11 @@ At each milestone close, or when `loop.json`'s `iteration` is 10+ past
    grows becomes noise; deleting a dead rule is as valuable as adding a live
    one.
 5. **Record**: append a `retro` entry to the journal naming each lesson and
-   where it landed (or why it was dropped), set `last_retro_iteration` in
-   `loop.json`, and commit everything as `retro: <n> lessons through iteration <i>`.
+   where it landed (or why it was dropped), **append a dated line to the
+   Training log in `.claude/skills/kumihimo-manage/SKILL.md`** (the unbroken
+   log is the proof the loop is alive), set `last_retro_iteration` in
+   `loop.json`, and commit everything as
+   `retro: <n> lessons through iteration <i>`.
 
 ## Rules
 
