@@ -10,8 +10,6 @@
 @design      PLAN.md §7.1 invariant 1, queue item K5
 """
 
-from pathlib import Path
-
 import pytest
 
 from kumihimo import KumihimoError, Plan
