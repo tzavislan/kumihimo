@@ -82,6 +82,18 @@ On any failure, re-run the failing gate alone with full output.
 — one `python -c "import x; print(dir(x))"` beats an hour of debugging code
 written from memory (mcp 2.0 had renamed FastMCP to MCPServer; iteration 13).
 
+**Debugging rule of two:** after the second plausible theory fails, stop
+theorizing and instrument — read the actual state (a store probe, a log, a
+dump), then fix the fact. And when a UI misbehaves impossibly, check the
+renderer's reality first: `document.visibilityState` and whether rAF fires.
+Iteration 14 burned three theories on an edge-rendering bug whose real cause
+was a never-compositing hidden browser pane (rAF never fires there, so
+ResizeObserver measurement never runs).
+
+**Windows note:** running `kumihimo edit`/server processes hold the venv's
+console-script exe; uv cannot reinstall past them. Stop background servers
+before builds and syncs.
+
 Two rules learned from real incidents in iterations 3 and 6, where errors
 were committed under a green-sounding report:
 

@@ -7,6 +7,16 @@ All notable changes to Kumihimo. Format follows
 ## [Unreleased]
 
 ### Added
+- M4, the live canvas: `kumihimo edit` serves a localhost page that renders
+  the plan — kind-colored nodes, needs/membership/link edges drawn
+  distinctly with relation labels, view.yaml positions honored with elk
+  auto-layout filling gaps and a toggle between them, findings and node
+  detail in a sidebar — and follows the files live: any edit under the plan
+  root (vim, MCP, anything) reaches the browser over a WebSocket in under a
+  second, measured at 0.17s. The built frontend ships inside release wheels
+  (`uv build --wheel` via a presence-conditional build hook), so end users
+  never need Node; without it, the server serves an honest fallback page
+  plus the full API.
 - M3, MCP control: `kumihimo mcp <plan>` serves eleven flat tools over stdio
   (official `mcp` SDK 2.x) — get_plan/get_node reads, the full mutation set
   as thin twins of the ops layer, check, braid with the CLI's slicing

@@ -91,3 +91,10 @@ is alive, and a gap in it is itself a finding for the next retro.
   FastMCP) and journal-appends-at-bottom (two mis-ordered entries).
   CONVENTIONS.md gained tests-pin-invariants-not-living-state. Nothing
   pruned.
+- 2026-08-23 — retro at M4 close (iteration 14): iteration skill gained the
+  debugging rule of two (instrument after the second failed theory; check
+  renderer reality first — the edge saga's cause was a never-compositing
+  pane) and the Windows note on servers holding the venv exe. Packaging
+  facts (artifacts-vs-hook, uv build sdist→wheel) live in hatch_build.py's
+  header and the roadmap node, where the next packager will look. Nothing
+  pruned.

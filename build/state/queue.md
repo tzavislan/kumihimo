@@ -106,7 +106,7 @@ status: done (iteration 13) — M3 complete
 needs: [K9]
 
 ### K13 — Editor server: watch + WebSocket + read-only canvas
-status: todo
+status: done (iteration 14) — M4 complete
 needs: [K9]
 
 ### K14 — Editor write path (frozen surface, PLAN.md §5.3)

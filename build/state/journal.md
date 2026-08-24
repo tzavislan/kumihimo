@@ -295,3 +295,51 @@ journal entries append at the bottom → Step 6; (4) tests pin invariants, not
 living state → CONVENTIONS.md Verification. Training log appended in
 kumihimo-manage. Nothing pruned. loop.json: iteration=13,
 last_retro_iteration=13.
+
+## Iteration 14 — 2026-08-23 — server-watch, wheel-assets, canvas-render — M4 complete
+
+**What now exists:** the watching server (GET /api/plan rebuilt from disk
+every call; /api/ws initial-then-every-change; churn-filtered watchfiles;
+honest fallback page; localhost only), `kumihimo edit`, the React Flow
+canvas (frontend/ — kind colors, three edge styles with rel labels, view.yaml
+positions + elk + toggle, findings sidebar, node detail, live over WS), and
+the wheel path (hatch_build.py force-includes static when present;
+`uv build --wheel` is the release artifact).
+
+**Verified, all live:** file edit → WS push in 0.173s carrying the edit
+(real server, real socket); disk edit → canvas title updated with no refresh
+(watched in the DOM); 7 nodes + all 8 edges by id with labels; view.yaml
+transforms exact (translate(40px, 200px) et al.); auto-layout moved all 7;
+wheel lists all three static files; clean-venv pip install served the real
+canvas HTML + API with no Node. 117 tests green.
+
+**The edge-rendering saga, honestly:** edges rendered in dev and not in the
+built page. Two plausible-theory fixes (controlled-mode onNodesChange;
+carrying `measured` across rebuilds) didn't cure it — both were still
+correct-by-documentation and kept. Instrumenting the store (onInit probe)
+produced the fact: `measured` never lands. The environment was the culprit:
+the test browser pane never composites, `document.hidden` is true, rAF never
+fires, so ResizeObserver-based measurement never runs. The durable fix was
+React Flow's SSR recipe — declared node dimensions + static handle geometry —
+which makes edge rendering measurement-independent everywhere. An
+environment artifact forced a genuinely better implementation.
+
+**Also learned:** hatchling `artifacts` unreliable for gitignored package
+dirs under the packages shorthand (hook with force_include instead);
+`uv build` default is sdist→wheel so the hook must run against the source
+tree (`uv build --wheel`); on Windows, running servers hold the venv's
+console-script exe and block uv reinstalls — stop them before building.
+Deferred, noted: bundle is 1.8MB (elkjs dominates) — code-split later;
+React Flow subflow containment for groups deferred to M5 polish
+(membership renders as dashed edges + milestone styling today).
+
+## retro: 2 lessons through iteration 14 — M4 close
+
+Read: iteration 14. Folded: (1) the debugging rule of two — instrument after
+the second failed theory, and check renderer reality (visibilityState/rAF)
+before theorizing about UI code → iteration skill Step 5; (2) Windows
+servers hold the venv exe and block uv reinstalls → iteration skill.
+Considered, not folded: packaging facts (artifacts-vs-hook, uv build
+sdist→wheel) — they live in hatch_build.py's header and the wheel-assets
+roadmap node, where the next packager will actually look. Training log
+appended. Nothing pruned. loop.json: iteration=14, last_retro_iteration=14.
