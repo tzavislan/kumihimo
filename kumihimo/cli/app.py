@@ -18,6 +18,7 @@ from kumihimo.cli.braid_cmd import braid
 from kumihimo.cli.check_cmd import check
 from kumihimo.cli.export_cmd import export
 from kumihimo.cli.link_cmd import link
+from kumihimo.cli.mcp_cmd import mcp
 from kumihimo.cli.new_cmd import new
 
 app = typer.Typer(
@@ -33,6 +34,7 @@ app.command("link")(link)
 app.command("check")(check)
 app.command("braid")(braid)
 app.command("export")(export)
+app.command("mcp")(mcp)
 
 
 def _version_callback(value: bool) -> None:

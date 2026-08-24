@@ -255,3 +255,27 @@ Jinja dict.items/trim_blocks specifics (live in code comments beside the
 templates, where the next template author will actually be looking).
 Nothing pruned. Training log appended in kumihimo-manage.
 loop.json: iteration=12, last_retro_iteration=12.
+
+## Iteration 13 — 2026-08-23 — K12: MCP control — M3 complete
+
+**What now exists:** `kumihimo/mcp/tools.py` (behavior as plain functions —
+reads with effective fields, the mutation set as ops twins, check, braid
+with the full slicing vocabulary, `ready` with the satisfaction rule: own
+status todo, deps statusless or done/settled/answered), `server.py`
+(MCPServer registration, eleven tools, instructions), `kumihimo mcp` verb,
+`.mcp.json` serving plans/roadmap. Built from the braided M3 prompt.
+
+**Verified, live:** a real stdio client session against the real spawned
+server — initialize, list_tools returned all eleven, `ready` returned actual
+roadmap work, `braid {in_: m3-mcp, dry: true}` compiled over the wire
+(outputs pasted in the session log). 111 tests total. Roadmap items
+mcp-tools and mcp-config marked done *through the MCP tools themselves*;
+`ready` now answers: docs-site, example-nonengineering, server-watch,
+wheel-assets.
+
+**Notes:** PLAN.md §6.1 says "ten tools" but lists eleven — the prose count
+was wrong; eleven ship. SDK reality check: mcp 2.0.0 renamed FastMCP to
+`MCPServer` (mcp.server) — written-from-memory API didn't exist; two minutes
+of introspection fixed what an hour of debugging docs might not have. Also:
+second time an entry was inserted above the previous one instead of appended
+(newest-at-bottom). Both lesson candidates for the M3 retro.

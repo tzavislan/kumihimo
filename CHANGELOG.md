@@ -7,6 +7,12 @@ All notable changes to Kumihimo. Format follows
 ## [Unreleased]
 
 ### Added
+- M3, MCP control: `kumihimo mcp <plan>` serves eleven flat tools over stdio
+  (official `mcp` SDK 2.x) — get_plan/get_node reads, the full mutation set
+  as thin twins of the ops layer, check, braid with the CLI's slicing
+  vocabulary, and `ready` (own status todo, every dependency satisfied). The
+  repo ships `.mcp.json` wired to `plans/roadmap`, so cloning gives Claude
+  control of Kumihimo's own roadmap.
 - M2, the braid: `kumihimo braid` compiles a plan (or a slice via
   `--where/--from/--until/--in`) into one deterministic prompt — linear and
   grouped strategies (entry-point extensible), sandboxed Jinja templates per

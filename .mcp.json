@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "kumihimo": {
+      "command": "uv",
+      "args": ["run", "kumihimo", "mcp", "plans/roadmap"]
+    }
+  }
+}

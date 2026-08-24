@@ -11,6 +11,7 @@
 | `common.py` | What every verb shares: the stdout/stderr consoles and the one way to die — expected errors print as a styled message and exit 2, never as a traceback. |
 | `export_cmd.py` | `kumihimo export` — the plan as a diagram source: Mermaid (GitHub renders it natively) or Graphviz DOT, to stdout or a file. |
 | `link_cmd.py` | `kumihimo link` — draw one edge: --needs for dependency, --in for membership, --to/--rel for annotation. Cycle refusals surface with their path. |
+| `mcp_cmd.py` | `kumihimo mcp` — serve one plan over MCP stdio so an agent can inspect, restructure, and braid it. Blocks until the client disconnects. |
 | `new_cmd.py` | `kumihimo new` — scaffold a plan directory with the engineering pack and a starter node, then say what to do next. |
 <!-- END GENERATED INDEX -->
 

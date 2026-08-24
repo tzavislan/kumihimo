@@ -101,8 +101,8 @@ Mirror `ops.update_node` as `kumihimo set PLAN ID [--title] [--body]
 
 ## M3+ (coarse)
 
-### K12 — MCP server (ten tools, .mcp.json)
-status: todo
+### K12 — MCP server (eleven tools, .mcp.json)
+status: done (iteration 13) — M3 complete
 needs: [K9]
 
 ### K13 — Editor server: watch + WebSocket + read-only canvas

@@ -1,0 +1,254 @@
+"""
+@file        kumihimo/mcp/tools.py
+@purpose     The MCP tools' actual behavior, as plain functions over a plan
+             root — thin twins of the ops layer plus the read/braid/ready
+             queries, returning JSON-shaped dicts. server.py wraps these for
+             transport; tests hit them directly, which is what keeps the
+             CLI/MCP twins honest.
+@layer       mcp
+@tags        mcp, tools, ops-twins, ready
+@related     kumihimo/core/ops.py (the mutations these front),
+             kumihimo/mcp/server.py (the FastMCP registration)
+@design      PLAN.md §6.1
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any
+
+from kumihimo.compile import braid as braid_pipeline
+from kumihimo.core import kinds as kinds_module
+from kumihimo.core import ops
+from kumihimo.core.model import Node
+from kumihimo.core.plan import Plan
+
+# A dependency is satisfied when it carries no status field at all, or its
+# effective status is one of these terminal values (task/decision/question).
+DONE_VALUES = frozenset({"done", "settled", "answered"})
+
+
+def _summary(node: Node) -> dict[str, Any]:
+    """The shape every mutating tool returns.
+
+    @purpose  Enough to confirm what happened without re-fetching: identity,
+              edges, and fields as written.
+    """
+    return {
+        "id": node.id,
+        "kind": node.kind,
+        "title": node.title,
+        "needs": list(node.needs),
+        "in": list(node.in_),
+        "links": [{"to": link.to, "rel": link.rel} for link in node.links],
+        "priority": node.priority,
+        "fields": dict(node.fields),
+    }
+
+
+def get_plan(root: Path) -> dict[str, Any]:
+    """The whole graph, bodies elided.
+
+    @purpose  One call to orient: manifest meta plus every node's identity and
+              edges — get_node fetches the prose.
+    """
+    plan = Plan.load(root)
+    return {
+        "plan": plan.manifest.plan,
+        "description": plan.manifest.description,
+        "strategy": plan.manifest.compile.strategy,
+        "kinds": sorted(plan.kinds),
+        "nodes": [_summary(node) for _, node in sorted(plan.nodes.items())],
+    }
+
+
+def get_node(root: Path, node_id: str) -> dict[str, Any]:
+    """One node in full: summary plus body and effective fields.
+
+    @purpose  The read that pairs with update_node — effective fields show what
+              templates and filters will actually see.
+    """
+    plan = Plan.load(root)
+    node = plan.node(node_id)
+    kind = plan.kinds.get(node.kind)
+    effective = kinds_module.effective_fields(node, kind) if kind else dict(node.fields)
+    return {**_summary(node), "body": node.body, "effective_fields": effective}
+
+
+def add_node(
+    root: Path,
+    node_id: str,
+    kind: str,
+    title: str | None = None,
+    body: str = "",
+    fields: dict[str, Any] | None = None,
+    needs: list[str] | None = None,
+    in_: list[str] | None = None,
+) -> dict[str, Any]:
+    """Create a node; every edge target must already exist.
+
+    @purpose  ops.add_node over MCP, canonical frontmatter and all.
+    """
+    node = ops.add_node(
+        root,
+        node_id,
+        kind,
+        title=title,
+        body=body,
+        fields=fields,
+        needs=tuple(needs or ()),
+        in_=tuple(in_ or ()),
+    )
+    return _summary(node)
+
+
+def update_node(
+    root: Path,
+    node_id: str,
+    kind: str | None = None,
+    title: str | None = None,
+    body: str | None = None,
+    priority: int | None = None,
+    set_fields: dict[str, Any] | None = None,
+    unset_fields: list[str] | None = None,
+) -> dict[str, Any]:
+    """Change kind, title, body, priority, or kind-defined fields.
+
+    @purpose  ops.update_node over MCP; comments in the file survive.
+    """
+    node = ops.update_node(
+        root,
+        node_id,
+        kind=kind,
+        title=title,
+        body=body,
+        priority=priority,
+        set_fields=set_fields,
+        unset_fields=tuple(unset_fields or ()),
+    )
+    return _summary(node)
+
+
+def remove_node(root: Path, node_id: str, force: bool = False) -> dict[str, Any]:
+    """Delete a node; force strips every reference to it first.
+
+    @purpose  ops.remove_node over MCP — a referenced node names its referrers
+              instead of dying quietly.
+    """
+    referrers = ops.remove_node(root, node_id, force=force)
+    return {"removed": node_id, "referrers_stripped": referrers}
+
+
+def link(
+    root: Path,
+    src: str,
+    needs: str | None = None,
+    in_: str | None = None,
+    to: str | None = None,
+    rel: str = "see-also",
+) -> dict[str, Any]:
+    """Draw one edge (dependency, membership, or annotation).
+
+    @purpose  ops.link over MCP; a needs-edge that would close a cycle is
+              refused with the path.
+    """
+    return _summary(ops.link(root, src, needs=needs, in_=in_, to=to, rel=rel))
+
+
+def unlink(
+    root: Path,
+    src: str,
+    needs: str | None = None,
+    in_: str | None = None,
+    to: str | None = None,
+) -> dict[str, Any]:
+    """Remove one edge.
+
+    @purpose  ops.unlink over MCP; removing an absent edge errors so stale
+              agent state gets noticed.
+    """
+    return _summary(ops.unlink(root, src, needs=needs, in_=in_, to=to))
+
+
+def rename_node(root: Path, old: str, new: str) -> dict[str, Any]:
+    """Move a node to a new id, fixing every referrer and the view layout.
+
+    @purpose  ops.rename_node over MCP; the renamed file's bytes never change.
+    """
+    return _summary(ops.rename_node(root, old, new))
+
+
+def check(root: Path) -> list[dict[str, str]]:
+    """Every finding, errors first.
+
+    @purpose  The same findings the CLI table and (later) the editor panel show.
+    """
+    plan = Plan.load(root)
+    return [finding.model_dump() for finding in plan.check()]
+
+
+def braid(
+    root: Path,
+    strategy: str | None = None,
+    where: dict[str, str] | None = None,
+    from_: str | None = None,
+    until: str | None = None,
+    in_: str | None = None,
+    diagram: bool | None = None,
+    dry: bool = False,
+) -> dict[str, Any]:
+    """Compile the plan (or a slice) and return the prompt text.
+
+    @purpose  The braid over MCP, with the same slicing vocabulary as the CLI;
+              warnings ride along instead of going to a console.
+    """
+    result = braid_pipeline(
+        Plan.load(root),
+        strategy=strategy,
+        where=where,
+        from_=from_,
+        until=until,
+        in_=in_,
+        diagram=diagram,
+        dry=dry,
+    )
+    return {"text": result.text, "order": result.order, "warnings": result.warnings}
+
+
+def ready(root: Path) -> list[dict[str, Any]]:
+    """Nodes whose own status is todo and whose needs are all satisfied.
+
+    @purpose  "What should I work on next?" as one call. A dependency is
+              satisfied when it has no status field, or its effective status is
+              done, settled, or answered.
+    @tags     ready, next-work
+    """
+    plan = Plan.load(root)
+
+    def status_of(node: Node) -> str | None:
+        """Effective status of a node, or None when its kind has no status.
+
+        @purpose  One status lookup shared by both halves of the readiness rule.
+        """
+        kind = plan.kinds.get(node.kind)
+        effective = kinds_module.effective_fields(node, kind) if kind else dict(node.fields)
+        value = effective.get("status")
+        return value if isinstance(value, str) else None
+
+    result: list[dict[str, Any]] = []
+    for _, node in sorted(plan.nodes.items()):
+        if status_of(node) != "todo":
+            continue
+        satisfied = True
+        for dep in node.needs:
+            target = plan.nodes.get(dep)
+            if target is None:
+                satisfied = False
+                break
+            dep_status = status_of(target)
+            if dep_status is not None and dep_status not in DONE_VALUES:
+                satisfied = False
+                break
+        if satisfied:
+            result.append(_summary(node))
+    return result
