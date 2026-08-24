@@ -104,3 +104,8 @@ behaviour. The deterministic spine gets real tests; claims about *prompt
 effectiveness* — whether a braid steers an agent well — require running the
 braid against a real agent and reading the result. Reports say **"not
 verified"** when that has not happened.
+
+One more testing rule, learned when dogfood state moved under a test: **tests
+pin invariants, not living state.** The roadmap plan's statuses change as
+work completes; a test asserting "mcp-tools is ready" breaks the moment the
+project makes progress. Pin what must always hold.

@@ -279,3 +279,19 @@ was wrong; eleven ship. SDK reality check: mcp 2.0.0 renamed FastMCP to
 of introspection fixed what an hour of debugging docs might not have. Also:
 second time an entry was inserted above the previous one instead of appended
 (newest-at-bottom). Both lesson candidates for the M3 retro.
+
+**Incident, third of its shape:** the K12 commit landed with one failing
+test because the pytest gate was `pytest | tail -1` — an ad-hoc deviation
+from the skill's own written chain. The failing test itself had pinned
+mutable roadmap statuses. Both fixed in the follow-up commit; both folded at
+the retro below.
+
+## retro: 4 lessons through iteration 13 — M3 close
+
+Read: iteration 13 and its follow-up. Folded: (1) run-the-battery-as-written
+with the exact silencing-not-piping chain → iteration skill Step 5; (2)
+introspect installed APIs before writing against memory → Step 5; (3)
+journal entries append at the bottom → Step 6; (4) tests pin invariants, not
+living state → CONVENTIONS.md Verification. Training log appended in
+kumihimo-manage. Nothing pruned. loop.json: iteration=13,
+last_retro_iteration=13.

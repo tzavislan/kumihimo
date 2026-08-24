@@ -67,11 +67,20 @@ change.
 
 ## Step 5 — Verify
 
-Run the full battery yourself; paste nothing you did not run:
+Run the full battery yourself; paste nothing you did not run. **Run it as
+written — every recurrence of the piped-gate incident (three so far) came
+from ad-hoc "improvements" like `pytest | tail -1` that replaced the exit
+code with tail's.** To quiet output, silence it (`>/dev/null`); never pipe it:
 
 ```bash
-uv run ruff format . && uv run ruff check . && uv run mypy && uv run pytest -q && uv run python tools/lint.py --fix && uv run python tools/lint.py
+uv run ruff format . >/dev/null && uv run ruff check . && uv run mypy && uv run pytest -q >/dev/null && uv run python tools/lint.py --fix >/dev/null && uv run python tools/lint.py
 ```
+
+On any failure, re-run the failing gate alone with full output.
+
+**Before writing against any external API, introspect the installed version**
+— one `python -c "import x; print(dir(x))"` beats an hour of debugging code
+written from memory (mcp 2.0 had renamed FastMCP to MCPServer; iteration 13).
 
 Two rules learned from real incidents in iterations 3 and 6, where errors
 were committed under a green-sounding report:
@@ -111,6 +120,10 @@ history.
 **Every number in a journal entry comes from an executed command.** Iteration
 8's first draft reported an edge count computed in the head; it was wrong.
 Run the demo, paste what it printed.
+
+**Journal entries append at the bottom** (newest last). Two entries have been
+inserted above their predecessor by anchoring an edit on the wrong header;
+anchor on the end of the previous entry instead.
 
 ## Step 7 — Commit and close
 

@@ -84,3 +84,10 @@ is alive, and a gap in it is itself a finding for the next retro.
   iteration 10; reading it caught four issues). Jinja/trim_blocks specifics
   stayed in code comments and the journal — site-specific, not procedural.
   Nothing pruned.
+- 2026-08-23 — retro at M3 close (iteration 13): the piped-gate incident
+  recurred a *third* time because the operator deviated from the skill's own
+  chain — Step 5 now carries the exact silencing-not-piping chain and says
+  run it as written; also gained introspect-installed-APIs (mcp 2.0 renamed
+  FastMCP) and journal-appends-at-bottom (two mis-ordered entries).
+  CONVENTIONS.md gained tests-pin-invariants-not-living-state. Nothing
+  pruned.
