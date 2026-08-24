@@ -281,7 +281,8 @@ def _check_readme(
         return
     if fix:
         rebuilt = pre + INDEX_BEGIN + "\n" + table + "\n" + INDEX_END + post
-        readme.write_text(rebuilt, encoding="utf-8")
+        # newline="" stops Windows text mode from rewriting the file's line endings.
+        readme.write_text(rebuilt, encoding="utf-8", newline="")
         fixed.append(rel)
     else:
         violations.append(Violation(rel, "generated index is stale (run tools/lint.py --fix)"))
