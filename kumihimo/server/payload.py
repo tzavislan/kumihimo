@@ -12,12 +12,22 @@
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 from typing import Any
 
 from kumihimo.core import kinds as kinds_module
 from kumihimo.core import store
 from kumihimo.core.plan import Plan
+
+
+def file_digest(path: Path) -> str:
+    """The sha256 of a file's bytes, hex.
+
+    @purpose  The optimistic-concurrency token: ops carry the digest they were
+              based on, and a stale one is rejected instead of clobbered.
+    """
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def plan_payload(root: Path) -> dict[str, Any]:
@@ -44,6 +54,7 @@ def plan_payload(root: Path) -> dict[str, Any]:
         effective = kinds_module.effective_fields(node, kind) if kind else dict(node.fields)
         nodes.append(
             {
+                "digest": file_digest(plan.records[node_id].path),
                 "id": node.id,
                 "kind": node.kind,
                 "title": node.title,

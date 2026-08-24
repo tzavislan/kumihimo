@@ -15,14 +15,19 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import subprocess
 from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi.responses import HTMLResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
+from kumihimo.compile import braid as braid_pipeline
+from kumihimo.core.errors import KumihimoError
+from kumihimo.core.plan import Plan
+from kumihimo.server.ops_api import OpRequest, StaleDigestError, apply
 from kumihimo.server.payload import plan_payload
 from kumihimo.server.watch import Broadcaster, watch_plan
 
@@ -71,6 +76,72 @@ def build_app(root: Path, static_dir: Path | None = None) -> FastAPI:
         @purpose  No cache to lie: this is what the files say right now.
         """
         return plan_payload(root)
+
+    @app.post("/api/ops")
+    def post_op(request: OpRequest) -> dict[str, Any]:
+        """Apply one editor gesture and return the fresh payload.
+
+        @purpose  The single write door: digest conflicts answer 409 (refresh),
+                  everything else wrong answers 400 with the message.
+        """
+        try:
+            apply(root, request)
+        except StaleDigestError as err:
+            raise HTTPException(status_code=409, detail=str(err)) from err
+        except KumihimoError as err:
+            raise HTTPException(status_code=400, detail=str(err)) from err
+        return plan_payload(root)
+
+    @app.get("/api/braid", response_class=PlainTextResponse)
+    def get_braid(
+        strategy: str | None = None,
+        where: str | None = None,
+        in_group: str | None = None,
+        dry: bool = False,
+    ) -> str:
+        """The braid as plain text, for the editor's braid button.
+
+        @purpose  Same pipeline as the CLI; `where` accepts one key=value pair,
+                  `in_group` slices one membership.
+        """
+        filters: dict[str, str] = {}
+        if where:
+            key, separator, value = where.partition("=")
+            if not separator:
+                raise HTTPException(status_code=400, detail="where wants key=value")
+            filters[key] = value
+        try:
+            result = braid_pipeline(
+                Plan.load(root),
+                strategy=strategy,
+                where=filters or None,
+                in_=in_group,
+                dry=dry,
+            )
+        except KumihimoError as err:
+            raise HTTPException(status_code=400, detail=str(err)) from err
+        return result.text
+
+    @app.get("/api/dirty")
+    def get_dirty() -> dict[str, Any]:
+        """Which plan files differ from git HEAD, when git tracks the plan.
+
+        @purpose  The editor's dirty indicator: git is the undo, so show what a
+                  commit would sweep. Untracked setups answer tracked=false.
+        """
+        try:
+            completed = subprocess.run(
+                ["git", "status", "--porcelain", "--", str(root)],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=True,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return {"tracked": False, "dirty": []}
+        lines = [line[3:] for line in completed.stdout.splitlines() if line.strip()]
+        return {"tracked": True, "dirty": lines}
 
     @app.websocket("/api/ws")
     async def live(websocket: WebSocket) -> None:

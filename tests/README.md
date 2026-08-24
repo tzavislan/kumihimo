@@ -15,6 +15,7 @@
 | `test_lint.py` | Behaviour coverage for every conventions-linter check: the cap and its counting rules, the @exempt grammar, header tags, public @purpose, and README index gene… |
 | `test_mcp.py` | The MCP tools behave identically to their ops/CLI twins: reads carry the right shapes, mutations land on disk, errors keep their KumihimoError messages, ready … |
 | `test_ops.py` | The ops layer behaves: canonical files from add, comment-preserving updates, cycle-refusing links, tidy unlinks, renames that fix every referrer and the view l… |
+| `test_ops_api.py` | The editor's write door behaves: every op lands through core.ops with canonical files, stale digests answer 409 while fresh ones pass, positions go to view.yam… |
 | `test_server.py` | The watching server behaves: the payload carries the canvas contract, the WebSocket sends the initial state and then whatever the broadcaster publishes, the un… |
 | `test_store_roundtrip.py` | The fidelity contract, executable: untouched files are never written; touched files keep comments, key order, newline style, and BOM; bodies survive byte-for-b… |
 | `test_validate.py` | Every check rule triggers on the file that breaks it and stays quiet on one that doesn't: kinds, fields, dangling edges, the cycle path, orphans, open dependen… |
