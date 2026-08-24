@@ -175,5 +175,5 @@ def test_missing_node_raises_clean_error(tmp_path: Path) -> None:
 
 
 def test_not_a_plan_dir_raises(tmp_path: Path) -> None:
-    with pytest.raises(KumihimoError, match="kumihimo.yaml"):
+    with pytest.raises(KumihimoError, match=r"kumihimo\.yaml"):
         Plan.load(tmp_path)

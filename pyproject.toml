@@ -58,6 +58,7 @@ select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
 files = ["kumihimo", "tools"]
 strict = true
 warn_unreachable = true
+plugins = ["pydantic.mypy"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

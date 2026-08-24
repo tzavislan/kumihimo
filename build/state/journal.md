@@ -66,3 +66,8 @@ file after a field edit; 44 tests total, mypy strict, ruff, linter green.
 - Tool-transport gotcha: writing a literal U+FEFF into source is invisible and
   survives edits confusingly; store.py uses the escape, tests label the one
   deliberate literal.
+- **Verification honesty failure, caught late:** the K2 commit chained checks
+  as `cmd | tail -1 && next`, and the pipe made every check's exit code
+  tail's 0 — ruff and mypy each had a live error when the commit claimed
+  green. Never pipe a gating check; read exit codes unmasked. Candidate for
+  the iteration skill at the M1 retro.

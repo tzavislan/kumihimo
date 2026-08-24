@@ -28,7 +28,6 @@ from ruamel.yaml.error import YAMLError
 
 from kumihimo.core.errors import KumihimoError
 from kumihimo.core.model import (
-    RESERVED_KEYS,
     SLUG_RE,
     CompileSettings,
     Finding,
