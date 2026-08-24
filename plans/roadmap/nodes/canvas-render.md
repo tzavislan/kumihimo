@@ -8,5 +8,6 @@ acceptance:
   - elk auto-layout button works
   - view.yaml positions honored on load
 title: Read-only canvas
+status: done
 ---
 React Flow + TypeScript canvas, read-only: kind-colored nodes, needs/in/links edges drawn distinctly, membership as visual grouping, positions from view.yaml when present and elk layout otherwise. Same tag-scheme headers in TS.

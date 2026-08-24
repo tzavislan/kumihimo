@@ -1,0 +1,67 @@
+/*
+ * @file        frontend/src/styles.css
+ * @purpose     The canvas chrome: sidebar + flow grid, node card styling, kind
+ *              pills, finding colors. Deliberately small and system-font.
+ * @layer       frontend
+ * @tags        css, chrome
+ * @related     frontend/src/App.tsx (the structure this dresses)
+ * @design      PLAN.md §5.3
+ */
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: #1f2937;
+  background: #f8fafc;
+}
+
+.kumi-shell { display: grid; grid-template-columns: 340px 1fr; height: 100%; }
+.kumi-side {
+  padding: 16px;
+  border-right: 1px solid #e2e8f0;
+  overflow-y: auto;
+  background: #ffffff;
+}
+.kumi-side h1 { font-size: 18px; margin: 0 0 4px; }
+.kumi-side h2 { font-size: 13px; margin: 16px 0 6px; color: #475569; }
+.kumi-desc { font-size: 13px; color: #475569; margin: 0 0 8px; }
+.kumi-counts { font-size: 12px; color: #64748b; margin: 0 0 12px; }
+.kumi-side button {
+  font: inherit; font-size: 12px; padding: 6px 10px;
+  border: 1px solid #cbd5e1; border-radius: 6px; background: #f1f5f9;
+  cursor: pointer;
+}
+.kumi-side button:hover { background: #e2e8f0; }
+.kumi-findings { list-style: none; padding: 0; margin: 0; font-size: 12px; }
+.kumi-findings li { padding: 3px 0; }
+.kumi-error { color: #b91c1c; }
+.kumi-warning { color: #b45309; }
+.kumi-hint { font-size: 12px; color: #94a3b8; }
+.kumi-detail { border-top: 1px solid #e2e8f0; margin-top: 12px; padding-top: 8px; }
+.kumi-detail-meta { font-size: 12px; color: #64748b; margin: 2px 0 8px; }
+.kumi-detail table { font-size: 12px; border-collapse: collapse; width: 100%; }
+.kumi-detail td { padding: 2px 6px 2px 0; vertical-align: top; }
+.kumi-detail td:first-child { color: #64748b; white-space: nowrap; }
+.kumi-body {
+  font-size: 12px; white-space: pre-wrap; background: #f8fafc;
+  border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px; margin-top: 8px;
+}
+.kumi-loading { display: grid; place-items: center; height: 100%; color: #64748b; }
+
+.kumi-canvas { height: 100%; }
+
+.kumi-node {
+  width: 210px; min-height: 66px;
+  background: #ffffff; border: 1px solid #e2e8f0; border-left: 4px solid #6b7280;
+  border-radius: 8px; padding: 8px 10px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+.kumi-milestone { background: #f5f3ff; border-color: #ddd6fe; border-left-width: 6px; }
+.kumi-title { font-size: 13px; font-weight: 600; line-height: 1.25; }
+.kumi-meta { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
+.kumi-pill {
+  color: #ffffff; font-size: 10px; padding: 1px 7px; border-radius: 999px;
+}
+.kumi-status { font-size: 10px; color: #475569; }
+.kumi-id { font-size: 10px; color: #94a3b8; margin-left: auto; }
