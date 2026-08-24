@@ -84,12 +84,20 @@ status: done (iteration 11)
 needs: [K8]
 
 ### K10 — Mermaid/DOT export + `--dry`
-status: todo
+status: done (landed inside K8's commit — export verb, diagram module, --dry)
 needs: [K8]
 
 ### K11 — Dogfood: plans/roadmap/ in Kumihimo
-status: todo
+status: done (iteration 12) — M2 complete
 needs: [K9]
+
+### K16 — CLI `set` verb (update titles/fields/body from the shell)
+status: todo
+needs: —
+Discovered while dogfooding K11: the CLI can create and link nodes but not
+update them — roadmap titles had to go through the ops layer in Python.
+Mirror `ops.update_node` as `kumihimo set PLAN ID [--title] [--body]
+[--field k=v] [--unset k] [--kind]`. PLAN.md §1 (CLI), §7.1 invariant 1.
 
 ## M3+ (coarse)
 

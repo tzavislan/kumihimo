@@ -223,3 +223,25 @@ the golden ritual), 104 tests green, gated battery.
 
 **Prompt effectiveness: not verified.** The braid has not yet been run
 against a real agent; that claim waits for K11's dogfood or an explicit run.
+
+## Iteration 12 — 2026-08-23 — K11: the roadmap, in Kumihimo — M2 complete
+
+**What now exists:** `plans/roadmap/` — 17 nodes, 25 edges, built through the
+real CLI (new → add ×17 → link ×3), all five kinds in use, milestones M3-M6
+as sections with true cross-milestone needs. `check`: "17 node(s), 25
+edge(s): 0 error(s), 0 warning(s)" (actual output). The M2 demo, run for
+real: `kumihimo braid plans/roadmap --in m3-mcp` produced the complete M3
+milestone prompt — preamble pointing at CLAUDE.md/CONVENTIONS.md, mermaid
+shape, milestone intro with target, both tasks with After lines and
+Done-when checklists, epilogue carrying the milestone-close ritual. From
+here on, milestone prompts are braided, not hand-written.
+
+**Dogfood findings (the point of dogfooding):**
+- The CLI cannot update a node — titles had to go through ops in Python.
+  Queued as K16 (`kumihimo set`).
+- `kumihimo new`'s starter node gets deleted by hand in every real use;
+  fine (files are truth), but `new --bare` might deserve a thought later.
+
+**Prompt effectiveness: partially verified.** The braid was read end to end
+and is well-formed and actionable; whether it *steers* an agent well is
+verified only when M3 is actually built from it. Claimed exactly that far.

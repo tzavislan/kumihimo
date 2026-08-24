@@ -1,0 +1,21 @@
+format: 1
+plan: Kumihimo v0.1 roadmap
+description: >-
+  Milestones M3-M6 of PLAN.md, maintained as a Kumihimo plan in Kumihimo
+  itself. From here on, iteration prompts for these milestones are braided,
+  not hand-written.
+kinds:
+  from: engineering
+compile:
+  strategy: grouped
+  preamble: |
+    You are building Kumihimo, in its own repository. Before any item: read
+    CLAUDE.md (the invariants bind), CONVENTIONS.md (enforced by CI), and the
+    PLAN.md section the item cites. Work through /kumihimo-iteration — one
+    item, one verdict, one commit — and record what actually happened in
+    build/state/journal.md. Braid quality claims follow the verification bar:
+    real run or "not verified".
+  epilogue: |
+    When a milestone's items are all done: run its demo for real, update the
+    changelog, run /kumihimo-retro, and propose the push to Thomas. Never
+    push, publish, or release without his explicit yes.

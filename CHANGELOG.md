@@ -7,6 +7,17 @@ All notable changes to Kumihimo. Format follows
 ## [Unreleased]
 
 ### Added
+- M2, the braid: `kumihimo braid` compiles a plan (or a slice via
+  `--where/--from/--until/--in`) into one deterministic prompt — linear and
+  grouped strategies (entry-point extensible), sandboxed Jinja templates per
+  kind with manifest→pack→default resolution, an overridable cord template,
+  the Mermaid plan-shape embedded in every braid, stub lines for sliced-out
+  dependencies, `--dry`, and a check-error gate. Engineering pack templates
+  render tasks/decisions/risks/questions/milestones with honest After lines
+  and Done-when checklists; golden braids pin output byte-for-byte.
+  `kumihimo export` emits Mermaid or DOT. The v0.1 roadmap now lives at
+  `plans/roadmap/` as a Kumihimo plan — milestone prompts are braided from
+  here on.
 - M1 core model and store: node/kind/manifest model with the engineering
   pack; plan directories load with precise findings instead of crashes; the
   byte-fidelity store (untouched files never rewritten; comments, key order,
