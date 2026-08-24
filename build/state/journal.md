@@ -424,3 +424,19 @@ the existing rules without incident (the gates gated, artifacts were read,
 numbers came from runs). Honest empty retro per the retro skill — the
 cadence stays trustworthy precisely because this entry exists. Training log
 appended. loop.json: iteration=17, last_retro_iteration=17.
+
+## 2026-08-24 — published: tzavislan/kumihimo, CI green
+
+Thomas said "get it pushed." Public repo created, all 31 commits pushed,
+topics set. First-ever CI run (and first-ever Linux run of the suite):
+matrix checks, frontend, and docs green immediately; the editor smoke's
+*test* passed on Linux but its fixture teardown errored (.venv/bin vs
+.venv/Scripts, and uv-run shielding uvicorn from SIGTERM) — fixed with
+cross-platform script resolution and TERM→KILL escalation. Second run:
+**all five jobs green, exit 0, in 1m13s worst-job**. The docs *deploy*
+workflow alone waits on Thomas enabling Pages.
+
+One process note for the next retro window: the piped-exit-code shape
+appeared a fourth time, in the `gh run watch | tail` command — a watch, not
+a gate, so nothing was committed on it, but the rule generalizes: any
+command whose exit code you intend to read gets no pipe.
