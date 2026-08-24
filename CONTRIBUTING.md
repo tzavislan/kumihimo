@@ -30,9 +30,11 @@ Touching the canvas? The frontend lives in `frontend/` (React + TypeScript +
 React Flow; same `@file`/`@purpose` headers in `/** */` blocks):
 
 ```
-npm --prefix frontend ci
-npm --prefix frontend run typecheck
-npm --prefix frontend run build        # writes kumihimo/server/static
+cd frontend
+npm ci
+npm run typecheck
+npm run build                          # writes kumihimo/server/static
+cd ..
 uv run playwright install chromium     # once
 uv run pytest -q tests/test_editor_smoke.py
 ```

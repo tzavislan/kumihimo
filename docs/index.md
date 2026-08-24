@@ -26,10 +26,15 @@ diffs cleanly.
 
 ## Ten minutes to your first braid
 
-Install (Python 3.11+):
+Kumihimo is not on a package index yet — install from source. Python 3.11+;
+Node 18+ only for the live canvas (skip the `npm` line and everything but
+`kumihimo edit`'s graph still works):
 
 ```bash
-pip install kumihimo
+git clone https://github.com/tzavislan/kumihimo
+cd kumihimo
+cd frontend && npm install && npm run build && cd ..
+pip install .
 ```
 
 Make a plan and look at it:

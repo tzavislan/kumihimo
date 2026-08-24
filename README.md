@@ -33,9 +33,21 @@ arranging the graph never dirties a semantic diff.
 
 ## Ten minutes
 
-```bash
-pip install kumihimo
+Kumihimo is not on a package index yet — install from source (Python 3.11+;
+Node 18+ only if you want the canvas):
 
+```bash
+git clone https://github.com/tzavislan/kumihimo
+cd kumihimo
+cd frontend && npm install && npm run build && cd ..
+pip install .
+```
+
+The `npm` line builds the live canvas and can be skipped — everything below
+still works except `kumihimo edit`, which then serves the API with an honest
+"frontend not built" page instead of the graph.
+
+```bash
 kumihimo new myplan
 kumihimo edit myplan        # live canvas at 127.0.0.1:8720
 kumihimo add myplan build --kind task --title "Build the loader" --body "..."
@@ -81,8 +93,7 @@ custom kinds, MCP setup, file formats.
 uv sync
 uv run pytest -q
 uv run python tools/lint.py            # the conventions linter CI runs
-npm --prefix frontend install         # only if you work on the canvas
-npm --prefix frontend run build
+cd frontend && npm install && npm run build   # only if you work on the canvas
 ```
 
 Conventions (enforced in CI): [CONVENTIONS.md](CONVENTIONS.md). Contributions:

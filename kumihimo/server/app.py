@@ -36,8 +36,9 @@ _UNBUILT = """<!doctype html><meta charset="utf-8"><title>kumihimo</title>
 <h1>kumihimo</h1>
 <p>The canvas frontend is not built in this installation.</p>
 <p>The API is live: <a href="/api/plan">/api/plan</a>. To build the canvas
-from a source checkout: <code>npm --prefix frontend install &amp;&amp;
-npm --prefix frontend run build</code>, then restart.</p></body>"""
+from a source checkout:
+<code>cd frontend &amp;&amp; npm install &amp;&amp; npm run build</code>,
+then restart.</p></body>"""
 
 
 def build_app(root: Path, static_dir: Path | None = None) -> FastAPI:

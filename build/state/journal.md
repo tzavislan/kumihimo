@@ -440,3 +440,21 @@ One process note for the next retro window: the piped-exit-code shape
 appeared a fourth time, in the `gh run watch | tail` command — a watch, not
 a gate, so nothing was committed on it, but the rule generalizes: any
 command whose exit code you intend to read gets no pipe.
+
+## 2026-08-24 — outside review response: install truth, npm-on-Windows
+
+An external review (verified against the live repo and index) found the
+README's first command, `pip install kumihimo`, fails — the package was
+never published (no tags, no releases; release.yml has never fired). Its
+second claim, docs-404/failing-workflow, was true when written and already
+cured by the Pages enablement. Fixes, verified in a clean GitHub clone
+end-to-end: both quickstarts now install from source with no package-index
+implication; and running the quickstart the reviewer's way surfaced a second
+defect — `npm --prefix <dir> install` silently no-ops on Windows (exit 0, no
+node_modules; works on Linux, which is why CI stayed green). All user-facing
+npm instructions switched to the cd form, including the server's own
+"frontend not built" fallback page. Clean-clone verification: quickstart to
+served canvas, CLI battery, 128/128 tests including the browser smoke, all
+five docs-site pages live. Lesson for the next retro: clean-machine
+verification belongs to every user-facing instruction, not just code — the
+README is an interface with its own platform matrix.
