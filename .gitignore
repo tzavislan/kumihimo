@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+dist/
+build/lib/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+
+# Frontend (lands at M4)
+node_modules/
+kumihimo/server/static/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
