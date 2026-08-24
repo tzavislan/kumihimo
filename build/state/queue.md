@@ -51,7 +51,7 @@ PLAN.md §3.4. Every listed error and warning as Findings with node/file
 context. Accept: each rule has a test that triggers it and one that doesn't.
 
 ### K5 — Ops layer
-status: todo
+status: done (iteration 6)
 needs: [K2]
 PLAN.md §7.1 invariant 1. add_node, update_node, link, unlink, rename
 (referrer fixup incl. view.yaml), remove — each atomic, each returning what

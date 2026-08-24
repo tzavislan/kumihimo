@@ -94,3 +94,16 @@ checks to exactly [].
 
 **Verified:** 10 validate tests (63 total), mypy strict, ruff, conventions
 linter, exit codes unmasked.
+
+## Iteration 6 — 2026-08-23 — K5: the ops layer
+
+**What now exists:** `core/ops.py` — add_node (canonical frontmatter, strict
+on ids/kinds/targets), update_node (permissive on field values, strict on
+structure; comments survive), link/unlink (scalar-or-list aware; needs-links
+refused with the path when they'd close a cycle), rename_node (file moved
+bytes-untouched, every referrer spelling fixed, view.yaml layout followed),
+remove_node (refuses while referenced, names referrers; force strips edges
+and the view entry). Slug rule doubles as path-traversal protection —
+tested: `../escape` and friends cannot reach ops.
+
+**Verified:** 15 ops tests (78 total), whole battery green, exit codes read.
