@@ -124,7 +124,7 @@ setup, version cut, tag. Checklist: RELEASING.md.
 
 ## M7 — See (PLAN2.md §2, split 2026-08-24)
 
-### K16 — Design tokens + dark mode
+### K17 — Design tokens + dark mode
 status: todo
 needs: —
 PLAN2 §2.5. CSS custom properties for every color/space/type decision in
@@ -132,40 +132,40 @@ frontend/src/styles.css; prefers-color-scheme + a toggle button; both themes
 coherent (canvas, sidebar, node cards, modal, minimap). Accept: toggle works;
 no hardcoded hex left outside the token block; screenshots readable in both.
 
-### K17 — Ports, arrowheads, edge hover/selection
+### K18 — Ports, arrowheads, edge hover/selection
 status: todo
-needs: [K16]
+needs: [K17]
 PLAN2 §2.4, §2.1. needs=left/right ports, in=top, links=bottom; scaled
 arrowheads; hover thickening + tooltip naming both ends and relation; edge
 click opens a sidebar edge panel (endpoints with jump, relation, delete).
 Accept: apiguard's membership edges no longer share dependency ports; hover
 and panel behaviors verified in the smoke or a screenshot pass.
 
-### K18 — Focus cones + trace
+### K19 — Focus cones + trace
 status: todo
-needs: [K17]
+needs: [K18]
 PLAN2 §2.1. Double-click focuses: ancestors one tint, descendants another,
 distance fade, rest dimmed to 15%, Esc restores; alt-click second node lights
 all paths between. Client-side cones over payload needs edges.
 Accept: focus on rate-limit-core tints exactly its cones; Esc restores.
 
-### K19 — Semantic zoom
+### K20 — Semantic zoom
 status: todo
-needs: [K16]
+needs: [K17]
 PLAN2 §2.2. Far=shape+title, Mid=upgraded card (status glyph, effort chip,
 member count, halo), Near=body preview + acceptance checkboxes + chips;
 thresholds on RF zoom. Accept: three tiers visibly distinct on the roadmap.
 
-### K20 — Finding halos + click-to-jump
+### K21 — Finding halos + click-to-jump
 status: todo
-needs: [K16]
+needs: [K17]
 PLAN2 §2.1. Error/warning halos on nodes; sidebar findings click to select
 and center. Accept: a plan with one error shows exactly one red halo; click
 centers it.
 
-### K21 — Ctrl+K palette + graph keyboard
+### K22 — Ctrl+K palette + graph keyboard
 status: todo
-needs: [K18]
+needs: [K19]
 PLAN2 §2.5. Fuzzy palette over id/title/body, select-and-center; command
 entries (add node, braid); arrows walk the graph (up=dependency,
 down=dependent), F focuses, Del prompts removal. Accept: palette finds by
