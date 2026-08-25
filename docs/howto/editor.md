@@ -100,6 +100,16 @@ in smaller type — readable because you're zoomed in to see it. That keeps
 dragging, edges, and the auto-layout stable across a zoom gesture, and
 means cards never grow into their neighbors as you zoom in.
 
+## Command palette and keyboard
+
+`Ctrl+K` (`Cmd+K` on macOS) opens a search palette over every node's id,
+title, and body, plus four quick commands (Add node, Braid, Toggle theme,
+Toggle auto-layout); with the palette closed and a node selected, arrow keys
+walk the graph itself rather than the screen, F focuses, and Delete or
+Backspace removes with a confirmation. The full gesture-by-gesture table —
+this and everything above — lives in the
+[shortcuts reference](../reference/shortcuts.md).
+
 ## Sync, conflicts, and undo
 
 The canvas never holds unsaved state — there is no save button for the plan,

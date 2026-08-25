@@ -7,12 +7,13 @@
  *              tiers, React Flow chrome. Deliberately small and system-font.
  * @layer       frontend
  * @tags        css, chrome, design-tokens, dark-mode, focus, trace,
- *              semantic-zoom, findings
+ *              semantic-zoom, findings, palette
  * @related     frontend/src/App.tsx (sets data-theme on <html>, the per-node
  *              focus/trace/halo classes this file styles, and the sidebar
  *              finding rows this file's .kumi-finding-clickable styles),
  *              KumiNode.tsx (KIND_COLORS accents laid over the surface/text
- *              tokens here; picks the kumi-tier-* class this file styles)
+ *              tokens here; picks the kumi-tier-* class this file styles),
+ *              frontend/src/Palette.tsx (renders the kumi-palette-* markup)
  * @design      PLAN.md §5.3, PLAN2.md §2.1-2.2, §2.5
  */
 
@@ -262,6 +263,59 @@ body {
   font-size: var(--kumi-text-sm); overflow: auto; background: var(--kumi-bg-well);
   border: 1px solid var(--kumi-border); border-radius: var(--kumi-radius-sm); padding: 10px; flex: 1;
   white-space: pre-wrap;
+}
+
+/* Ctrl+K palette (PLAN2.md §2.5, Palette.tsx). Same overlay+centered-box
+ * recipe as .kumi-modal above, kept as its own class rather than shared
+ * since the box's contents (search input, result list) have nothing in
+ * common with the braid modal's. z-index above both .kumi-modal (50) and
+ * .kumi-edge-tip (60) so Ctrl+K still reaches the front if pressed while
+ * the braid modal happens to be open. */
+.kumi-palette-overlay {
+  position: fixed; inset: 0; background: var(--kumi-overlay);
+  display: grid; place-items: center; z-index: 70;
+}
+.kumi-palette-box {
+  background: var(--kumi-surface); border: 1px solid var(--kumi-border);
+  border-radius: var(--kumi-radius-lg); box-shadow: var(--kumi-shadow-sm);
+  width: min(560px, 90vw); max-height: 70vh;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.kumi-palette-input {
+  font: inherit; font-size: var(--kumi-text-lg); color: var(--kumi-text);
+  background: transparent; border: none; border-bottom: 1px solid var(--kumi-border);
+  padding: var(--kumi-space-12) var(--kumi-space-16);
+}
+.kumi-palette-input:focus { outline: none; }
+.kumi-palette-results {
+  list-style: none; margin: 0; padding: var(--kumi-space-6) 0;
+  overflow-y: auto; flex: 1; min-height: 0;
+}
+.kumi-palette-group {
+  font-size: var(--kumi-text-xs); font-weight: 600; letter-spacing: 0.04em;
+  color: var(--kumi-text-faint); padding: var(--kumi-space-6) var(--kumi-space-16) 2px;
+}
+.kumi-palette-row {
+  display: flex; align-items: baseline; gap: var(--kumi-space-8); min-width: 0;
+  padding: var(--kumi-space-6) var(--kumi-space-16); font-size: var(--kumi-text-md);
+  cursor: pointer;
+}
+/* :hover and the keyboard-highlighted row share one look — a mouse hover
+ * also moves the highlight (Palette.tsx's onMouseEnter), so the two never
+ * visually disagree about which row Enter/click would run. */
+.kumi-palette-row:hover, .kumi-palette-row.kumi-palette-active { background: var(--kumi-surface-hover); }
+.kumi-palette-title { color: var(--kumi-text); font-weight: 500; flex-shrink: 0; }
+.kumi-palette-id {
+  color: var(--kumi-text-faint); font-size: var(--kumi-text-xs); font-family: var(--kumi-font-mono);
+  flex-shrink: 0;
+}
+.kumi-palette-snippet {
+  color: var(--kumi-text-subtle); font-size: var(--kumi-text-sm); min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.kumi-palette-empty, .kumi-palette-more {
+  padding: var(--kumi-space-8) var(--kumi-space-16);
+  font-size: var(--kumi-text-sm); color: var(--kumi-text-faint);
 }
 
 .kumi-canvas { height: 100%; }

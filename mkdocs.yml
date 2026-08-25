@@ -50,4 +50,5 @@ nav:
       - CLI: reference/cli.md
       - File formats: reference/formats.md
       - MCP tools: reference/mcp-tools.md
+      - Shortcuts: reference/shortcuts.md
       - Python API: reference/api.md

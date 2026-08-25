@@ -164,9 +164,28 @@ and center. Accept: a plan with one error shows exactly one red halo; click
 centers it.
 
 ### K22 — Ctrl+K palette + graph keyboard
-status: todo
+status: done (iteration 23) — M7 items complete
 needs: [K19]
 PLAN2 §2.5. Fuzzy palette over id/title/body, select-and-center; command
 entries (add node, braid); arrows walk the graph (up=dependency,
 down=dependent), F focuses, Del prompts removal. Accept: palette finds by
 body text; arrow-walk follows edges not screen positions.
+
+### K23 — Split App.tsx under the cap
+status: todo
+needs: —
+Discovered at K22 (builder flag): App.tsx is ~784 lines, over the 600 cap
+CONVENTIONS.md applies to every language. Extract by responsibility (edge
+helpers, keyboard, lens state?) into focused modules with headers; must land
+before M8's shape-work piles more on. Accept: every frontend file under 600
+effective lines; typecheck/build/smoke green.
+
+### K24 — Conventions linter learns TypeScript
+status: todo
+needs: —
+Discovered at K22: tools/lint.py scans only Python; CONVENTIONS.md promises
+TS header linting "from M4" and nothing enforces it — the exact rot the
+linter exists to prevent. Extend to frontend/src/*.ts(x): @file header
+presence/path match, cap with comment/blank exclusion (JSDoc + //), @exempt
+grammar. Accept: seeded TS violation fails CI; current tree passes (after
+K23).

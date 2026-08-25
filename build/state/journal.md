@@ -606,3 +606,31 @@ said so plainly, and verified via live computed styles instead — the
 honesty bar holding in a subagent.
 
 **Gated by me:** typecheck, build, ruff, mypy, 128 tests, lint — green.
+
+## Iteration 23 — 2026-08-24 — K22: Ctrl+K palette + graph keyboard (delegated loop)
+
+Builder (Sonnet): Palette.tsx (substring search over id/title/body with
+title/id ranked above body hits + context snippets, four commands, full
+keyboard+mouse driving), graph-directional keys (Left=dependency,
+Right=dependent, Up/Down=siblings, F=focus, Del=confirm-then-remove via
+ops), input-target guard, and a necessary unbriefed fix: React Flow's own
+deleteKeyCode/keyboard-a11y handlers would have locally deleted nodes
+BYPASSING core.ops and nudged positions on arrows — disabled, confirmed
+live. Deviations recorded per invariant: PLAN2 prose said up=dependency —
+the canvas's needs axis is horizontal since K18, so Left/Right carry
+direction and Up/Down walk siblings (documented in both doc pages);
+substring-not-fuzzy search is a no-new-deps judgment call. docs/reference/
+shortcuts.md tables the full gesture inventory; mkdocs strict green.
+Checker+critic (combined, playwright-not-pane per the tooling note): PASS,
+2 minors — this journal entry (now written), and mid-word snippet
+truncation (documented fixed-radius design; accepted). Covered the
+builder's untested branches: palette row mouse click, and Delete with the
+dialog accepted (file really removed via ops on a throwaway plan) and
+dismissed (file survives).
+
+Builder flags triaged per the trained rule: App.tsx over the cap (~784) →
+@exempt note (reviewer=thomas-pending) + K23 split queued before M8; TS
+files unlinted despite CONVENTIONS' promise → K24 queued. The flag-triage
+rule paid for itself one loop after it was written.
+
+**Gated by me:** ruff, mypy, 128 tests, lint, mkdocs strict — green.

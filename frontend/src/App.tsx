@@ -19,17 +19,24 @@
  *              (onMove), threshold-debounced so a zoom gesture only touches
  *              node state when the tier actually changes, and computes the
  *              per-node data (member count, acceptance list) KumiNode needs
- *              to render it.
+ *              to render it. Owns the Ctrl+K palette's open state and the
+ *              graph-directional keyboard (arrows walk needs/in edges,
+ *              F focuses, Delete/Backspace removes) — both window-level
+ *              listeners gated so neither steals keys from a form field, the
+ *              palette's own input, or React Flow's own keyboard handling
+ *              (disabled below in favor of these).
  * @layer       frontend
  * @tags        react-flow, editor, ops, live, elk, sidebar, theme, focus,
- *              trace, semantic-zoom, findings
+ *              trace, semantic-zoom, findings, palette, keyboard
  * @related     frontend/src/api.ts (the wire),
  *              frontend/src/cones.ts (focus/trace graph math),
  *              frontend/src/KumiNode.tsx (zoomTier thresholds + tier render),
  *              frontend/src/NodeForm.tsx (the selected node's form),
+ *              frontend/src/Palette.tsx (the Ctrl+K overlay this mounts),
  *              frontend/src/styles.css (the tokens data-theme switches),
  *              kumihimo/server/ops_api.py (where every gesture lands)
  * @design      PLAN.md §5.1-5.3, PLAN2.md §2.1-2.2, §2.4-2.5
+ * @exempt      file-size reviewer=thomas-pending reason=crossed the cap at K22; split queued as K23 before M8
  */
 import {
   Background,
@@ -62,6 +69,7 @@ import {
 } from "./KumiNode";
 import { elkPositions, NODE_HEIGHT, NODE_WIDTH } from "./layout";
 import { NodeForm } from "./NodeForm";
+import { Palette, type PaletteCommand } from "./Palette";
 import type { Finding, Payload, PlanNode, Position } from "./types";
 
 const NODE_TYPES = { kumi: KumiNode };
@@ -336,6 +344,49 @@ function unlinkEnvelope(edgeId: string): Record<string, unknown> | null {
   return { op: "unlink", src: info.from, to: info.to };
 }
 
+// Graph-directional keyboard (PLAN2.md §2.5). The plan's own prose says
+// up=dependency/down=dependent, but K18 already committed `needs` to the
+// canvas's real left/right axis (STATIC_HANDLES above draws dependency ->
+// dependent left-to-right) — mapping the arrow that visually points at a
+// node's dependency beats matching screen-relative prose that predates the
+// ports work. Up/Down are freed up for sibling-cycling instead.
+//
+// "First" dependency/dependent is needs[0] / the first node in payload
+// order whose needs include this id — simple and deterministic rather than
+// tracking a per-selection cursor through a multi-dependency fan-out, which
+// the spec explicitly asked to skip in favor of the honest simple version.
+function firstDependency(nodes: PlanNode[], id: string): string | null {
+  const node = nodes.find((candidate) => candidate.id === id);
+  if (!node || node.needs.length === 0) return null;
+  const target = node.needs[0];
+  return nodes.some((candidate) => candidate.id === target) ? target : null;
+}
+
+function firstDependent(nodes: PlanNode[], id: string): string | null {
+  return nodes.find((candidate) => candidate.needs.includes(id))?.id ?? null;
+}
+
+// Siblings: other nodes sharing this selection's first `in` group, or, when
+// the selection belongs to no group, other likewise-ungrouped nodes — both
+// rings sorted by id so repeated Up/Down presses cycle a stable order.
+function siblingRing(nodes: PlanNode[], id: string): string[] {
+  const self = nodes.find((candidate) => candidate.id === id);
+  if (!self) return [];
+  const group = self.in[0];
+  const pool = group
+    ? nodes.filter((candidate) => candidate.in.includes(group))
+    : nodes.filter((candidate) => candidate.in.length === 0);
+  return pool.map((candidate) => candidate.id).sort();
+}
+
+function cycleSibling(nodes: PlanNode[], id: string, delta: 1 | -1): string | null {
+  const ring = siblingRing(nodes, id);
+  if (ring.length <= 1) return null;
+  const index = ring.indexOf(id);
+  if (index === -1) return null;
+  return ring[(index + delta + ring.length) % ring.length];
+}
+
 /** The whole application. */
 export default function App() {
   const [payload, setPayload] = useState<Payload | null>(null);
@@ -361,6 +412,13 @@ export default function App() {
   // rebuild the nodes under the pointer — the gesture would be cancelled.
   const [interacting, setInteracting] = useState(false);
   const [theme, setTheme] = useState<Theme>(initialTheme);
+  // Ctrl+K palette (PLAN2.md §2.5): open/close only, Palette.tsx owns query
+  // and highlight state internally.
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  // The palette's "Add node" command focuses this after closing — a ref, not
+  // state, since focusing an existing DOM input is an imperative action with
+  // nothing for a render to reflect.
+  const addNodeIdRef = useRef<HTMLInputElement | null>(null);
   // Semantic zoom tier (PLAN2.md §2.2), tracked off React Flow's viewport by
   // the onMove handler below. Starts at "mid" — today's card — since that's
   // also the tier fitView's own maxZoom (1.25) lands a typical plan in.
@@ -397,6 +455,12 @@ export default function App() {
 
   const toggleTheme = useCallback(() => {
     setTheme((current) => (current === "dark" ? "light" : "dark"));
+  }, []);
+
+  // Shared by the sidebar button and the palette's "Toggle auto-layout"
+  // command, same reasoning as toggleTheme above.
+  const toggleAutoLayout = useCallback(() => {
+    setUseViewLayout((current) => !current);
   }, []);
 
   // Semantic zoom (PLAN2.md §2.2): onMove fires on every pointer-driven pan/
@@ -553,18 +617,22 @@ export default function App() {
     [payload, selectedId],
   );
 
-  const onNodeDoubleClick: NodeMouseHandler = useCallback(
-    (_, node) => {
+  // Double-click and the graph keyboard's F key are the same gesture on two
+  // different inputs — one shared callback so they can't drift apart.
+  const focusOn = useCallback(
+    (id: string) => {
       if (!payload) return;
       setTrace(null);
       setFocus({
-        id: node.id,
-        ancestors: ancestorsOf(payload.nodes, node.id),
-        descendants: descendantsOf(payload.nodes, node.id),
+        id,
+        ancestors: ancestorsOf(payload.nodes, id),
+        descendants: descendantsOf(payload.nodes, id),
       });
     },
     [payload],
   );
+
+  const onNodeDoubleClick: NodeMouseHandler = useCallback((_, node) => focusOn(node.id), [focusOn]);
 
   // Empty-canvas click exits both lenses — the same "step back out" gesture
   // a user reaches for regardless of which one is active.
@@ -599,6 +667,103 @@ export default function App() {
       });
     }
   }, [positions]);
+
+  // Shared by the sidebar Braid button and the palette's "Braid" command.
+  const runBraid = useCallback(() => {
+    fetchBraid()
+      .then(setBraidText)
+      .catch((err) => setNotice(String(err)));
+  }, []);
+
+  // The palette's "Add node" command: focus the sidebar's id input after the
+  // overlay closes. A macrotask, not a bare call — React hasn't committed the
+  // close yet at the point this runs, and queuing the focus for the next
+  // tick is simpler than threading a "focus after paint" effect through
+  // state just for this one gesture.
+  const focusAddNodeInput = useCallback(() => {
+    setTimeout(() => addNodeIdRef.current?.focus(), 0);
+  }, []);
+
+  const paletteCommands = useMemo<PaletteCommand[]>(
+    () => [
+      { id: "add-node", label: "Add node", run: focusAddNodeInput },
+      { id: "braid", label: "Braid", run: runBraid },
+      { id: "toggle-theme", label: "Toggle theme", run: toggleTheme },
+      { id: "toggle-auto-layout", label: "Toggle auto-layout", run: toggleAutoLayout },
+    ],
+    [focusAddNodeInput, runBraid, toggleTheme, toggleAutoLayout],
+  );
+
+  // Ctrl+K / Cmd+K opens the palette from anywhere, form fields included —
+  // standard command-palette behavior (VS Code, GitHub) that graph keyboard
+  // below deliberately does not extend to. preventDefault stops the browser
+  // taking it as its own shortcut (address/search bar in some browsers).
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if ((event.key === "k" || event.key === "K") && (event.ctrlKey || event.metaKey)) {
+        event.preventDefault();
+        setPaletteOpen(true);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  // Graph-directional keyboard (PLAN2.md §2.5): live only with a node
+  // selected, the palette closed, and focus outside any form field — the
+  // last guard by event.target's tag, same as the spec asks for. Every arrow
+  // move also centers, via jumpTo, so keyboard and mouse selection always
+  // agree on what "selected" looks like on screen.
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (paletteOpen || !payload || !selectedId) return;
+      // Leaves browser/OS chords (Ctrl+F, Alt+Left history-back, etc.) alone.
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+      const tag = (event.target as HTMLElement | null)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+
+      if (event.key === "ArrowLeft") {
+        const target = firstDependency(payload.nodes, selectedId);
+        if (target) {
+          event.preventDefault();
+          jumpTo(target);
+        }
+      } else if (event.key === "ArrowRight") {
+        const target = firstDependent(payload.nodes, selectedId);
+        if (target) {
+          event.preventDefault();
+          jumpTo(target);
+        }
+      } else if (event.key === "ArrowUp") {
+        const target = cycleSibling(payload.nodes, selectedId, -1);
+        if (target) {
+          event.preventDefault();
+          jumpTo(target);
+        }
+      } else if (event.key === "ArrowDown") {
+        const target = cycleSibling(payload.nodes, selectedId, 1);
+        if (target) {
+          event.preventDefault();
+          jumpTo(target);
+        }
+      } else if (event.key.toLowerCase() === "f") {
+        event.preventDefault();
+        focusOn(selectedId);
+      } else if (event.key === "Delete" || event.key === "Backspace") {
+        event.preventDefault();
+        const node = payload.nodes.find((candidate) => candidate.id === selectedId);
+        if (!node) return;
+        // No auto-force: a referenced node's remove_node 400s with the
+        // referrer list, and applyOp's existing else-branch already surfaces
+        // that in the same notice banner every other op error uses.
+        if (window.confirm(`Delete "${node.title || node.id}"?`)) {
+          void applyOp({ op: "remove_node", node_id: node.id, base_digest: node.digest });
+        }
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [payload, selectedId, paletteOpen, jumpTo, focusOn, applyOp]);
 
   const onConnect = useCallback(
     (connection: Connection) => {
@@ -688,13 +853,8 @@ export default function App() {
           </p>
         ) : null}
         <div className="kumi-actions">
-          <button onClick={() => setUseViewLayout((value) => !value)}>
-            {useViewLayout ? "Auto-layout" : "Use view.yaml"}
-          </button>
-          <button
-            className="kumi-primary"
-            onClick={() => fetchBraid().then(setBraidText).catch((err) => setNotice(String(err)))}
-          >
+          <button onClick={toggleAutoLayout}>{useViewLayout ? "Auto-layout" : "Use view.yaml"}</button>
+          <button className="kumi-primary" onClick={runBraid}>
             Braid
           </button>
         </div>
@@ -736,6 +896,7 @@ export default function App() {
         <h2>Add node</h2>
         <div className="kumi-add">
           <input
+            ref={addNodeIdRef}
             placeholder="id-slug"
             value={newNode.id}
             onChange={(event) => setNewNode({ ...newNode, id: event.target.value })}
@@ -835,6 +996,20 @@ export default function App() {
           nodesDraggable
           nodesConnectable
           edgesReconnectable={false}
+          // K22's own Delete/Backspace handler (above) is the only one
+          // allowed to remove a node — it's digest-gated and goes through
+          // remove_node. React Flow's default deleteKeyCode ('Backspace')
+          // would otherwise also fire on the same keypress and drop the node
+          // from local canvas state directly, bypassing core.ops entirely
+          // (CLAUDE.md invariant #1) and leaving a stale-looking canvas
+          // behind if the user then cancels our confirm() prompt.
+          deleteKeyCode={null}
+          // Same reasoning for arrows: a focused, selected node's div has its
+          // own built-in keyboard handling that nudges its position on
+          // Arrow* — direct conflict with the selection-cycling K22 binds to
+          // those same keys below. disableKeyboardA11y turns off React
+          // Flow's whole per-node keyboard layer in favor of ours.
+          disableKeyboardA11y
         >
           <Background />
           <MiniMap nodeColor={minimapNodeColor} />
@@ -862,6 +1037,13 @@ export default function App() {
           </div>
         </div>
       ) : null}
+      <Palette
+        open={paletteOpen}
+        nodes={payload.nodes}
+        commands={paletteCommands}
+        onClose={() => setPaletteOpen(false)}
+        onSelectNode={jumpTo}
+      />
     </div>
   );
 }
