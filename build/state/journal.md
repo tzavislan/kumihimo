@@ -473,3 +473,22 @@ awaiting his markup — carries the same guarantee as its §6, and grew §3.6
 a query never a check) and §3.7 (RAG both directions: JSONL export of
 plans for indexers, reference nodes with retrievers, per-agent grounding
 lines in --for braids; the library still never retrieves) at his direction.
+
+## Iteration 18 — 2026-08-24 — K17: design tokens + dark mode (builder/checker/critic loop)
+
+First pass of Thomas's builder→checker→critic→train loop on cheaper models
+(Sonnet subagents; Fable orchestrates and gates). Builder delivered the token
+system (light :root, dark [data-theme] override, color-scheme, RF --xy-*
+retinting) and self-caught a specificity bug via live computed-style checks.
+Checker: REVISE (1 blocking — typography had zero tokens against an
+"every color/space/type decision" acceptance; 4 minors). Critic (screenshots,
+both themes, four shots): PASS with 3 contrast/theming nits. One fix round
+closed all five (type tokens, toggle styling, milestone id contrast, edge
+labels de-inlined so themes can reach them, attribution badge themed).
+Deferred to K18 by design: KIND_COLORS + in/link stroke hexes in tsx.
+Noted, not fixed: OS theme-change pickup after first persist; one-frame
+light flash on dark-preferring OS (useEffect vs useLayoutEffect).
+
+**Verified by me, not the builder:** full battery green (128 tests incl. the
+browser smoke against the rebuilt frontend), lint clean. Builder's own
+evidence: computed styles read in the live browser in both themes.

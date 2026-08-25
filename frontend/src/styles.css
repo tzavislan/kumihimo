@@ -1,80 +1,216 @@
 /*
  * @file        frontend/src/styles.css
- * @purpose     The canvas chrome: sidebar + flow grid, node card styling, kind
- *              pills, finding colors. Deliberately small and system-font.
+ * @purpose     Design tokens (light default in :root, dark via
+ *              [data-theme="dark"]) and the canvas chrome they dress:
+ *              sidebar + flow grid, node card styling, kind pills, finding
+ *              colors, React Flow chrome. Deliberately small and system-font.
  * @layer       frontend
- * @tags        css, chrome
- * @related     frontend/src/App.tsx (the structure this dresses)
- * @design      PLAN.md §5.3
+ * @tags        css, chrome, design-tokens, dark-mode
+ * @related     frontend/src/App.tsx (sets data-theme on <html>, owns the
+ *              toggle), frontend/src/KumiNode.tsx (KIND_COLORS accents laid
+ *              over the surface/text tokens defined here)
+ * @design      PLAN.md §5.3, PLAN2.md §2.5
  */
+
+/* Tokens. :root is the light theme (the default with no attribute present);
+ * [data-theme="dark"] is the complete override. Every color used past this
+ * point is a var(--kumi-*) reference — these two blocks are the only place a
+ * hex/rgba literal may live, so a theme is exactly the diff between them. */
+:root {
+  color-scheme: light;
+
+  /* Surfaces, raised (surface) vs. recessed (bg-well) vs. page (bg) */
+  --kumi-bg: #f8fafc;
+  --kumi-bg-well: #f8fafc;
+  --kumi-surface: #ffffff;
+  --kumi-surface-muted: #f1f5f9;
+  --kumi-surface-hover: #e2e8f0;
+
+  /* Text, most to least prominent */
+  --kumi-text: #1f2937;
+  --kumi-text-muted: #475569;
+  --kumi-text-subtle: #64748b;
+  --kumi-text-faint: #94a3b8;
+
+  /* Borders */
+  --kumi-border: #e2e8f0;
+  --kumi-border-strong: #cbd5e1;
+
+  /* Accent: primary buttons, selection outline */
+  --kumi-accent: #1d4ed8;
+  --kumi-accent-contrast: #ffffff;
+
+  /* Finding severities */
+  --kumi-error: #b91c1c;
+  --kumi-warning: #b45309;
+
+  /* Conflict/status notice banner */
+  --kumi-notice-bg: #fef3c7;
+  --kumi-notice-border: #f59e0b;
+
+  /* Milestone card, a visually distinct node kind */
+  --kumi-milestone-bg: #f5f3ff;
+  --kumi-milestone-border: #ddd6fe;
+
+  /* Node chrome not already covered by a kind's own accent color */
+  --kumi-node-border-fallback: #6b7280;
+  --kumi-handle-bg: #64748b;
+  --kumi-handle-border: #ffffff;
+  --kumi-pill-text: #ffffff;
+
+  /* React Flow minimap's mask over the area outside the current viewport */
+  --kumi-minimap-mask: rgba(240, 240, 240, 0.6);
+
+  /* Modal backdrop and the one shadow in the system */
+  --kumi-overlay: rgba(15, 23, 42, 0.5);
+  --kumi-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.08);
+
+  /* Radii: every border-radius in this file is one of these four */
+  --kumi-radius-sm: 6px;
+  --kumi-radius-md: 8px;
+  --kumi-radius-lg: 10px;
+  --kumi-radius-pill: 999px;
+
+  /* Spacing scale: the repeated margin/padding/gap rhythm. One-off,
+   * optical-adjustment paddings (e.g. a pill's 1px 7px) stay literal —
+   * systematizing those would just be renaming numbers, not abstracting. */
+  --kumi-space-4: 4px;
+  --kumi-space-6: 6px;
+  --kumi-space-8: 8px;
+  --kumi-space-12: 12px;
+  --kumi-space-16: 16px;
+
+  /* Type: every font-size/font-family in the file is one of these. No dark
+   * override block — legibility of a typeface or scale step isn't a theme
+   * concern, only color is. */
+  --kumi-font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --kumi-font-mono: ui-monospace, monospace;
+  --kumi-text-xs: 10px;
+  --kumi-text-sm: 12px;
+  --kumi-text-md: 13px;
+  --kumi-text-lg: 18px;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --kumi-bg: #0f172a;
+  --kumi-bg-well: #0f172a;
+  --kumi-surface: #1e293b;
+  --kumi-surface-muted: #334155;
+  --kumi-surface-hover: #475569;
+
+  --kumi-text: #e2e8f0;
+  --kumi-text-muted: #cbd5e1;
+  --kumi-text-subtle: #94a3b8;
+  --kumi-text-faint: #64748b;
+
+  --kumi-border: #334155;
+  --kumi-border-strong: #475569;
+
+  --kumi-accent: #3b82f6;
+  --kumi-accent-contrast: #ffffff;
+
+  --kumi-error: #f87171;
+  --kumi-warning: #fbbf24;
+
+  --kumi-notice-bg: #451a03;
+  --kumi-notice-border: #d97706;
+
+  --kumi-milestone-bg: #2e1065;
+  --kumi-milestone-border: #6d28d9;
+
+  --kumi-node-border-fallback: #94a3b8;
+  --kumi-handle-bg: #94a3b8;
+  --kumi-handle-border: #0f172a;
+  --kumi-pill-text: #ffffff;
+
+  --kumi-minimap-mask: rgba(2, 6, 23, 0.6);
+
+  --kumi-overlay: rgba(0, 0, 0, 0.7);
+  --kumi-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
 
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
 body {
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-  color: #1f2937;
-  background: #f8fafc;
+  font-family: var(--kumi-font-sans);
+  color: var(--kumi-text);
+  background: var(--kumi-bg);
 }
 
 .kumi-shell { display: grid; grid-template-columns: 340px 1fr; height: 100%; }
 .kumi-side {
-  padding: 16px;
-  border-right: 1px solid #e2e8f0;
+  padding: var(--kumi-space-16);
+  border-right: 1px solid var(--kumi-border);
   overflow-y: auto;
-  background: #ffffff;
+  background: var(--kumi-surface);
 }
-.kumi-side h1 { font-size: 18px; margin: 0 0 4px; }
-.kumi-side h2 { font-size: 13px; margin: 16px 0 6px; color: #475569; }
-.kumi-desc { font-size: 13px; color: #475569; margin: 0 0 8px; }
-.kumi-counts { font-size: 12px; color: #64748b; margin: 0 0 12px; }
+.kumi-side-header { display: flex; align-items: center; justify-content: space-between; gap: var(--kumi-space-8); }
+/* Higher specificity than ".kumi-side button" (0,1,1) so the compact sizing
+ * actually wins instead of silently losing to the generic button rule. */
+.kumi-side-header .kumi-theme-toggle {
+  padding: var(--kumi-space-4) var(--kumi-space-8);
+  font-size: var(--kumi-text-md);
+  line-height: 1;
+  flex-shrink: 0;
+}
+.kumi-side h1 { font-size: var(--kumi-text-lg); margin: 0 0 var(--kumi-space-4); }
+.kumi-side h2 { font-size: var(--kumi-text-md); margin: var(--kumi-space-16) 0 var(--kumi-space-6); color: var(--kumi-text-muted); }
+.kumi-desc { font-size: var(--kumi-text-md); color: var(--kumi-text-muted); margin: 0 0 var(--kumi-space-8); }
+.kumi-counts { font-size: var(--kumi-text-sm); color: var(--kumi-text-subtle); margin: 0 0 var(--kumi-space-12); }
 .kumi-side button {
-  font: inherit; font-size: 12px; padding: 6px 10px;
-  border: 1px solid #cbd5e1; border-radius: 6px; background: #f1f5f9;
+  font: inherit; font-size: var(--kumi-text-sm); padding: 6px 10px;
+  border: 1px solid var(--kumi-border-strong); border-radius: var(--kumi-radius-sm);
+  background: var(--kumi-surface-muted); color: var(--kumi-text);
   cursor: pointer;
 }
-.kumi-side button:hover { background: #e2e8f0; }
-.kumi-findings { list-style: none; padding: 0; margin: 0; font-size: 12px; }
+.kumi-side button:hover { background: var(--kumi-surface-hover); }
+.kumi-findings { list-style: none; padding: 0; margin: 0; font-size: var(--kumi-text-sm); }
 .kumi-findings li { padding: 3px 0; }
-.kumi-error { color: #b91c1c; }
-.kumi-warning { color: #b45309; }
-.kumi-hint { font-size: 12px; color: #94a3b8; }
-.kumi-detail { border-top: 1px solid #e2e8f0; margin-top: 12px; padding-top: 8px; }
-.kumi-detail-meta { font-size: 12px; color: #64748b; margin: 2px 0 8px; }
-.kumi-detail table { font-size: 12px; border-collapse: collapse; width: 100%; }
+.kumi-error { color: var(--kumi-error); }
+.kumi-warning { color: var(--kumi-warning); }
+.kumi-hint { font-size: var(--kumi-text-sm); color: var(--kumi-text-faint); }
+.kumi-detail { border-top: 1px solid var(--kumi-border); margin-top: var(--kumi-space-12); padding-top: var(--kumi-space-8); }
+.kumi-detail-meta { font-size: var(--kumi-text-sm); color: var(--kumi-text-subtle); margin: 2px 0 8px; }
+.kumi-detail table { font-size: var(--kumi-text-sm); border-collapse: collapse; width: 100%; }
 .kumi-detail td { padding: 2px 6px 2px 0; vertical-align: top; }
-.kumi-detail td:first-child { color: #64748b; white-space: nowrap; }
+.kumi-detail td:first-child { color: var(--kumi-text-subtle); white-space: nowrap; }
 .kumi-body {
-  font-size: 12px; white-space: pre-wrap; background: #f8fafc;
-  border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px; margin-top: 8px;
+  font-size: var(--kumi-text-sm); white-space: pre-wrap; background: var(--kumi-bg-well);
+  border: 1px solid var(--kumi-border); border-radius: var(--kumi-radius-sm);
+  padding: var(--kumi-space-8); margin-top: var(--kumi-space-8);
 }
-.kumi-loading { display: grid; place-items: center; height: 100%; color: #64748b; }
+.kumi-loading { display: grid; place-items: center; height: 100%; color: var(--kumi-text-subtle); }
 
-.kumi-side label { display: block; font-size: 12px; color: #475569; margin: 8px 0 2px; }
+.kumi-side label { display: block; font-size: var(--kumi-text-sm); color: var(--kumi-text-muted); margin: 8px 0 2px; }
 .kumi-side input, .kumi-side select, .kumi-side textarea {
-  font: inherit; font-size: 12px; width: 100%; padding: 5px 7px;
-  border: 1px solid #cbd5e1; border-radius: 6px; background: #ffffff;
+  font: inherit; font-size: var(--kumi-text-sm); width: 100%; padding: 5px 7px;
+  border: 1px solid var(--kumi-border-strong); border-radius: var(--kumi-radius-sm);
+  background: var(--kumi-surface); color: var(--kumi-text);
 }
 .kumi-side input[type="checkbox"] { width: auto; }
-.kumi-side textarea { resize: vertical; font-family: ui-monospace, monospace; }
-.kumi-actions { display: flex; gap: 6px; margin: 8px 0; align-items: center; }
+.kumi-side textarea { resize: vertical; font-family: var(--kumi-font-mono); }
+.kumi-actions { display: flex; gap: var(--kumi-space-6); margin: var(--kumi-space-8) 0; align-items: center; }
 .kumi-actions button { white-space: nowrap; }
-.kumi-primary { background: #1d4ed8 !important; color: #ffffff; border-color: #1d4ed8 !important; }
-.kumi-add { display: grid; gap: 6px; }
+.kumi-primary { background: var(--kumi-accent) !important; color: var(--kumi-accent-contrast) !important; border-color: var(--kumi-accent) !important; }
+.kumi-add { display: grid; gap: var(--kumi-space-6); }
 .kumi-notice {
-  font-size: 12px; background: #fef3c7; border: 1px solid #f59e0b;
-  border-radius: 6px; padding: 6px 8px; margin: 8px 0; cursor: pointer;
+  font-size: var(--kumi-text-sm); background: var(--kumi-notice-bg); border: 1px solid var(--kumi-notice-border);
+  border-radius: var(--kumi-radius-sm); padding: var(--kumi-space-6) var(--kumi-space-8);
+  margin: var(--kumi-space-8) 0; cursor: pointer;
 }
 .kumi-modal {
-  position: fixed; inset: 0; background: rgba(15, 23, 42, 0.5);
+  position: fixed; inset: 0; background: var(--kumi-overlay);
   display: grid; place-items: center; z-index: 50;
 }
 .kumi-modal-box {
-  background: #ffffff; border-radius: 10px; padding: 14px;
+  background: var(--kumi-surface); border-radius: var(--kumi-radius-lg); padding: 14px;
   width: min(760px, 90vw); max-height: 85vh; display: flex; flex-direction: column;
 }
 .kumi-braid {
-  font-size: 12px; overflow: auto; background: #f8fafc;
-  border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; flex: 1;
+  font-size: var(--kumi-text-sm); overflow: auto; background: var(--kumi-bg-well);
+  border: 1px solid var(--kumi-border); border-radius: var(--kumi-radius-sm); padding: 10px; flex: 1;
   white-space: pre-wrap;
 }
 
@@ -82,27 +218,65 @@ body {
 
 .kumi-node {
   width: 210px; min-height: 66px;
-  background: #ffffff; border: 1px solid #e2e8f0; border-left: 4px solid #6b7280;
-  border-radius: 8px; padding: 8px 10px;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+  background: var(--kumi-surface); border: 1px solid var(--kumi-border);
+  border-left: 4px solid var(--kumi-node-border-fallback);
+  border-radius: var(--kumi-radius-md); padding: 8px 10px;
+  box-shadow: var(--kumi-shadow-sm);
 }
-.kumi-milestone { background: #f5f3ff; border-color: #ddd6fe; border-left-width: 6px; }
+.kumi-milestone { background: var(--kumi-milestone-bg); border-color: var(--kumi-milestone-border); border-left-width: 6px; }
 .react-flow__node.selected .kumi-node {
-  outline: 2px solid #1d4ed8;
+  outline: 2px solid var(--kumi-accent);
   outline-offset: 1px;
 }
-.kumi-title { font-size: 13px; font-weight: 600; line-height: 1.25; }
-.kumi-meta { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
+.kumi-title { font-size: var(--kumi-text-md); font-weight: 600; line-height: 1.25; }
+.kumi-meta { display: flex; gap: var(--kumi-space-6); align-items: center; margin-top: var(--kumi-space-6); }
 .kumi-pill {
-  color: #ffffff; font-size: 10px; padding: 1px 7px; border-radius: 999px;
+  color: var(--kumi-pill-text); font-size: var(--kumi-text-xs); padding: 1px 7px; border-radius: var(--kumi-radius-pill);
 }
-.kumi-status { font-size: 10px; color: #475569; }
-.kumi-id { font-size: 10px; color: #94a3b8; margin-left: auto; }
+.kumi-status { font-size: var(--kumi-text-xs); color: var(--kumi-text-muted); }
+.kumi-id { font-size: var(--kumi-text-xs); color: var(--kumi-text-faint); margin-left: auto; }
+/* The lavender milestone fill is lighter than a plain white card, so the
+ * faint id-slug color that reads fine elsewhere drops under ~2.5:1 there. */
+.kumi-milestone .kumi-id { color: var(--kumi-text-muted); }
 
 /* Default 6px handles are brutal targets for humans and robots alike. */
 .react-flow__handle {
   width: 12px !important;
   height: 12px !important;
-  background: #64748b;
-  border: 2px solid #ffffff;
+  background: var(--kumi-handle-bg);
+  border: 2px solid var(--kumi-handle-border);
+}
+
+/* Edge relation labels ("see-also", "threatened-by") read from these two
+ * vars in both themes — unconditional, not dark-scoped, because the fix here
+ * is making them theme *at all*: they used to come from an inline fill on
+ * the label style in App.tsx, which always wins over CSS, dark var included. */
+.react-flow {
+  --xy-edge-label-background-color: var(--kumi-bg);
+  --xy-edge-label-color: var(--kumi-text-subtle);
+}
+
+/* React Flow reads its own chrome (Background, MiniMap, Controls, edges)
+ * from these CSS variables, so dark mode is a var reassignment rather than a
+ * fight with !important overrides. Light mode is left alone: it already sits
+ * close enough to React Flow's own defaults. */
+[data-theme="dark"] .react-flow {
+  --xy-background-color: var(--kumi-bg);
+  --xy-background-pattern-color: var(--kumi-border);
+  --xy-minimap-background-color: var(--kumi-surface);
+  --xy-minimap-mask-background-color: var(--kumi-minimap-mask);
+  --xy-minimap-node-background-color: var(--kumi-border-strong);
+  --xy-controls-button-background-color: var(--kumi-surface);
+  --xy-controls-button-background-color-hover: var(--kumi-surface-hover);
+  --xy-controls-button-color: var(--kumi-text);
+  --xy-controls-button-border-color: var(--kumi-border);
+  --xy-edge-stroke: var(--kumi-border-strong);
+  --xy-edge-stroke-selected: var(--kumi-text-subtle);
+  /* React Flow's watermark badge defaults to a translucent-white pill,
+   * which reads as a stray light box once the canvas underneath goes dark. */
+  --xy-attribution-background-color: var(--kumi-overlay);
+}
+
+[data-theme="dark"] .react-flow__attribution a {
+  color: var(--kumi-text-subtle);
 }

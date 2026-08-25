@@ -125,7 +125,7 @@ setup, version cut, tag. Checklist: RELEASING.md.
 ## M7 — See (PLAN2.md §2, split 2026-08-24)
 
 ### K17 — Design tokens + dark mode
-status: todo
+status: done (iteration 18)
 needs: —
 PLAN2 §2.5. CSS custom properties for every color/space/type decision in
 frontend/src/styles.css; prefers-color-scheme + a toggle button; both themes

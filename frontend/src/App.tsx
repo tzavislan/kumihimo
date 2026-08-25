@@ -4,13 +4,16 @@
  *              and every gesture — drag, connect, form save, add, delete,
  *              rename, edge removal — posted as one op envelope. View.yaml
  *              positions honored with elk filling gaps, braid preview, dirty-
- *              vs-HEAD indicator, findings live in the sidebar.
+ *              vs-HEAD indicator, findings live in the sidebar. Also owns
+ *              light/dark theme: init from storage or OS preference, toggle,
+ *              persist — styles.css does the rest via [data-theme="dark"].
  * @layer       frontend
- * @tags        react-flow, editor, ops, live, elk, sidebar
+ * @tags        react-flow, editor, ops, live, elk, sidebar, theme
  * @related     frontend/src/api.ts (the wire),
  *              frontend/src/NodeForm.tsx (the selected node's form),
+ *              frontend/src/styles.css (the tokens data-theme switches),
  *              kumihimo/server/ops_api.py (where every gesture lands)
- * @design      PLAN.md §5.1-5.3
+ * @design      PLAN.md §5.1-5.3, PLAN2.md §2.5
  */
 import {
   Background,
@@ -60,6 +63,17 @@ const STATIC_HANDLES: NodeHandle[] = [
   },
 ];
 
+const THEME_KEY = "kumi-theme";
+type Theme = "light" | "dark";
+
+// Storage wins once the user has chosen; before that, follow the OS so a
+// fresh install doesn't default to a jarring light canvas on a dark desktop.
+function initialTheme(): Theme {
+  const stored = localStorage.getItem(THEME_KEY);
+  if (stored === "light" || stored === "dark") return stored;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
 function colorFor(payload: Payload, node: PlanNode): string {
   return payload.kinds[node.kind]?.color ?? KIND_COLORS[node.kind] ?? FALLBACK_COLOR;
 }
@@ -95,7 +109,10 @@ function buildEdges(payload: Payload): Edge[] {
         target: link.to,
         label: link.rel,
         style: { strokeDasharray: "2 4", stroke: "#6b7280" },
-        labelStyle: { fontSize: 10, fill: "#6b7280" },
+        // No fill here: an inline style beats CSS regardless of specificity,
+        // which is exactly what silently broke this label in dark mode
+        // before — styles.css themes it via --xy-edge-label-color instead.
+        labelStyle: { fontSize: 10 },
       });
     }
   }
@@ -138,10 +155,23 @@ export default function App() {
   // While a drag or connect gesture is in flight, payload echoes must not
   // rebuild the nodes under the pointer — the gesture would be cancelled.
   const [interacting, setInteracting] = useState(false);
+  const [theme, setTheme] = useState<Theme>(initialTheme);
 
   useEffect(() => {
     fetchPlan().then(setPayload).catch(console.error);
     return openLive(setPayload);
+  }, []);
+
+  // The attribute, not the state value, is what styles.css keys off of —
+  // this is the one place that writes it, so toggle and persistence can't
+  // drift apart.
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem(THEME_KEY, theme);
+  }, [theme]);
+
+  const toggleTheme = useCallback(() => {
+    setTheme((current) => (current === "dark" ? "light" : "dark"));
   }, []);
 
   useEffect(() => {
@@ -249,7 +279,17 @@ export default function App() {
   return (
     <div className="kumi-shell">
       <aside className="kumi-side">
-        <h1>{payload.plan}</h1>
+        <div className="kumi-side-header">
+          <h1>{payload.plan}</h1>
+          <button
+            className="kumi-theme-toggle"
+            onClick={toggleTheme}
+            title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+            aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+          >
+            {theme === "dark" ? "☀" : "🌙"}
+          </button>
+        </div>
         <p className="kumi-counts">
           {payload.nodes.length} nodes · {edges.length} edges
           {dirty.tracked

@@ -43,3 +43,10 @@ diff, and `git checkout -- .` is a bigger undo than any editor ships.
 `view.yaml` positions win when present; the elk layered algorithm fills the
 gaps. The Auto-layout button toggles to a pure elk arrangement (left to right
 along dependencies) without touching your saved positions.
+
+## Dark mode
+
+A moon/sun toggle sits next to the plan name at the top of the sidebar. On
+first load it follows your OS's light/dark preference; after that, your
+choice is remembered (`localStorage`) and wins over the OS setting until you
+toggle back.
