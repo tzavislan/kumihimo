@@ -528,3 +528,25 @@ critics, the never-delegate-the-gate rule). Training log appended.
 loop.json: iteration=19, last_retro_iteration=19, session guard cleared.
 M7 stands 2/6 done; K19 (focus cones) is next and unblocked. No push —
 milestone-close pushes only, and M7 is open.
+
+## Iteration 20 — 2026-08-24 — K19: focus cones + trace (delegated loop)
+
+Builder (Sonnet): cones.ts pure BFS module, double-click focus (3-step
+distance fade, 15% dim, edges follow), alt-click trace with sidebar summary
+and no-path notice, Esc/pane-click exits, lenses as pure view state that
+survive payload echoes and self-clear only when their nodes vanish. Builder
+pre-flagged the cone-hue coincidence in its own report. Checker: PASS with
+real rigor — 16 synthetic fixture assertions on the BFS/paths math, live DOM
+assertions on apiguard (exact cone membership 8/8, trace path 3/3, echo
+persistence via out-of-band POST), and it caught+reverted its own transient
+view.yaml write. Critic (four screenshots incl. the 30-node roadmap):
+REVISE, 1 blocking — the pre-flagged collision, pixel-confirmed: cone amber
+was byte-identical to the decision kind hex, cone teal to question — plus
+undimmed edge labels and a flat-gray minimap. Fix round (same warm builder,
+105s): cones now fuchsia/lime (distinct from all five kind hues), labels dim
+with their edges, minimap paints kind colors with dimmed-aware alpha (one
+deliberate literal — canvas can't resolve var(); commented).
+
+**Gated by me:** ruff, mypy, 128 tests, lint — green. Loop note: the
+builder's deviation-flag was the critic's blocking find — flags in builder
+reports deserve immediate weight, not later rediscovery.

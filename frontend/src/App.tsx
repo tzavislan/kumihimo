@@ -7,9 +7,15 @@
  *              vs-HEAD indicator, findings live in the sidebar. Also owns
  *              light/dark theme: init from storage or OS preference, toggle,
  *              persist — styles.css does the rest via [data-theme="dark"].
+ *              Owns two client-side view lenses built on cones.ts's graph
+ *              math: focus (double-click dims everything outside the node's
+ *              up/downstream cone) and trace (alt-click a second node lights
+ *              the needs-paths between them) — both pure view state, never
+ *              posted as an op, recomputed whenever a payload echo arrives.
  * @layer       frontend
- * @tags        react-flow, editor, ops, live, elk, sidebar, theme
+ * @tags        react-flow, editor, ops, live, elk, sidebar, theme, focus, trace
  * @related     frontend/src/api.ts (the wire),
+ *              frontend/src/cones.ts (focus/trace graph math),
  *              frontend/src/NodeForm.tsx (the selected node's form),
  *              frontend/src/styles.css (the tokens data-theme switches),
  *              kumihimo/server/ops_api.py (where every gesture lands)
@@ -34,7 +40,8 @@ import {
 import "@xyflow/react/dist/style.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchBraid, fetchDirty, fetchPlan, openLive, postOp } from "./api";
-import { FALLBACK_COLOR, KIND_COLORS, KumiNode } from "./KumiNode";
+import { ancestorsOf, descendantsOf, pathsBetween } from "./cones";
+import { FALLBACK_COLOR, KIND_COLORS, KumiNode, type KumiNodeData } from "./KumiNode";
 import { elkPositions, NODE_HEIGHT, NODE_WIDTH } from "./layout";
 import { NodeForm } from "./NodeForm";
 import type { Payload, PlanNode, Position } from "./types";
@@ -42,6 +49,55 @@ import type { Payload, PlanNode, Position } from "./types";
 const NODE_TYPES = { kumi: KumiNode };
 
 type EdgeMode = "needs" | "in" | "link";
+
+// Focus and trace are alternatives, never both: entering one clears the
+// other so a node's class is never ambiguous between two active lenses.
+interface FocusState {
+  id: string;
+  ancestors: Map<string, number>;
+  descendants: Map<string, number>;
+}
+interface TraceState {
+  a: string;
+  b: string;
+  nodes: Set<string>;
+}
+
+// Bucket BFS distance into the 3 CSS steps (kumi-cone-{up,down}-1..3) the
+// tokens fade across; distance 3+ shares the faintest step rather than
+// growing an unbounded class list.
+function coneStep(distance: number): number {
+  return Math.min(distance, 3);
+}
+
+/** The node wrapper class for the active lens, or undefined outside one —
+ * cone tint for ancestors/descendants, a distinct ring for the focus node
+ * itself or a trace endpoint/path node, ~15% dim for everything else. */
+function coneClassName(id: string, focus: FocusState | null, trace: TraceState | null): string | undefined {
+  if (focus) {
+    if (id === focus.id) return "kumi-focus-self";
+    const up = focus.ancestors.get(id);
+    if (up !== undefined) return `kumi-cone-up-${coneStep(up)}`;
+    const down = focus.descendants.get(id);
+    if (down !== undefined) return `kumi-cone-down-${coneStep(down)}`;
+    return "kumi-dimmed";
+  }
+  if (trace) {
+    return trace.nodes.has(id) ? "kumi-trace-node" : "kumi-dimmed";
+  }
+  return undefined;
+}
+
+// MiniMap paints to a <canvas>, not the DOM, so it can't resolve a
+// var(--kumi-*) token or read our .kumi-dimmed CSS rule — it wants a color
+// string back from this callback. The alpha-hex fallback below is a
+// deliberate, narrow exception to the tokens-only rule, not an oversight:
+// there is no token to hand it.
+function minimapNodeColor(node: Node): string {
+  const dimmed = typeof node.className === "string" && node.className.includes("kumi-dimmed");
+  if (dimmed) return "#94a3b833";
+  return (node.data as KumiNodeData).color;
+}
 
 // Static handle geometry (React Flow's SSR recipe): with node dimensions and
 // handle coordinates declared, edges render without any browser measure pass —
@@ -221,6 +277,8 @@ export default function App() {
   const [edgeMode, setEdgeMode] = useState<EdgeMode>("needs");
   const [linkRel, setLinkRel] = useState("see-also");
   const [notice, setNotice] = useState<string | null>(null);
+  const [focus, setFocus] = useState<FocusState | null>(null);
+  const [trace, setTrace] = useState<TraceState | null>(null);
   const [braidText, setBraidText] = useState<string | null>(null);
   const [dirty, setDirty] = useState<{ tracked: boolean; dirty: string[] }>({
     tracked: false,
@@ -238,6 +296,19 @@ export default function App() {
   useEffect(() => {
     fetchPlan().then(setPayload).catch(console.error);
     return openLive(setPayload);
+  }, []);
+
+  // Esc exits either lens; a plain window listener since focus/trace apply
+  // even when no form input has focus. Cleaned up on unmount like any other
+  // subscription — nothing here to leak.
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      setFocus(null);
+      setTrace(null);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
   // The attribute, not the state value, is what styles.css keys off of —
@@ -266,6 +337,32 @@ export default function App() {
       cancelled = true;
     };
   }, [payload, useViewLayout]);
+
+  // Payload echoes (live socket, or any op's own response) must not silently
+  // exit focus/trace — recompute the cones against the fresh node list
+  // instead, only clearing when an endpoint itself is gone from this payload.
+  // The functional setFocus/setTrace form reads current state without
+  // needing focus/trace in the dependency array, so this only reruns on a
+  // genuine new payload, never loops on its own setState.
+  useEffect(() => {
+    if (!payload) return;
+    setFocus((current) => {
+      if (!current) return current;
+      if (!payload.nodes.some((node) => node.id === current.id)) return null;
+      return {
+        id: current.id,
+        ancestors: ancestorsOf(payload.nodes, current.id),
+        descendants: descendantsOf(payload.nodes, current.id),
+      };
+    });
+    setTrace((current) => {
+      if (!current) return current;
+      const ids = new Set(payload.nodes.map((node) => node.id));
+      if (!ids.has(current.a) || !ids.has(current.b)) return null;
+      const onPath = pathsBetween(payload.nodes, current.a, current.b);
+      return onPath.size > 0 ? { a: current.a, b: current.b, nodes: onPath } : null;
+    });
+  }, [payload]);
 
   const applyOp = useCallback(async (envelope: Record<string, unknown>) => {
     const result = await postOp(envelope);
@@ -298,12 +395,26 @@ export default function App() {
           height: NODE_HEIGHT,
           handles: STATIC_HANDLES,
           measured: old?.measured,
+          className: coneClassName(node.id, focus, trace),
         };
       });
     });
-  }, [payload, positions, setNodes, interacting]);
+  }, [payload, positions, setNodes, interacting, focus, trace]);
 
-  const edges = useMemo(() => (payload ? buildEdges(payload) : []), [payload]);
+  // Focus/trace dim edges too: an edge stays full strength only when both
+  // ends are in the active lens's highlighted set, same rule as the nodes.
+  const edges = useMemo(() => {
+    if (!payload) return [];
+    const built = buildEdges(payload);
+    const highlighted = focus
+      ? new Set([focus.id, ...focus.ancestors.keys(), ...focus.descendants.keys()])
+      : trace?.nodes ?? null;
+    if (!highlighted) return built;
+    return built.map((edge) => {
+      const full = highlighted.has(edge.source) && highlighted.has(edge.target);
+      return { ...edge, className: `${edge.className ?? ""} ${full ? "" : "kumi-edge-dim"}`.trim() };
+    });
+  }, [payload, focus, trace]);
 
   // A live payload update can remove the hovered edge with the cursor still
   // parked on where it was — no DOM leave event ever fires, and the tooltip
@@ -315,9 +426,48 @@ export default function App() {
   }, [edges, edgeTip]);
   const selected = payload?.nodes.find((node) => node.id === selectedId) ?? null;
 
-  const onNodeClick: NodeMouseHandler = useCallback((_, node) => {
-    setSelectedId(node.id);
-    setSelectedEdge(null);
+  // Alt-click a second node (with one already selected) starts a trace
+  // instead of reselecting — a plain click always still just selects, so
+  // this only branches when both the modifier and a distinct prior
+  // selection are present.
+  const onNodeClick: NodeMouseHandler = useCallback(
+    (event, node) => {
+      if (event.altKey && payload && selectedId && selectedId !== node.id) {
+        const onPath = pathsBetween(payload.nodes, selectedId, node.id);
+        if (onPath.size === 0) {
+          setNotice(
+            `no dependency path between ${nodeTitle(payload, selectedId)} and ${nodeTitle(payload, node.id)}`,
+          );
+          return;
+        }
+        setFocus(null);
+        setTrace({ a: selectedId, b: node.id, nodes: onPath });
+        return;
+      }
+      setSelectedId(node.id);
+      setSelectedEdge(null);
+    },
+    [payload, selectedId],
+  );
+
+  const onNodeDoubleClick: NodeMouseHandler = useCallback(
+    (_, node) => {
+      if (!payload) return;
+      setTrace(null);
+      setFocus({
+        id: node.id,
+        ancestors: ancestorsOf(payload.nodes, node.id),
+        descendants: descendantsOf(payload.nodes, node.id),
+      });
+    },
+    [payload],
+  );
+
+  // Empty-canvas click exits both lenses — the same "step back out" gesture
+  // a user reaches for regardless of which one is active.
+  const onPaneClick = useCallback(() => {
+    setFocus(null);
+    setTrace(null);
   }, []);
 
   const onEdgeClick: EdgeMouseHandler = useCallback((_, edge) => {
@@ -414,6 +564,21 @@ export default function App() {
           <div className="kumi-notice" onClick={() => setNotice(null)}>
             {notice}
           </div>
+        ) : null}
+        {focus ? (
+          <p className="kumi-focus-hint">
+            Focused on {nodeTitle(payload, focus.id)} — upstream {focus.ancestors.size}, downstream{" "}
+            {focus.descendants.size}. Esc to exit.
+          </p>
+        ) : null}
+        {trace ? (
+          <p className="kumi-focus-hint">
+            {trace.nodes.size} nodes on paths between {nodeTitle(payload, trace.a)} and{" "}
+            {nodeTitle(payload, trace.b)}.{" "}
+            <button className="kumi-trace-clear" onClick={() => setTrace(null)}>
+              Clear
+            </button>
+          </p>
         ) : null}
         <div className="kumi-actions">
           <button onClick={() => setUseViewLayout((value) => !value)}>
@@ -525,6 +690,8 @@ export default function App() {
           onNodesChange={onNodesChange}
           nodeTypes={NODE_TYPES}
           onNodeClick={onNodeClick}
+          onNodeDoubleClick={onNodeDoubleClick}
+          onPaneClick={onPaneClick}
           onEdgeClick={onEdgeClick}
           onEdgeMouseEnter={onEdgeMouseEnter}
           onEdgeMouseLeave={onEdgeMouseLeave}
@@ -543,7 +710,7 @@ export default function App() {
           edgesReconnectable={false}
         >
           <Background />
-          <MiniMap />
+          <MiniMap nodeColor={minimapNodeColor} />
           <Controls showInteractive={false} />
         </ReactFlow>
         {edgeTip && edgeTipInfo ? (

@@ -42,6 +42,27 @@ never ids. Clicking an edge opens a panel with that same sentence, a jump
 button per endpoint (selects the node and centers the canvas on it, zoom
 unchanged), and the Remove edge button.
 
+## Focus and trace
+
+Double-click a node to focus it: everything it needs (upstream) tints
+fuchsia, everything that needs it (downstream) tints lime, each fading over
+three steps with distance, and every unrelated node dims to about 15% (the
+minimap follows too, showing dimmed nodes as faint gray). The sidebar
+shows a one-line "Focused on … — upstream *n*, downstream *m*" summary. Esc,
+or clicking empty canvas, exits.
+
+With a node selected, alt-click a second node to trace between them instead:
+every node on any dependency path connecting the two — in either direction —
+keeps full strength with a dashed ring, everything else dims, and the
+sidebar shows a "*N* nodes on paths between A and B" summary with a Clear
+button. If the two aren't connected by any `needs` chain, a notice says so
+and trace mode isn't entered. Esc clears trace the same way it exits focus.
+
+Both lenses are purely client-side view state, computed over the `needs`
+edges already in the payload — nothing is written to disk, and a live
+payload update (another editor, a file edit) recomputes the cones instead of
+kicking you out, unless the node you'd focused or traced is itself gone.
+
 ## Sync, conflicts, and undo
 
 The canvas never holds unsaved state — there is no save button for the plan,

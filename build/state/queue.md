@@ -142,7 +142,7 @@ Accept: apiguard's membership edges no longer share dependency ports; hover
 and panel behaviors verified in the smoke or a screenshot pass.
 
 ### K19 — Focus cones + trace
-status: todo
+status: done (iteration 20)
 needs: [K18]
 PLAN2 §2.1. Double-click focuses: ancestors one tint, descendants another,
 distance fade, rest dimmed to 15%, Esc restores; alt-click second node lights
