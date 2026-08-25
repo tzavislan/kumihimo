@@ -3,15 +3,16 @@
  * @purpose     Design tokens (light default in :root, dark via
  *              [data-theme="dark"]) and the canvas chrome they dress:
  *              sidebar + flow grid, node card styling, kind pills, finding
- *              colors, focus/trace cone tints, semantic-zoom tiers, React
- *              Flow chrome. Deliberately small and system-font.
+ *              colors and canvas halos, focus/trace cone tints, semantic-zoom
+ *              tiers, React Flow chrome. Deliberately small and system-font.
  * @layer       frontend
  * @tags        css, chrome, design-tokens, dark-mode, focus, trace,
- *              semantic-zoom
- * @related     frontend/src/App.tsx (sets data-theme on <html> and the
- *              per-node focus/trace class this file styles), KumiNode.tsx
- *              (KIND_COLORS accents laid over the surface/text tokens here;
- *              picks the kumi-tier-* class this file styles)
+ *              semantic-zoom, findings
+ * @related     frontend/src/App.tsx (sets data-theme on <html>, the per-node
+ *              focus/trace/halo classes this file styles, and the sidebar
+ *              finding rows this file's .kumi-finding-clickable styles),
+ *              KumiNode.tsx (KIND_COLORS accents laid over the surface/text
+ *              tokens here; picks the kumi-tier-* class this file styles)
  * @design      PLAN.md §5.3, PLAN2.md §2.1-2.2, §2.5
  */
 
@@ -46,6 +47,19 @@
   /* Finding severities */
   --kumi-error: #b91c1c;
   --kumi-warning: #b45309;
+
+  /* Finding halos (PLAN2.md §2.1): the canvas ring around a node named by a
+   * check finding. Derived, not a new color pair — this file already has
+   * the severity hue as --kumi-error/--kumi-warning above (PLAN2.md called
+   * them --kumi-danger/--kumi-warn; those don't exist here, these do the
+   * same job, so the halo reuses them via color-mix rather than minting a
+   * third red/amber pair). Declared once, not repeated in [data-theme=
+   * "dark"]: color-mix's nested var(--kumi-error) is itself a custom
+   * property reference, so it re-resolves against whichever theme is active
+   * at the point of use — the dark block's --kumi-error redefinition below
+   * is picked up automatically. */
+  --kumi-halo-error: color-mix(in srgb, var(--kumi-error) 55%, transparent);
+  --kumi-halo-warning: color-mix(in srgb, var(--kumi-warning) 55%, transparent);
 
   /* Conflict/status notice banner */
   --kumi-notice-bg: #fef3c7;
@@ -197,6 +211,11 @@ body {
 .kumi-findings li { padding: 3px 0; }
 .kumi-error { color: var(--kumi-error); }
 .kumi-warning { color: var(--kumi-warning); }
+/* Click-to-jump (PLAN2.md §2.1): only on rows whose finding.where names a
+ * node (App.tsx gates the class on that); a file-level finding like
+ * kumihimo.yaml stays plain, inert text with no affordance. */
+.kumi-finding-clickable { cursor: pointer; }
+.kumi-finding-clickable:hover { text-decoration: underline; }
 .kumi-hint { font-size: var(--kumi-text-sm); color: var(--kumi-text-faint); }
 .kumi-detail { border-top: 1px solid var(--kumi-border); margin-top: var(--kumi-space-12); padding-top: var(--kumi-space-8); }
 .kumi-detail-meta { font-size: var(--kumi-text-sm); color: var(--kumi-text-subtle); margin: 2px 0 8px; }
@@ -326,6 +345,35 @@ body {
 .react-flow__node.kumi-cone-down-2 .kumi-node { opacity: 0.75; }
 .react-flow__node.kumi-cone-up-3 .kumi-node,
 .react-flow__node.kumi-cone-down-3 .kumi-node { opacity: 0.5; }
+
+/* Finding halos (PLAN2.md §2.1): a wrapper class App.tsx composes alongside
+ * the cone/focus/trace class above, from payload.findings. box-shadow, not
+ * outline/border, so it never fights focus's solid ring or trace's dashed
+ * one (both outline) or the kind stripe (border-left) — all three CSS
+ * properties are independent, so every combination just layers. Listed
+ * after the base .kumi-node shadow, not in place of it, so the drop shadow
+ * survives. Only one of these ever applies to a given node (App.tsx's
+ * findingHalos already resolves error-beats-warning before the class is
+ * chosen), so there's no ordering concern between the two rules below. */
+.react-flow__node.kumi-halo-error .kumi-node {
+  box-shadow: var(--kumi-shadow-sm), 0 0 0 3px var(--kumi-halo-error);
+}
+.react-flow__node.kumi-halo-warning .kumi-node {
+  box-shadow: var(--kumi-shadow-sm), 0 0 0 3px var(--kumi-halo-warning);
+}
+/* At far tier the visible card is the inner chip, smaller than the fixed
+ * layout box — ring the chip, not the box, or the halo floats around empty
+ * space exactly at the zoom level meant for scanning a plan for problems. */
+.react-flow__node.kumi-halo-error .kumi-node.kumi-tier-far,
+.react-flow__node.kumi-halo-warning .kumi-node.kumi-tier-far {
+  box-shadow: none;
+}
+.react-flow__node.kumi-halo-error .kumi-node.kumi-tier-far .kumi-chip {
+  box-shadow: 0 0 0 2px var(--kumi-halo-error);
+}
+.react-flow__node.kumi-halo-warning .kumi-node.kumi-tier-far .kumi-chip {
+  box-shadow: 0 0 0 2px var(--kumi-halo-warning);
+}
 .kumi-title { font-size: var(--kumi-text-md); font-weight: 600; line-height: 1.25; }
 /* wrap, not nowrap (PLAN2.md §2.2): mid tier can now carry a status glyph,
  * effort chip, and member badge alongside the pill/status/id that were

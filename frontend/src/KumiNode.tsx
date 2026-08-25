@@ -6,9 +6,11 @@
  *              near), chosen upstream in App.tsx from viewport.zoom and
  *              handed down through node data.
  * @layer       frontend
- * @tags        react-flow, node, kind-colors, semantic-zoom
+ * @tags        react-flow, node, kind-colors, semantic-zoom, findings
  * @related     frontend/src/App.tsx (registers this as node type "kumi",
- *              tracks the active tier and passes it through node data)
+ *              tracks the active tier and passes it through node data; also
+ *              sets the wrapper's kumi-halo-error/warning class this file's
+ *              .kumi-node div is the box-shadow target for — styles.css)
  * @design      PLAN.md §5.3, PLAN2.md §2.2, §2.4
  */
 import { Handle, Position as FlowPosition, type NodeProps } from "@xyflow/react";

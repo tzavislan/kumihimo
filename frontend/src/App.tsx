@@ -4,8 +4,11 @@
  *              and every gesture — drag, connect, form save, add, delete,
  *              rename, edge removal — posted as one op envelope. View.yaml
  *              positions honored with elk filling gaps, braid preview, dirty-
- *              vs-HEAD indicator, findings live in the sidebar. Also owns
- *              light/dark theme: init from storage or OS preference, toggle,
+ *              vs-HEAD indicator, findings live in the sidebar — each also
+ *              haloing its node on the canvas (error beats warning) and,
+ *              when it names a node rather than a file, click-to-jump to
+ *              select and center it. Also owns light/dark theme: init from
+ *              storage or OS preference, toggle,
  *              persist — styles.css does the rest via [data-theme="dark"].
  *              Owns two client-side view lenses built on cones.ts's graph
  *              math: focus (double-click dims everything outside the node's
@@ -19,7 +22,7 @@
  *              to render it.
  * @layer       frontend
  * @tags        react-flow, editor, ops, live, elk, sidebar, theme, focus,
- *              trace, semantic-zoom
+ *              trace, semantic-zoom, findings
  * @related     frontend/src/api.ts (the wire),
  *              frontend/src/cones.ts (focus/trace graph math),
  *              frontend/src/KumiNode.tsx (zoomTier thresholds + tier render),
@@ -59,7 +62,7 @@ import {
 } from "./KumiNode";
 import { elkPositions, NODE_HEIGHT, NODE_WIDTH } from "./layout";
 import { NodeForm } from "./NodeForm";
-import type { Payload, PlanNode, Position } from "./types";
+import type { Finding, Payload, PlanNode, Position } from "./types";
 
 const NODE_TYPES = { kumi: KumiNode };
 
@@ -126,6 +129,35 @@ function acceptanceList(node: PlanNode): string[] | null {
   const value = node.effective.acceptance;
   if (!Array.isArray(value)) return null;
   return value.filter((item): item is string => typeof item === "string");
+}
+
+// Findings-on-the-graph halo (PLAN2.md §2.1): node id -> worst level of any
+// finding naming it. finding.where is a node id when the finding is about
+// that node; a file-level finding (kumihimo.yaml, a kind's schema) never
+// matches an id and so never halos. Error beats warning when a node carries
+// both, regardless of which finding came first in payload.findings, since a
+// node shows at most one ring. The sidebar's click-to-jump reuses this same
+// map's key set as its "is this finding's `where` a node id" check — every
+// finding that matches gets inserted here independent of level.
+function findingHalos(nodes: PlanNode[], findings: Finding[]): Map<string, "error" | "warning"> {
+  const ids = new Set(nodes.map((node) => node.id));
+  const halos = new Map<string, "error" | "warning">();
+  for (const finding of findings) {
+    if (!ids.has(finding.where)) continue;
+    if (finding.level === "error" || !halos.has(finding.where)) {
+      halos.set(finding.where, finding.level);
+    }
+  }
+  return halos;
+}
+
+// The halo wrapper class for one node, or undefined when it has none —
+// composed alongside coneClassName's lens class rather than replacing it,
+// same pattern as the edges useMemo below composing an edge's kind class
+// with kumi-edge-dim.
+function haloClassName(id: string, halos: Map<string, "error" | "warning">): string | undefined {
+  const level = halos.get(id);
+  return level ? `kumi-halo-${level}` : undefined;
 }
 
 // MiniMap paints to a <canvas>, not the DOM, so it can't resolve a
@@ -439,9 +471,11 @@ export default function App() {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   useEffect(() => {
     if (!payload || interacting) return;
-    // One pass for membership counts (PLAN2.md §2.2), shared by every node
-    // below rather than recomputed per node.
+    // One pass for membership counts (PLAN2.md §2.2) and finding halos
+    // (PLAN2.md §2.1), each shared by every node below rather than
+    // recomputed per node.
     const counts = memberCounts(payload.nodes);
+    const halos = findingHalos(payload.nodes, payload.findings);
     setNodes((previous) => {
       const byId = new Map(previous.map((node) => [node.id, node]));
       return payload.nodes.map((node) => {
@@ -462,7 +496,9 @@ export default function App() {
           height: NODE_HEIGHT,
           handles: STATIC_HANDLES,
           measured: old?.measured,
-          className: coneClassName(node.id, focus, trace),
+          className: [coneClassName(node.id, focus, trace), haloClassName(node.id, halos)]
+            .filter(Boolean)
+            .join(" ") || undefined,
         };
       });
     });
@@ -602,6 +638,10 @@ export default function App() {
   }
   const errors = payload.findings.filter((finding) => finding.level === "error");
   const warnings = payload.findings.filter((finding) => finding.level === "warning");
+  // Recomputed here (not lifted out of the nodes-rebuild effect above) for
+  // the same reason errors/warnings are: this is render-time sidebar data,
+  // cheap to derive fresh rather than thread through another piece of state.
+  const halos = findingHalos(payload.nodes, payload.findings);
   const selectedEdgeInfo = selectedEdge ? parseEdge(selectedEdge) : null;
   const edgeTipInfo = edgeTip ? parseEdge(edgeTip.edgeId) : null;
 
@@ -733,16 +773,30 @@ export default function App() {
             Add
           </button>
         </div>
-        <h2>
-          Check: {errors.length} error{errors.length === 1 ? "" : "s"}, {warnings.length} warning
-          {warnings.length === 1 ? "" : "s"}
-        </h2>
+        {payload.findings.length > 0 ? (
+          <h2>
+            Check: {errors.length} error{errors.length === 1 ? "" : "s"}, {warnings.length} warning
+            {warnings.length === 1 ? "" : "s"}
+          </h2>
+        ) : (
+          <p className="kumi-hint">Check: clean</p>
+        )}
         <ul className="kumi-findings">
-          {payload.findings.map((finding, index) => (
-            <li key={index} className={`kumi-${finding.level}`}>
-              <b>{finding.where}</b>: {finding.message}
-            </li>
-          ))}
+          {payload.findings.map((finding, index) => {
+            // Click-to-jump (PLAN2.md §2.1): only when `where` names a node
+            // (halos' key set — see findingHalos) rather than a file like
+            // kumihimo.yaml, which stays plain, inert text as today.
+            const clickable = halos.has(finding.where);
+            return (
+              <li
+                key={index}
+                className={`kumi-${finding.level}${clickable ? " kumi-finding-clickable" : ""}`}
+                onClick={clickable ? () => jumpTo(finding.where) : undefined}
+              >
+                <b>{finding.where}</b>: {finding.message}
+              </li>
+            );
+          })}
         </ul>
         {selected ? (
           <NodeForm node={selected} kinds={payload.kinds} onApply={(env) => void applyOp(env)} />

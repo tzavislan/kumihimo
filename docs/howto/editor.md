@@ -63,6 +63,17 @@ edges already in the payload — nothing is written to disk, and a live
 payload update (another editor, a file edit) recomputes the cones instead of
 kicking you out, unless the node you'd focused or traced is itself gone.
 
+## Findings on the canvas
+
+A node named by a `check` finding gets a soft ring around its card — red for
+an error, amber for a warning, error winning when a node carries both.
+Sidebar finding rows underneath the counts stay in sync with the same rule:
+a row whose finding points at a node (rather than a file like
+`kumihimo.yaml`) is clickable — click it to select and center that node, the
+same jump an edge panel's endpoint buttons do. Findings against a file list
+the same as always, just not clickable. When `check` finds nothing, the
+heading reads a quiet "Check: clean" instead of the usual counts.
+
 ## Semantic zoom
 
 Nodes render differently depending how far you've zoomed, so a small plan

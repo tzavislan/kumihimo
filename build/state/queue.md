@@ -157,7 +157,7 @@ member count, halo), Near=body preview + acceptance checkboxes + chips;
 thresholds on RF zoom. Accept: three tiers visibly distinct on the roadmap.
 
 ### K21 — Finding halos + click-to-jump
-status: todo
+status: done (iteration 22)
 needs: [K17]
 PLAN2 §2.1. Error/warning halos on nodes; sidebar findings click to select
 and center. Accept: a plan with one error shows exactly one red halo; click

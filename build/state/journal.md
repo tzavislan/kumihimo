@@ -588,3 +588,21 @@ acceptance-has-one-home, accepted-tradeoffs-expire (iteration skill);
 queue-is-acceptance-authority (manage skill). M7 stands 4/6 — K21 finding
 halos and K22 palette remain, both unblocked (K22's dep K19 is done).
 loop.json: iteration=21, last_retro=21, guard cleared. No push — M7 open.
+
+## Iteration 22 — 2026-08-24 — K21: finding halos + click-to-jump (delegated loop)
+
+Builder (Sonnet): findingHalos map (error beats warning; file-level findings
+structurally can't halo — same Set gates sidebar clickability), halo ring as
+box-shadow so it composes with focus outline / dim opacity / kind stripe
+without contention, click-to-jump reusing the edge panel's jumpTo, "Check:
+clean" empty state, halo tokens as color-mix derivations of the existing
+severity tokens (declared once — nested var() re-resolves per theme).
+Builder live-verified on a throwaway broken plan incl. hand-computed
+centering math. Combined checker+critic (small-item variant, noted): PASS,
+1 minor — the far-tier ring hugged the empty layout box instead of the
+shrunken chip; orchestrator fixed (ring the chip at far tier). The reviewer
+also could not screenshot (hidden pane, the known environment artifact),
+said so plainly, and verified via live computed styles instead — the
+honesty bar holding in a subagent.
+
+**Gated by me:** typecheck, build, ruff, mypy, 128 tests, lint — green.
