@@ -63,6 +63,32 @@ edges already in the payload — nothing is written to disk, and a live
 payload update (another editor, a file edit) recomputes the cones instead of
 kicking you out, unless the node you'd focused or traced is itself gone.
 
+## Semantic zoom
+
+Nodes render differently depending how far you've zoomed, so a small plan
+reads as a card catalog and a large one still reads as a plan instead of a
+wall of identical boxes. Three tiers, switched on React Flow's zoom level:
+
+- **Far** (zoom below 0.45) — a compact colored chip: the kind's color as a
+  tint, the title, nothing else. This is the plan's silhouette — scroll out
+  far enough on a big roadmap and you're reading shapes and titles, not
+  cards.
+- **Mid** (0.45 up to 1.3) — the normal card: title, kind pill, id, and now
+  also a status glyph (○ todo, ◐ doing, ● done, ⛔ blocked) beside the status
+  text, an effort chip when the node has one, and — on milestone nodes — a
+  member-count badge ("*n* threads") counting how many nodes name it in
+  their `in`. This is the default working zoom.
+- **Near** (zoom 1.3 and above) — the mid card plus a one-line body preview
+  and, when the node has an `acceptance` list, its first item as a read-only
+  `☐` line with a "+*n* more" count alongside. Zoom in on one node to read a
+  little more of it without opening the sidebar form.
+
+A card's on-canvas footprint never changes size between tiers, near
+included: everything above packs into the same box mid and far already use,
+in smaller type — readable because you're zoomed in to see it. That keeps
+dragging, edges, and the auto-layout stable across a zoom gesture, and
+means cards never grow into their neighbors as you zoom in.
+
 ## Sync, conflicts, and undo
 
 The canvas never holds unsaved state — there is no save button for the plan,

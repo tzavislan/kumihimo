@@ -12,14 +12,21 @@
  *              up/downstream cone) and trace (alt-click a second node lights
  *              the needs-paths between them) — both pure view state, never
  *              posted as an op, recomputed whenever a payload echo arrives.
+ *              Also tracks the semantic-zoom tier off React Flow's viewport
+ *              (onMove), threshold-debounced so a zoom gesture only touches
+ *              node state when the tier actually changes, and computes the
+ *              per-node data (member count, acceptance list) KumiNode needs
+ *              to render it.
  * @layer       frontend
- * @tags        react-flow, editor, ops, live, elk, sidebar, theme, focus, trace
+ * @tags        react-flow, editor, ops, live, elk, sidebar, theme, focus,
+ *              trace, semantic-zoom
  * @related     frontend/src/api.ts (the wire),
  *              frontend/src/cones.ts (focus/trace graph math),
+ *              frontend/src/KumiNode.tsx (zoomTier thresholds + tier render),
  *              frontend/src/NodeForm.tsx (the selected node's form),
  *              frontend/src/styles.css (the tokens data-theme switches),
  *              kumihimo/server/ops_api.py (where every gesture lands)
- * @design      PLAN.md §5.1-5.3, PLAN2.md §2.1, §2.4-2.5
+ * @design      PLAN.md §5.1-5.3, PLAN2.md §2.1-2.2, §2.4-2.5
  */
 import {
   Background,
@@ -36,12 +43,20 @@ import {
   type NodeHandle,
   type NodeMouseHandler,
   type ReactFlowInstance,
+  type Viewport,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchBraid, fetchDirty, fetchPlan, openLive, postOp } from "./api";
 import { ancestorsOf, descendantsOf, pathsBetween } from "./cones";
-import { FALLBACK_COLOR, KIND_COLORS, KumiNode, type KumiNodeData } from "./KumiNode";
+import {
+  FALLBACK_COLOR,
+  KIND_COLORS,
+  KumiNode,
+  zoomTier,
+  type KumiNodeData,
+  type ZoomTier,
+} from "./KumiNode";
 import { elkPositions, NODE_HEIGHT, NODE_WIDTH } from "./layout";
 import { NodeForm } from "./NodeForm";
 import type { Payload, PlanNode, Position } from "./types";
@@ -86,6 +101,31 @@ function coneClassName(id: string, focus: FocusState | null, trace: TraceState |
     return trace.nodes.has(id) ? "kumi-trace-node" : "kumi-dimmed";
   }
   return undefined;
+}
+
+// Milestone member count (PLAN2.md §2.2 mid tier): how many payload nodes
+// name this id in their `in` — i.e. how many threads belong to it. One pass
+// over every node's `in` list per payload, alongside the nodes-rebuild
+// effect that already walks payload.nodes once per render; KumiNode only
+// ever sees one node, so this has to happen up here.
+function memberCounts(nodes: PlanNode[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const node of nodes) {
+    for (const group of node.in) {
+      counts.set(group, (counts.get(group) ?? 0) + 1);
+    }
+  }
+  return counts;
+}
+
+// Near-tier acceptance checklist (PLAN2.md §2.2): only effective.acceptance
+// that actually resolved to a list (kinds.yaml's "list" field type) renders
+// as checkboxes — a hand-edited file that turned it into a string or number
+// must not be coerced into one, so KumiNode gets null instead.
+function acceptanceList(node: PlanNode): string[] | null {
+  const value = node.effective.acceptance;
+  if (!Array.isArray(value)) return null;
+  return value.filter((item): item is string => typeof item === "string");
 }
 
 // MiniMap paints to a <canvas>, not the DOM, so it can't resolve a
@@ -289,6 +329,10 @@ export default function App() {
   // rebuild the nodes under the pointer — the gesture would be cancelled.
   const [interacting, setInteracting] = useState(false);
   const [theme, setTheme] = useState<Theme>(initialTheme);
+  // Semantic zoom tier (PLAN2.md §2.2), tracked off React Flow's viewport by
+  // the onMove handler below. Starts at "mid" — today's card — since that's
+  // also the tier fitView's own maxZoom (1.25) lands a typical plan in.
+  const [tier, setTier] = useState<ZoomTier>("mid");
   // Populated via onInit; a ref (not state) because it never needs to
   // trigger a re-render, only to be read from the jump buttons' click.
   const rfInstance = useRef<ReactFlowInstance | null>(null);
@@ -321,6 +365,19 @@ export default function App() {
 
   const toggleTheme = useCallback(() => {
     setTheme((current) => (current === "dark" ? "light" : "dark"));
+  }, []);
+
+  // Semantic zoom (PLAN2.md §2.2): onMove fires on every pointer-driven pan/
+  // zoom tick, but a node only cares when it CROSSES a tier boundary. The
+  // debounce is this comparison, not a timer — setTier only actually runs
+  // (and only then does the nodes-rebuild effect below re-render every node)
+  // when the computed tier differs from the current one, so a zoom gesture
+  // costs at most one re-render per boundary crossed, not one per tick.
+  const onMove = useCallback((_event: MouseEvent | TouchEvent | null, viewport: Viewport) => {
+    setTier((current) => {
+      const next = zoomTier(viewport.zoom);
+      return next === current ? current : next;
+    });
   }, []);
 
   useEffect(() => {
@@ -382,15 +439,25 @@ export default function App() {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   useEffect(() => {
     if (!payload || interacting) return;
+    // One pass for membership counts (PLAN2.md §2.2), shared by every node
+    // below rather than recomputed per node.
+    const counts = memberCounts(payload.nodes);
     setNodes((previous) => {
       const byId = new Map(previous.map((node) => [node.id, node]));
       return payload.nodes.map((node) => {
         const old = byId.get(node.id);
+        const data: KumiNodeData = {
+          node,
+          color: colorFor(payload, node),
+          tier,
+          memberCount: counts.get(node.id) ?? 0,
+          acceptance: acceptanceList(node),
+        };
         return {
           id: node.id,
           type: "kumi",
           position: positions[node.id] ?? { x: 0, y: 0 },
-          data: { node, color: colorFor(payload, node) },
+          data,
           width: NODE_WIDTH,
           height: NODE_HEIGHT,
           handles: STATIC_HANDLES,
@@ -399,7 +466,7 @@ export default function App() {
         };
       });
     });
-  }, [payload, positions, setNodes, interacting, focus, trace]);
+  }, [payload, positions, setNodes, interacting, focus, trace, tier]);
 
   // Focus/trace dim edges too: an edge stays full strength only when both
   // ends are in the active lens's highlighted set, same rule as the nodes.
@@ -703,8 +770,14 @@ export default function App() {
           onInit={(instance) => {
             rfInstance.current = instance;
           }}
+          onMove={onMove}
           fitView
           fitViewOptions={{ maxZoom: 1.25, padding: 0.2 }}
+          // Default minZoom (0.5) sits above the far tier's own threshold
+          // (0.45, KumiNode.tsx's zoomTier) — left at the default, "far"
+          // would be unreachable by any real gesture, only by the initial
+          // state value.
+          minZoom={0.2}
           nodesDraggable
           nodesConnectable
           edgesReconnectable={false}

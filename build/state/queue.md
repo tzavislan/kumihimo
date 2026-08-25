@@ -150,7 +150,7 @@ all paths between. Client-side cones over payload needs edges.
 Accept: focus on rate-limit-core tints exactly its cones; Esc restores.
 
 ### K20 — Semantic zoom
-status: todo
+status: done (iteration 21)
 needs: [K17]
 PLAN2 §2.2. Far=shape+title, Mid=upgraded card (status glyph, effort chip,
 member count, halo), Near=body preview + acceptance checkboxes + chips;

@@ -3,14 +3,16 @@
  * @purpose     Design tokens (light default in :root, dark via
  *              [data-theme="dark"]) and the canvas chrome they dress:
  *              sidebar + flow grid, node card styling, kind pills, finding
- *              colors, focus/trace cone tints, React Flow chrome.
- *              Deliberately small and system-font.
+ *              colors, focus/trace cone tints, semantic-zoom tiers, React
+ *              Flow chrome. Deliberately small and system-font.
  * @layer       frontend
- * @tags        css, chrome, design-tokens, dark-mode, focus, trace
+ * @tags        css, chrome, design-tokens, dark-mode, focus, trace,
+ *              semantic-zoom
  * @related     frontend/src/App.tsx (sets data-theme on <html> and the
  *              per-node focus/trace class this file styles), KumiNode.tsx
- *              (KIND_COLORS accents laid over the surface/text tokens here)
- * @design      PLAN.md §5.3, PLAN2.md §2.1, §2.5
+ *              (KIND_COLORS accents laid over the surface/text tokens here;
+ *              picks the kumi-tier-* class this file styles)
+ * @design      PLAN.md §5.3, PLAN2.md §2.1-2.2, §2.5
  */
 
 /* Tokens. :root is the light theme (the default with no attribute present);
@@ -258,6 +260,36 @@ body {
   outline-offset: 1px;
 }
 
+/* Far tier (PLAN2.md §2.2): the plan's silhouette. The box keeps the exact
+ * width/min-height/padding the base .kumi-node rule above already gives it
+ * — NODE_WIDTH/NODE_HEIGHT (layout.ts) size elk's layout and the static
+ * handle coordinates (App.tsx's STATIC_HANDLES) alike, and resizing per
+ * tier would fight both, so "compact" has to come from within that same
+ * box instead of by shrinking it (KumiNode.tsx's far-tier comment). Card
+ * chrome (surface fill, border, shadow) is switched off here so only the
+ * smaller .kumi-chip inside reads as the node. */
+.kumi-node.kumi-tier-far {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+.kumi-chip {
+  width: 100%;
+  padding: var(--kumi-space-6) var(--kumi-space-8);
+  border: 1px solid transparent;
+  border-radius: var(--kumi-radius-md);
+  font-size: var(--kumi-text-md);
+  font-weight: 600;
+  color: var(--kumi-text);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* Focus/trace lenses (PLAN2.md §2.1): a wrapper class computed per node in
  * App.tsx's nodes-rebuild effect from cones.ts's BFS distance. These target
  * .kumi-node's border-color and opacity, never border-left — that's the kind
@@ -295,15 +327,108 @@ body {
 .react-flow__node.kumi-cone-up-3 .kumi-node,
 .react-flow__node.kumi-cone-down-3 .kumi-node { opacity: 0.5; }
 .kumi-title { font-size: var(--kumi-text-md); font-weight: 600; line-height: 1.25; }
-.kumi-meta { display: flex; gap: var(--kumi-space-6); align-items: center; margin-top: var(--kumi-space-6); }
+/* wrap, not nowrap (PLAN2.md §2.2): mid tier can now carry a status glyph,
+ * effort chip, and member badge alongside the pill/status/id that were
+ * already here — wrapping to a second line beats letting individual spans
+ * squeeze and wrap mid-word when they don't all fit one row. .kumi-id's
+ * margin-left:auto still right-aligns it, on whichever line it lands on. */
+.kumi-meta { display: flex; flex-wrap: wrap; gap: var(--kumi-space-6); align-items: center; margin-top: var(--kumi-space-6); }
 .kumi-pill {
   color: var(--kumi-pill-text); font-size: var(--kumi-text-xs); padding: 1px 7px; border-radius: var(--kumi-radius-pill);
 }
 .kumi-status { font-size: var(--kumi-text-xs); color: var(--kumi-text-muted); }
+/* Status glyph (PLAN2.md §2.2 mid tier): sits beside, not instead of,
+ * .kumi-status above — line-height 1 keeps a taller glyph like ⛔ from
+ * stretching the meta row's line box past its text siblings. */
+.kumi-status-glyph { font-size: var(--kumi-text-sm); line-height: 1; }
+.kumi-effort-chip {
+  font-size: var(--kumi-text-xs); color: var(--kumi-text-subtle);
+  border: 1px solid var(--kumi-border-strong); border-radius: var(--kumi-radius-sm);
+  padding: 0 4px;
+}
+.kumi-member-badge {
+  font-size: var(--kumi-text-xs); color: var(--kumi-text-subtle);
+  background: var(--kumi-surface-muted); border-radius: var(--kumi-radius-pill);
+  padding: 1px 7px;
+}
 .kumi-id { font-size: var(--kumi-text-xs); color: var(--kumi-text-faint); margin-left: auto; }
 /* The lavender milestone fill is lighter than a plain white card, so the
  * faint id-slug color that reads fine elsewhere drops under ~2.5:1 there. */
 .kumi-milestone .kumi-id { color: var(--kumi-text-muted); }
+
+/* Near tier (PLAN2.md §2.2; tightened after a critic pass on the roadmap
+ * plan): mid's card, plus a body preview and an acceptance summary, INSIDE
+ * the same 66px box mid and far already commit to — a first draft let this
+ * grow past it, which doesn't just look different, it visually fuses with
+ * whatever elk placed 40px below (layout.ts's elk.spacing.nodeNode). So the
+ * box is now a hard height with overflow clipped as the correctness
+ * guarantee (below), and every size in this section is chosen to actually
+ * fill that space rather than lean on the clip. Title drops one token to
+ * --kumi-text-xs; the meta row and the two preview lines drop one more,
+ * past the token scale's own floor, to a literal 8px — deliberately, not
+ * an oversight: this tier only ever renders at zoom >=1.3 (KumiNode.tsx's
+ * zoomTier), where 1 layout px is already >=1.3 screen px, so 8px of
+ * layout-space type is never smaller than ~10.4 real screen px. */
+.kumi-node.kumi-tier-near {
+  height: 66px;
+  overflow: hidden;
+  padding: 4px 8px;
+}
+.kumi-tier-near .kumi-title { font-size: var(--kumi-text-xs); }
+.kumi-tier-near .kumi-meta {
+  font-size: 8px;
+  line-height: 1.2;
+  margin-top: 2px;
+  /* wrap (the mid-tier default, above) would cost a second row this tier's
+   * budget doesn't have — nowrap plus the box's own overflow:hidden clips
+   * a too-full row horizontally instead of growing it vertically. */
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+.kumi-tier-near .kumi-pill,
+.kumi-tier-near .kumi-status,
+.kumi-tier-near .kumi-status-glyph,
+.kumi-tier-near .kumi-effort-chip,
+.kumi-tier-near .kumi-member-badge,
+.kumi-tier-near .kumi-id {
+  font-size: 8px;
+  line-height: 1.2;
+}
+.kumi-tier-near .kumi-pill,
+.kumi-tier-near .kumi-member-badge {
+  /* Mid tier's 1px top/bottom pill padding is real height this tier's 8px
+   * line doesn't have room to spend. */
+  padding: 0 6px;
+}
+.kumi-body-preview {
+  margin-top: 2px;
+  font-size: 8px;
+  line-height: 1.2;
+  color: var(--kumi-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kumi-acceptance-preview {
+  display: flex;
+  gap: 4px;
+  margin-top: 2px;
+  font-size: 8px;
+  line-height: 1.2;
+  color: var(--kumi-text-subtle);
+}
+.kumi-acceptance-item {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Never shrinks/truncates: the "+n more" count matters more than the tail
+ * of a long first item, so the item (above) gives way to it, not vice versa. */
+.kumi-acceptance-more {
+  flex: 0 0 auto;
+  color: var(--kumi-text-faint);
+}
 
 /* Default 6px handles are brutal targets for humans and robots alike. */
 .react-flow__handle {
@@ -311,6 +436,20 @@ body {
   height: 12px !important;
   background: var(--kumi-handle-bg);
   border: 2px solid var(--kumi-handle-border);
+}
+
+/* Far tier shrinks handles instead of hiding them (KumiNode.tsx's
+ * EdgeHandles comment): display:none/pointer-events:none would stop them
+ * being a real hit target and silently break drag-to-connect on a
+ * zoomed-out node, including the Playwright smoke test's handle-to-handle
+ * drag. This still needs its own !important: the 12px rule above is
+ * !important too, and any !important declaration beats a non-important one
+ * outright, so without one here this selector's higher specificity
+ * wouldn't matter. */
+.kumi-tier-far .react-flow__handle {
+  width: 6px !important;
+  height: 6px !important;
+  opacity: 0.6;
 }
 
 /* Edge kind strokes (PLAN2.md §2.4). Class + type beats React Flow's own

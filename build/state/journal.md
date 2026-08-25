@@ -550,3 +550,30 @@ deliberate literal — canvas can't resolve var(); commented).
 **Gated by me:** ruff, mypy, 128 tests, lint — green. Loop note: the
 builder's deviation-flag was the critic's blocking find — flags in builder
 reports deserve immediate weight, not later rediscovery.
+
+## Iteration 21 — 2026-08-24 — K20: semantic zoom (delegated loop)
+
+Builder (Sonnet): three tiers branched in KumiNode on a data-carried tier,
+onMove updating state only on boundary crossings, per-payload memberCounts/
+acceptance plumbing, and a real catch — React Flow's default minZoom (0.5)
+sat above the far threshold (0.45), making the far tier unreachable dead
+code; minZoom now 0.2, commented. Checker: PASS (1 minor — docs footprint
+overclaim), verified threshold hysteresis, plumbing regression-risk on the
+rewritten nodes effect, and that onMove cannot reintroduce the mid-gesture
+rebuild bug (interacting guards first). Critic: REVISE — near-tier cards
+grew past the 66px box and visibly fused on the roadmap at default density
+(the "accepted for v0.2" comment did not survive being looked at), plus a
+"missing halo" find that was actually a two-source acceptance collision:
+PLAN2 §2.2's mid-tier prose mentions finding halos, the queue split gives
+them to K21, and the roadmap node quoted the prose. Fix round: near tier
+now fits INSIDE the fixed box — smaller layout-px type that zoom >=1.3
+magnifies back to readability, one-line preview, first-acceptance-item
+"+n more" — self-verified live: 30/30 roadmap nodes at exactly
+offsetHeight 66, scrollHeight 64, at zoom 1.743. Roadmap node's acceptance
+reworded (by the orchestrator) to name K21 as the halo's home; the builder
+independently flagged that concurrent edit as not-its-own — the
+account-for-every-line discipline observed by a subagent.
+
+Far-tier long-title truncation noted as acceptable silhouette behavior.
+
+**Gated by me:** ruff, mypy, 128 tests, lint — green.
