@@ -634,3 +634,27 @@ files unlinted despite CONVENTIONS' promise → K24 queued. The flag-triage
 rule paid for itself one loop after it was written.
 
 **Gated by me:** ruff, mypy, 128 tests, lint, mkdocs strict — green.
+
+## M7 close + retro — 2026-08-24, through iteration 23
+
+**Demo, run for real on plans/roadmap in dark mode (actual outputs):**
+focus on semantic-zoom -> upstream=['tokens-dark'],
+downstream=['crew-work','feel-work','shape-work'], dimmed=25, hint
+"Focused on Three-tier semantic zoom — upstream 1, downstream 3. Esc to
+exit."; silhouette 30/30 nodes at far tier; palette body-only query
+"distance fade" -> found focus-cones with snippet, Enter selected it. Two
+demo-script fumbles were mine, not the product's (wrong selector, then a
+query that existed only in source code) — the checker had driven both paths
+correctly an hour earlier.
+
+**Docs gate:** mkdocs strict green; editor.md grew per-item sections all
+milestone; shortcuts reference shipped with K22; all three screenshots
+re-shot (the hero now shows near-tier cards, glyphs, ports, and the theme
+toggle); README commands unchanged so no clean-checkout re-verification
+owed. CHANGELOG M7 entry written.
+
+**Retro folded:** small-item combined checker+critic variant; playwright-
+not-pane screenshot tooling note. Flag-triage validated in the wild (K23,
+K24 born from builder flags). loop.json: iteration=23, last_retro=23,
+guard cleared. M7 complete 6/6; next up K23/K24 hygiene, then M8 shape-work
+split. Pushing at milestone close per standing say-so.

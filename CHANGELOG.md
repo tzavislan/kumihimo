@@ -7,6 +7,15 @@ All notable changes to Kumihimo. Format follows
 ## [Unreleased]
 
 ### Added
+- M7, the canvas learns to explain itself: design tokens with full dark
+  mode; per-kind edge ports with readable arrowheads, hover tooltips that
+  speak in titles, and an edge panel; double-click focus tinting a node's
+  upstream/downstream cones with distance fade plus alt-click path tracing;
+  three-tier semantic zoom (silhouette chips to in-card body previews and
+  acceptance, always inside the same footprint); finding halos with
+  click-to-jump; a Ctrl+K palette searching prose as well as titles; and
+  graph-directional keyboard navigation. Shortcuts reference at
+  docs/reference/shortcuts.md.
 - M6, the release pass: the documentation site (mkdocs-material — tutorial,
   concepts, how-tos for custom kinds/MCP/editor, full CLI/format/MCP/API
   reference; deployed to GitHub Pages on every push to main);

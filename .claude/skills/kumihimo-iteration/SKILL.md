@@ -82,6 +82,12 @@ the orchestrator keeps the gates. Rules that made it work:
   Briefs quote the queue item; roadmap nodes summarize and point; plan prose
   is design rationale, not acceptance. When copies disagree, fix the copies
   in the same iteration.
+- **Small items may combine checker+critic in one agent** (both hats, one
+  brief) — used for K21/K22; the evidence bars still apply separately.
+- **Verification screenshots come from playwright's own chromium**, which
+  composites offscreen. The Claude Browser pane cannot screenshot in this
+  environment (hidden, no frames) — an agent told to use it will burn its
+  budget discovering that; brief the tool explicitly.
 - **A written-down "accepted" visual tradeoff expires at the next critic
   pass.** The near-tier overlap was pre-accepted in a CSS comment and died
   the moment someone looked at real pixels. Comments don't outrank eyes.

@@ -134,3 +134,10 @@ is alive, and a gap in it is itself a finding for the next retro.
   (the near-tier overlap comment); manage skill gained the
   queue-is-acceptance-authority grooming rule. Fix-round throughput note:
   warm-builder rounds ran 2-8 minutes against 12-17 minute cold builds.
+- 2026-08-24 — retro at M7 close (iterations 22-23): iteration skill
+  gained the small-item combined checker+critic variant and the
+  playwright-not-pane screenshot note (a reviewer burned budget on the
+  hidden pane, then verified honestly via computed styles). Flag-triage
+  paid one loop after adoption: K22's builder flags became queue items
+  K23 (App.tsx split) and K24 (TS linter coverage) instead of lost
+  remarks. Nothing pruned.
