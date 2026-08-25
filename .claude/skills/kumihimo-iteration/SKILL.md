@@ -73,6 +73,18 @@ the orchestrator keeps the gates. Rules that made it work:
   context) or be applied by the orchestrator when the clock is tight.
 - **The orchestrator never delegates the battery or the commit.** Subagent
   green claims are inputs; the gate runs here.
+- **Triage builder deviation-flags before dispatching reviewers.** Iteration
+  20's builder flagged the cone-hue coincidence in its own report; the
+  critic's blocking find was that exact flag, rediscovered at screenshot
+  cost. A flag is a free finding — act on it or consciously wave it through.
+- **Acceptance has ONE home: the queue item.** The K20 "missing halo" block
+  came from three copies drifting (PLAN2 prose, queue item, roadmap node).
+  Briefs quote the queue item; roadmap nodes summarize and point; plan prose
+  is design rationale, not acceptance. When copies disagree, fix the copies
+  in the same iteration.
+- **A written-down "accepted" visual tradeoff expires at the next critic
+  pass.** The near-tier overlap was pre-accepted in a CSS comment and died
+  the moment someone looked at real pixels. Comments don't outrank eyes.
 
 ## Step 3 — Ground it
 

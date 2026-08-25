@@ -577,3 +577,14 @@ account-for-every-line discipline observed by a subagent.
 Far-tier long-title truncation noted as acceptable silhouette behavior.
 
 **Gated by me:** ruff, mypy, 128 tests, lint — green.
+
+## retro: delegated loop #2 — through iteration 21
+
+Box 19:41-20:55 (~74 min): K19 focus/trace and K20 semantic zoom shipped
+end-to-end; six Sonnet agents (~1.16M subagent tokens this box); two critic
+blockings, both real, both fixed same-iteration; checker rigor peaked at 16
+synthetic assertions plus live DOM proof. Folded: triage builder flags,
+acceptance-has-one-home, accepted-tradeoffs-expire (iteration skill);
+queue-is-acceptance-authority (manage skill). M7 stands 4/6 — K21 finding
+halos and K22 palette remain, both unblocked (K22's dep K19 is done).
+loop.json: iteration=21, last_retro=21, guard cleared. No push — M7 open.

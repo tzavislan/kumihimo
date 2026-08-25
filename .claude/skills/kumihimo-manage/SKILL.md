@@ -35,6 +35,10 @@ the next action.
   sized when one review round holds the whole diff.
 - Write discovered work down with a `needs:` line and the PLAN.md section it
   serves; never let it live only in a chat.
+- **The queue item is the acceptance authority.** Roadmap nodes carry a
+  summary that points at the queue id; when plan prose, roadmap, and queue
+  disagree, the queue wins and the others get corrected in the same pass
+  (the K20 halo collision is the standing example).
 - Anything needing a decision Thomas hasn't made: status `needs-thomas`, the
   question stated plainly, and surface it in the next report.
 
@@ -123,3 +127,10 @@ is alive, and a gap in it is itself a finding for the next retro.
   and commit; checkers demonstrate blocking finds, critics read real
   screenshots. Deferred UI polish (port-dot gating, in/link port
   separation, membership routing) recorded in the journal, not lost.
+- 2026-08-24 — retro after delegated loop #2 (iterations 20-21, K19+K20):
+  iteration skill gained triage-builder-flags (the critic's blocking find
+  was the builder's own pre-flag), acceptance-has-one-home (the three-copy
+  halo collision), and accepted-tradeoffs-expire-at-the-next-critic-pass
+  (the near-tier overlap comment); manage skill gained the
+  queue-is-acceptance-authority grooming rule. Fix-round throughput note:
+  warm-builder rounds ran 2-8 minutes against 12-17 minute cold builds.
