@@ -117,3 +117,9 @@ is alive, and a gap in it is itself a finding for the next retro.
   of changed README commands), iteration Step 6 gains the same-commit docs
   rule, and milestone-close pushes now carry standing say-so (CLAUDE.md
   updated). The outside review's dead first command is the standing example.
+- 2026-08-24 — retro after the first delegated loop (iterations 18-19,
+  K17+K18): iteration skill gained the Delegated iterations section —
+  builder/checker/critic on Sonnet with the orchestrator keeping battery
+  and commit; checkers demonstrate blocking finds, critics read real
+  screenshots. Deferred UI polish (port-dot gating, in/link port
+  separation, membership routing) recorded in the journal, not lost.

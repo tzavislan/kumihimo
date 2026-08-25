@@ -515,3 +515,16 @@ connect discoverability — needs design, not a hotfix), in/link port
 separation, smarter membership routing.
 
 **Gated by me:** typecheck, build, ruff, mypy, 128 tests, lint — green.
+
+## retro: the delegated loop itself — through iteration 19
+
+Thomas's 90-minute builder→checker→critic→train box: two M7 items shipped
+end-to-end (K17 tokens+dark, K18 edge legibility), six Sonnet agents,
+~1.16M subagent tokens, two blocking finds (one from acceptance-vs-diff
+reading, one live-reproduced in the running app), zero battery failures at
+the gate. Folded: the Delegated iterations section into kumihimo-iteration
+(the pattern, the evidence bar for checkers, the read-the-pixels bar for
+critics, the never-delegate-the-gate rule). Training log appended.
+loop.json: iteration=19, last_retro_iteration=19, session guard cleared.
+M7 stands 2/6 done; K19 (focus cones) is next and unblocked. No push —
+milestone-close pushes only, and M7 is open.

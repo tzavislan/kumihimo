@@ -51,6 +51,29 @@ the smaller items beneath it, and take the first.
 - The clean tree fails `uv run pytest -q` before you changed anything → stop;
   the tree is broken and another iteration will not help.
 
+## Delegated iterations — builder / checker / critic on cheaper models
+
+Proven in iterations 18-19 (Thomas's 90-minute loop, 2026-08-24): the
+iteration's build and review steps can run on cheaper-model subagents while
+the orchestrator keeps the gates. Rules that made it work:
+
+- **Builder** (Sonnet): gets the item text verbatim, the PLAN2 section, the
+  file list, the conventions paragraph, and the exact verify commands. Works
+  the tree, never commits, reports files touched + verbatim command output.
+- **Checker** (Sonnet): reviews the uncommitted diff against acceptance with
+  *evidence, not vibes* — and a blocking finding should **demonstrate, not
+  speculate** (iteration 19's tooltip-wedge was live-reproduced in the
+  running app; that is the bar).
+- **Critic** (Sonnet), for anything user-visible: shoots the REAL rendered
+  result (both themes when relevant) and READS the images before judging.
+  Iterations 18-19's contrast and clutter findings were invisible to code
+  review.
+- Checker and critic run in parallel; the two-blocking-rounds cap counts as
+  ever; small fix rounds may go back to the same builder agent (warm
+  context) or be applied by the orchestrator when the clock is tight.
+- **The orchestrator never delegates the battery or the commit.** Subagent
+  green claims are inputs; the gate runs here.
+
 ## Step 3 — Ground it
 
 Before writing code: re-read the item's PLAN.md section (the queue names it),
