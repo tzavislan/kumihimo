@@ -8,9 +8,10 @@ description: Manage the Kumihimo project end to end — report status, groom the
 The umbrella over the other two skills: `/kumihimo-iteration` builds one queue
 item; `/kumihimo-retro` folds lessons back into the skills; this one is
 everything else a maintainer does. Working directory `C:\Kumihimo`. The
-standing rules in CLAUDE.md bind here too — **never push, publish, or release
-without Thomas's say-so**; those are proposals this skill prepares, not
-actions it takes.
+standing rules in CLAUDE.md bind here too: milestone-close pushes carry
+Thomas's standing say-so (2026-08-24); **everything else outward — off-cycle
+pushes, publishing, releasing — still needs his explicit yes** and this skill
+only prepares it.
 
 ## Orient (always first)
 
