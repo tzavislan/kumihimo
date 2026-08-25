@@ -32,9 +32,15 @@ close.
 
 ## Rules of the repo
 
-- **Never `git push` without Thomas's explicit say-so.** Commits are local;
-  pushing publishes (CI, public repo). Milestone-close pushes are proposed,
-  not assumed.
+- **Git stays current: push at every milestone close** (standing say-so,
+  Thomas 2026-08-24) — the public repo reflects each upgrade. Off-cycle
+  pushes still need his explicit yes; never push mid-iteration. A red CI
+  after a push is the top of the queue until green.
+- **Documentation ships with the change, not after** (Thomas, 2026-08-24).
+  An item that changes user-visible behavior updates its docs-site page in
+  the same commit; UI-pixel changes re-shoot screenshots
+  (`tools/screenshots.py`) at milestone close; changed README commands get
+  re-verified on a clean checkout. CI's strict docs build gates the rest.
 - **Never publish to PyPI** — release is Thomas's act, via the tagged release
   workflow.
 - Coding rules are [CONVENTIONS.md](CONVENTIONS.md) and they are enforced:

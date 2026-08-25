@@ -136,6 +136,14 @@ CHANGELOG.md under Unreleased, and any PLAN.md-relevant deviation goes in the
 journal — PLAN.md itself is the record of what was *planned*; do not rewrite
 history.
 
+**User-visible changes update their documentation in the same commit**
+(Thomas's standing rule, 2026-08-24): the docs-site page that describes the
+behavior, and the README when a command or claim changed. UI-pixel changes
+note "screenshot re-shoot owed" in the iteration report so milestone close
+runs `tools/screenshots.py`. Docs drift found later is a defect with this
+step's name on it — the outside review that found the README's first command
+dead is the standing example.
+
 **Every number in a journal entry comes from an executed command.** Iteration
 8's first draft reported an edge count computed in the head; it was wrong.
 Run the demo, paste what it printed.

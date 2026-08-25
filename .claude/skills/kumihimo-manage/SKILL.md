@@ -53,11 +53,14 @@ verified".
 
 ## Close a milestone
 
-In order: (1) milestone demo run and journaled; (2) CHANGELOG.md updated
-under Unreleased; (3) `/kumihimo-retro` — the training pass; (4) **propose**
-the push to Thomas with a one-paragraph summary of what the public repo will
-gain; push only on his yes. If CI fails after a push he approves, fixing it
-is immediately the top of the queue.
+In order: (1) milestone demo run and journaled; (2) **docs gate** — strict
+docs build green, the milestone's named doc pages exist and describe what
+shipped, screenshots re-shot via `tools/screenshots.py` when any UI pixel
+changed, and any changed README command re-verified on a clean checkout;
+(3) CHANGELOG.md updated under Unreleased; (4) `/kumihimo-retro` — the
+training pass; (5) **push** — milestone-close pushes carry Thomas's standing
+say-so (2026-08-24); off-cycle pushes still ask him. If CI fails after the
+push, fixing it is immediately the top of the queue.
 
 ## Release (M6 and after)
 
@@ -107,3 +110,9 @@ is alive, and a gap in it is itself a finding for the next retro.
 - 2026-08-24 — retro at M6 close (iterations 16-17): honest empty — both
   iterations executed the existing rules without incident. Nothing folded,
   nothing pruned; the entry exists so the log stays unbroken.
+- 2026-08-24 — Thomas's direction: documentation and git move with every
+  upgrade — milestone close gains the docs gate (strict build, named doc
+  pages, screenshot re-shoots on UI change, clean-checkout re-verification
+  of changed README commands), iteration Step 6 gains the same-commit docs
+  rule, and milestone-close pushes now carry standing say-so (CLAUDE.md
+  updated). The outside review's dead first command is the standing example.

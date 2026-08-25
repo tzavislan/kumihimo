@@ -458,3 +458,18 @@ served canvas, CLI battery, 128/128 tests including the browser smoke, all
 five docs-site pages live. Lesson for the next retro: clean-machine
 verification belongs to every user-facing instruction, not just code — the
 README is an interface with its own platform matrix.
+
+## 2026-08-24 — process hardening (Thomas): docs and git move with every upgrade
+
+Thomas's standing rule, encoded where rules survive: CLAUDE.md (push at
+every milestone close is now standing-approved; docs ship with the change,
+not after), kumihimo-iteration Step 6 (user-visible changes update their
+docs-site page in the same commit; UI changes flag a screenshot re-shoot),
+kumihimo-manage milestone close (a docs gate before the push: strict build,
+named pages, re-shot screenshots, clean-checkout re-verification of changed
+README commands), and the Training log. PLAN2.md — still uncommitted,
+awaiting his markup — carries the same guarantee as its §6, and grew §3.6
+(training the crew: trains: mentions, trained/cadence fields, staleness as
+a query never a check) and §3.7 (RAG both directions: JSONL export of
+plans for indexers, reference nodes with retrievers, per-agent grounding
+lines in --for braids; the library still never retrieves) at his direction.
