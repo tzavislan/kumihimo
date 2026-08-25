@@ -133,7 +133,7 @@ coherent (canvas, sidebar, node cards, modal, minimap). Accept: toggle works;
 no hardcoded hex left outside the token block; screenshots readable in both.
 
 ### K18 — Ports, arrowheads, edge hover/selection
-status: todo
+status: done (iteration 19)
 needs: [K17]
 PLAN2 §2.4, §2.1. needs=left/right ports, in=top, links=bottom; scaled
 arrowheads; hover thickening + tooltip naming both ends and relation; edge

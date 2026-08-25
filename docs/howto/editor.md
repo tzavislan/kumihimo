@@ -20,9 +20,27 @@ Everything you do writes through the same operations layer as the CLI:
   kind's schema), and body; **Save** writes the file, preserving any hand-
   written comments in its frontmatter. Rename fixes every referrer; Delete
   refuses while referenced, naming the referrers.
-- **Click an edge** — a remove button appears in the sidebar.
+- **Click an edge** — opens the edge panel in the sidebar (see "Reading
+  edges" below).
 - **Braid** — compiles the current plan and shows the prompt with a copy
   button.
+
+## Reading edges
+
+Each edge kind keeps its own ports, so membership stops fighting dependency
+arrows for the same two pixels: `needs` edges run left→right, from the
+dependency's right handle to the dependent's left handle. `in` (membership)
+and `link` (annotation) edges both run bottom→top — member or link source at
+the bottom, group or link target at the top — distinguished from each other
+by dash pattern and color, not by port. `needs` and `in` edges carry a closed
+arrowhead pointing at the dependent/group; `link` edges carry none, since an
+annotation is already a labeled, not directional, relation.
+
+Hovering an edge thickens and brightens its stroke and shows a small tooltip
+naming it in words — "rate-limit-core needs pick-algorithm" — using titles,
+never ids. Clicking an edge opens a panel with that same sentence, a jump
+button per endpoint (selects the node and centers the canvas on it, zoom
+unchanged), and the Remove edge button.
 
 ## Sync, conflicts, and undo
 

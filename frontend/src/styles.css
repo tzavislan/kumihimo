@@ -58,6 +58,12 @@
   --kumi-handle-border: #ffffff;
   --kumi-pill-text: #ffffff;
 
+  /* Edge kinds (PLAN2.md §2.4): needs/in/link, each its own hue so the kind
+   * reads at a glance even before the dash pattern or arrowhead registers. */
+  --kumi-edge: #475569;
+  --kumi-edge-in: #8b5cf6;
+  --kumi-edge-link: #6b7280;
+
   /* React Flow minimap's mask over the area outside the current viewport */
   --kumi-minimap-mask: rgba(240, 240, 240, 0.6);
 
@@ -124,6 +130,10 @@
   --kumi-handle-bg: #94a3b8;
   --kumi-handle-border: #0f172a;
   --kumi-pill-text: #ffffff;
+
+  --kumi-edge: #94a3b8;
+  --kumi-edge-in: #a78bfa;
+  --kumi-edge-link: #94a3b8;
 
   --kumi-minimap-mask: rgba(2, 6, 23, 0.6);
 
@@ -246,6 +256,58 @@ body {
   background: var(--kumi-handle-bg);
   border: 2px solid var(--kumi-handle-border);
 }
+
+/* Edge kind strokes (PLAN2.md §2.4). Class + type beats React Flow's own
+ * ".react-flow__edge-path" rule on specificity, so no !important needed —
+ * and unlike the old inline styles, a var() here still resolves per theme. */
+.kumi-edge-needs .react-flow__edge-path { stroke: var(--kumi-edge); stroke-width: 2; }
+.kumi-edge-in .react-flow__edge-path {
+  stroke: var(--kumi-edge-in);
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+  opacity: 0.55;
+}
+.kumi-edge-link .react-flow__edge-path {
+  stroke: var(--kumi-edge-link);
+  stroke-width: 2;
+  stroke-dasharray: 2 4;
+}
+/* Hover thickens and brightens every kind; "in" edges additionally lose
+ * their resting 0.55 dim so the brighten reads even on that faint kind. */
+.react-flow__edge:hover .react-flow__edge-path {
+  stroke-width: 3;
+  filter: brightness(1.3);
+}
+.kumi-edge-in:hover .react-flow__edge-path { opacity: 1; }
+
+/* Cursor-following tooltip naming an edge's relation in words, e.g.
+ * "rate-limit-core needs pick-algorithm" — see App.tsx onEdgeMouseEnter. */
+.kumi-edge-tip {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
+  max-width: 320px;
+  font-size: var(--kumi-text-sm);
+  /* --kumi-overlay is dark-toned in both themes (unlike --kumi-text, which
+   * flips light/dark to stay readable as *foreground* — using it as a
+   * background here would invert to unreadable in dark mode), so white
+   * stays readable on it either way. */
+  color: var(--kumi-accent-contrast);
+  background: var(--kumi-overlay);
+  border-radius: var(--kumi-radius-sm);
+  padding: var(--kumi-space-4) var(--kumi-space-8);
+  box-shadow: var(--kumi-shadow-sm);
+}
+
+/* Edge selection panel: relation sentence, jump-to-endpoint buttons, remove. */
+.kumi-edge-panel {
+  background: var(--kumi-surface-muted);
+  border: 1px solid var(--kumi-border);
+  border-radius: var(--kumi-radius-md);
+  padding: var(--kumi-space-8) var(--kumi-space-12);
+  margin: var(--kumi-space-8) 0;
+}
+.kumi-edge-sentence { font-size: var(--kumi-text-md); margin: 0 0 var(--kumi-space-6); }
 
 /* Edge relation labels ("see-also", "threatened-by") read from these two
  * vars in both themes — unconditional, not dark-scoped, because the fix here

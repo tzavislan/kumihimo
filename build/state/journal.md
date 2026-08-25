@@ -492,3 +492,26 @@ light flash on dark-preferring OS (useEffect vs useLayoutEffect).
 **Verified by me, not the builder:** full battery green (128 tests incl. the
 browser smoke against the rebuilt frontend), lint clean. Builder's own
 evidence: computed styles read in the live browser in both themes.
+
+## Iteration 19 — 2026-08-24 — K18: edge legibility (builder/checker/critic loop)
+
+Builder (Sonnet): four named ports per node (needs left/right, in/link
+bottom→top), tokenized edge strokes with dark overrides, 18px themed
+arrowheads on needs+in, cursor-following hover tooltip speaking in titles
+("Rate-limit middleware needs v2 endpoint surface"), edge panel with
+jump-and-center via the RF instance ref, and a shared parseEdge replacing
+three duplicated id-parsers. Checker: REVISE (1 blocking — the tooltip
+wedges when a live payload update removes the hovered edge under a parked
+cursor, live-reproduced; 1 minor — stale @design tags). Critic (five real
+screenshots incl. the 30-node roadmap): PASS, 4 minors — always-visible
+port dots clutter dense graphs, in/link share physical ports, fixed-direction
+membership routing loops behind cards, and the roadmap's membership tangle
+that K19 focus and K20 zoom exist to solve. Orchestrator applied the fix
+round directly (clock): tooltip reconciled against the edge set (first
+attempt hit the TDZ — effect must sit below the edges memo), tags refreshed.
+
+Deferred with eyes open: port-dot visibility gating (hover-only handles hurt
+connect discoverability — needs design, not a hotfix), in/link port
+separation, smarter membership routing.
+
+**Gated by me:** typecheck, build, ruff, mypy, 128 tests, lint — green.

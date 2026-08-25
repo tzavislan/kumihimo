@@ -13,11 +13,12 @@
  *              frontend/src/NodeForm.tsx (the selected node's form),
  *              frontend/src/styles.css (the tokens data-theme switches),
  *              kumihimo/server/ops_api.py (where every gesture lands)
- * @design      PLAN.md §5.1-5.3, PLAN2.md §2.5
+ * @design      PLAN.md §5.1-5.3, PLAN2.md §2.1, §2.4-2.5
  */
 import {
   Background,
   Controls,
+  MarkerType,
   MiniMap,
   Position as FlowPosition,
   ReactFlow,
@@ -28,9 +29,10 @@ import {
   type Node,
   type NodeHandle,
   type NodeMouseHandler,
+  type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchBraid, fetchDirty, fetchPlan, openLive, postOp } from "./api";
 import { FALLBACK_COLOR, KIND_COLORS, KumiNode } from "./KumiNode";
 import { elkPositions, NODE_HEIGHT, NODE_WIDTH } from "./layout";
@@ -44,8 +46,22 @@ type EdgeMode = "needs" | "in" | "link";
 // Static handle geometry (React Flow's SSR recipe): with node dimensions and
 // handle coordinates declared, edges render without any browser measure pass —
 // including in renderers that never composite a frame.
+//
+// Four handles, one per edge kind, so membership stops fighting dependencies
+// for the same two pixels (PLAN2.md §2.4): needs run left/right, in/link run
+// top/bottom. Ids are referenced by buildEdges' sourceHandle/targetHandle.
 const STATIC_HANDLES: NodeHandle[] = [
   {
+    id: "in-left",
+    type: "target",
+    position: FlowPosition.Left,
+    x: 0,
+    y: NODE_HEIGHT / 2,
+    width: 6,
+    height: 6,
+  },
+  {
+    id: "out-right",
     type: "source",
     position: FlowPosition.Right,
     x: NODE_WIDTH,
@@ -54,10 +70,20 @@ const STATIC_HANDLES: NodeHandle[] = [
     height: 6,
   },
   {
+    id: "in-top",
     type: "target",
-    position: FlowPosition.Left,
-    x: 0,
-    y: NODE_HEIGHT / 2,
+    position: FlowPosition.Top,
+    x: NODE_WIDTH / 2,
+    y: 0,
+    width: 6,
+    height: 6,
+  },
+  {
+    id: "out-bottom",
+    type: "source",
+    position: FlowPosition.Bottom,
+    x: NODE_WIDTH / 2,
+    y: NODE_HEIGHT,
     width: 6,
     height: 6,
   },
@@ -78,6 +104,11 @@ function colorFor(payload: Payload, node: PlanNode): string {
   return payload.kinds[node.kind]?.color ?? KIND_COLORS[node.kind] ?? FALLBACK_COLOR;
 }
 
+// Readable-scale closed arrows on the two directional kinds; links stay
+// unmarked since they're a bidirectional annotation, not a dependency arrow.
+const ARROW_NEEDS = { type: MarkerType.ArrowClosed, width: 18, height: 18, color: "var(--kumi-edge)" };
+const ARROW_IN = { type: MarkerType.ArrowClosed, width: 18, height: 18, color: "var(--kumi-edge-in)" };
+
 function buildEdges(payload: Payload): Edge[] {
   const ids = new Set(payload.nodes.map((node) => node.id));
   const edges: Edge[] = [];
@@ -87,9 +118,11 @@ function buildEdges(payload: Payload): Edge[] {
       edges.push({
         id: `needs:${dep}->${node.id}`,
         source: dep,
+        sourceHandle: "out-right",
         target: node.id,
-        markerEnd: { type: "arrowclosed" as never },
-        style: { strokeWidth: 2 },
+        targetHandle: "in-left",
+        className: "kumi-edge-needs",
+        markerEnd: ARROW_NEEDS,
       });
     }
     for (const group of node.in) {
@@ -97,8 +130,11 @@ function buildEdges(payload: Payload): Edge[] {
       edges.push({
         id: `in:${node.id}->${group}`,
         source: node.id,
+        sourceHandle: "out-bottom",
         target: group,
-        style: { strokeDasharray: "6 4", stroke: "#8b5cf6", opacity: 0.55 },
+        targetHandle: "in-top",
+        className: "kumi-edge-in",
+        markerEnd: ARROW_IN,
       });
     }
     for (const link of node.links) {
@@ -106,12 +142,15 @@ function buildEdges(payload: Payload): Edge[] {
       edges.push({
         id: `link:${node.id}->${link.to}:${link.rel}`,
         source: node.id,
+        sourceHandle: "out-bottom",
         target: link.to,
+        targetHandle: "in-top",
         label: link.rel,
-        style: { strokeDasharray: "2 4", stroke: "#6b7280" },
-        // No fill here: an inline style beats CSS regardless of specificity,
-        // which is exactly what silently broke this label in dark mode
-        // before — styles.css themes it via --xy-edge-label-color instead.
+        className: "kumi-edge-link",
+        // No color/dasharray here: an inline style beats CSS regardless of
+        // specificity, which is exactly what silently broke this label in
+        // dark mode before — styles.css themes stroke and label via
+        // --kumi-edge-link and --xy-edge-label-color instead.
         labelStyle: { fontSize: 10 },
       });
     }
@@ -119,21 +158,54 @@ function buildEdges(payload: Payload): Edge[] {
   return edges;
 }
 
-function unlinkEnvelope(edgeId: string): Record<string, unknown> | null {
+// One id format ("kind:from->to[:rel]"), three consumers: the unlink op, the
+// hover tooltip sentence, and the edge panel's jump buttons — parsed once so
+// they can't drift apart.
+interface EdgeInfo {
+  kind: EdgeMode;
+  from: string;
+  to: string;
+  rel?: string;
+}
+
+function parseEdge(edgeId: string): EdgeInfo | null {
   if (edgeId.startsWith("needs:")) {
     const [dep, node] = edgeId.slice(6).split("->");
-    return { op: "unlink", src: node, needs: dep };
+    return { kind: "needs", from: node, to: dep };
   }
   if (edgeId.startsWith("in:")) {
     const [member, group] = edgeId.slice(3).split("->");
-    return { op: "unlink", src: member, in: group };
+    return { kind: "in", from: member, to: group };
   }
   if (edgeId.startsWith("link:")) {
     const [src, toRel] = edgeId.slice(5).split("->");
     const separator = toRel.indexOf(":");
-    return { op: "unlink", src, to: separator === -1 ? toRel : toRel.slice(0, separator) };
+    const to = separator === -1 ? toRel : toRel.slice(0, separator);
+    const rel = separator === -1 ? undefined : toRel.slice(separator + 1);
+    return { kind: "link", from: src, to, rel };
   }
   return null;
+}
+
+function nodeTitle(payload: Payload, id: string): string {
+  return payload.nodes.find((node) => node.id === id)?.title ?? id;
+}
+
+/** "A needs B" / "A is in B" / "A links B (rel)" — titles, not ids. */
+function edgeSentence(payload: Payload, info: EdgeInfo): string {
+  const from = nodeTitle(payload, info.from);
+  const to = nodeTitle(payload, info.to);
+  if (info.kind === "needs") return `${from} needs ${to}`;
+  if (info.kind === "in") return `${from} is in ${to}`;
+  return `${from} links ${to}${info.rel ? ` (${info.rel})` : ""}`;
+}
+
+function unlinkEnvelope(edgeId: string): Record<string, unknown> | null {
+  const info = parseEdge(edgeId);
+  if (!info) return null;
+  if (info.kind === "needs") return { op: "unlink", src: info.from, needs: info.to };
+  if (info.kind === "in") return { op: "unlink", src: info.from, in: info.to };
+  return { op: "unlink", src: info.from, to: info.to };
 }
 
 /** The whole application. */
@@ -143,6 +215,9 @@ export default function App() {
   const [useViewLayout, setUseViewLayout] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedEdge, setSelectedEdge] = useState<string | null>(null);
+  // clientX/Y at last hover, not canvas coordinates — the tooltip is a
+  // position:fixed div that follows the cursor, not a canvas overlay.
+  const [edgeTip, setEdgeTip] = useState<{ edgeId: string; x: number; y: number } | null>(null);
   const [edgeMode, setEdgeMode] = useState<EdgeMode>("needs");
   const [linkRel, setLinkRel] = useState("see-also");
   const [notice, setNotice] = useState<string | null>(null);
@@ -156,6 +231,9 @@ export default function App() {
   // rebuild the nodes under the pointer — the gesture would be cancelled.
   const [interacting, setInteracting] = useState(false);
   const [theme, setTheme] = useState<Theme>(initialTheme);
+  // Populated via onInit; a ref (not state) because it never needs to
+  // trigger a re-render, only to be read from the jump buttons' click.
+  const rfInstance = useRef<ReactFlowInstance | null>(null);
 
   useEffect(() => {
     fetchPlan().then(setPayload).catch(console.error);
@@ -226,6 +304,15 @@ export default function App() {
   }, [payload, positions, setNodes, interacting]);
 
   const edges = useMemo(() => (payload ? buildEdges(payload) : []), [payload]);
+
+  // A live payload update can remove the hovered edge with the cursor still
+  // parked on where it was — no DOM leave event ever fires, and the tooltip
+  // would wedge with a stale sentence. Reconcile it against the edge set.
+  useEffect(() => {
+    if (edgeTip && !edges.some((edge) => edge.id === edgeTip.edgeId)) {
+      setEdgeTip(null);
+    }
+  }, [edges, edgeTip]);
   const selected = payload?.nodes.find((node) => node.id === selectedId) ?? null;
 
   const onNodeClick: NodeMouseHandler = useCallback((_, node) => {
@@ -236,6 +323,29 @@ export default function App() {
   const onEdgeClick: EdgeMouseHandler = useCallback((_, edge) => {
     setSelectedEdge(edge.id);
   }, []);
+
+  const onEdgeMouseEnter: EdgeMouseHandler = useCallback((event, edge) => {
+    setEdgeTip({ edgeId: edge.id, x: event.clientX, y: event.clientY });
+  }, []);
+
+  const onEdgeMouseLeave: EdgeMouseHandler = useCallback(() => {
+    setEdgeTip(null);
+  }, []);
+
+  // Shared by the edge panel's two endpoint buttons: select like a node
+  // click would, then re-center the viewport if the instance is ready and
+  // the endpoint has a known position (elk/view.yaml may still be loading).
+  const jumpTo = useCallback((nodeId: string) => {
+    setSelectedId(nodeId);
+    setSelectedEdge(null);
+    const instance = rfInstance.current;
+    const position = positions[nodeId];
+    if (instance && position) {
+      void instance.setCenter(position.x + NODE_WIDTH / 2, position.y + NODE_HEIGHT / 2, {
+        zoom: instance.getZoom(),
+      });
+    }
+  }, [positions]);
 
   const onConnect = useCallback(
     (connection: Connection) => {
@@ -275,6 +385,8 @@ export default function App() {
   }
   const errors = payload.findings.filter((finding) => finding.level === "error");
   const warnings = payload.findings.filter((finding) => finding.level === "warning");
+  const selectedEdgeInfo = selectedEdge ? parseEdge(selectedEdge) : null;
+  const edgeTipInfo = edgeTip ? parseEdge(edgeTip.edgeId) : null;
 
   return (
     <div className="kumi-shell">
@@ -325,17 +437,28 @@ export default function App() {
             <input value={linkRel} onChange={(event) => setLinkRel(event.target.value)} />
           ) : null}
         </div>
-        {selectedEdge ? (
-          <div className="kumi-actions">
-            <button
-              onClick={() => {
-                const envelope = unlinkEnvelope(selectedEdge);
-                if (envelope) void applyOp(envelope);
-                setSelectedEdge(null);
-              }}
-            >
-              Remove edge {selectedEdge}
-            </button>
+        {selectedEdge && selectedEdgeInfo ? (
+          <div className="kumi-edge-panel">
+            <p className="kumi-edge-sentence">{edgeSentence(payload, selectedEdgeInfo)}</p>
+            <div className="kumi-actions">
+              <button onClick={() => jumpTo(selectedEdgeInfo.from)}>
+                ↷ {nodeTitle(payload, selectedEdgeInfo.from)}
+              </button>
+              <button onClick={() => jumpTo(selectedEdgeInfo.to)}>
+                ↷ {nodeTitle(payload, selectedEdgeInfo.to)}
+              </button>
+            </div>
+            <div className="kumi-actions">
+              <button
+                onClick={() => {
+                  const envelope = unlinkEnvelope(selectedEdge);
+                  if (envelope) void applyOp(envelope);
+                  setSelectedEdge(null);
+                }}
+              >
+                Remove edge
+              </button>
+            </div>
           </div>
         ) : null}
         <h2>Add node</h2>
@@ -403,11 +526,16 @@ export default function App() {
           nodeTypes={NODE_TYPES}
           onNodeClick={onNodeClick}
           onEdgeClick={onEdgeClick}
+          onEdgeMouseEnter={onEdgeMouseEnter}
+          onEdgeMouseLeave={onEdgeMouseLeave}
           onConnect={onConnect}
           onConnectStart={() => setInteracting(true)}
           onConnectEnd={() => setInteracting(false)}
           onNodeDragStart={() => setInteracting(true)}
           onNodeDragStop={onNodeDragStop}
+          onInit={(instance) => {
+            rfInstance.current = instance;
+          }}
           fitView
           fitViewOptions={{ maxZoom: 1.25, padding: 0.2 }}
           nodesDraggable
@@ -418,6 +546,11 @@ export default function App() {
           <MiniMap />
           <Controls showInteractive={false} />
         </ReactFlow>
+        {edgeTip && edgeTipInfo ? (
+          <div className="kumi-edge-tip" style={{ left: edgeTip.x + 14, top: edgeTip.y + 14 }}>
+            {edgeSentence(payload, edgeTipInfo)}
+          </div>
+        ) : null}
       </main>
       {braidText !== null ? (
         <div className="kumi-modal" onClick={() => setBraidText(null)}>

@@ -5,7 +5,7 @@
  * @layer       frontend
  * @tags        react-flow, node, kind-colors
  * @related     frontend/src/App.tsx (registers this as node type "kumi")
- * @design      PLAN.md §5.3
+ * @design      PLAN.md §5.3, PLAN2.md §2.4
  */
 import { Handle, Position as FlowPosition, type NodeProps } from "@xyflow/react";
 import type { PlanNode } from "./types";
@@ -32,7 +32,14 @@ export function KumiNode(props: NodeProps) {
   const status = typeof node.effective.status === "string" ? node.effective.status : null;
   return (
     <div className={`kumi-node${isMilestone ? " kumi-milestone" : ""}`} style={{ borderLeftColor: color }}>
-      <Handle type="target" position={FlowPosition.Left} />
+      {/* Four ports, one per edge kind (PLAN2.md §2.4): needs runs left/right,
+          in/link run top/bottom, so membership stops fighting dependencies
+          for the same two pixels. Ids must match STATIC_HANDLES in App.tsx
+          and the sourceHandle/targetHandle buildEdges sets on each edge. */}
+      <Handle type="target" position={FlowPosition.Left} id="in-left" />
+      <Handle type="source" position={FlowPosition.Right} id="out-right" />
+      <Handle type="target" position={FlowPosition.Top} id="in-top" />
+      <Handle type="source" position={FlowPosition.Bottom} id="out-bottom" />
       <div className="kumi-title">{node.title}</div>
       <div className="kumi-meta">
         <span className="kumi-pill" style={{ background: color }}>
@@ -41,7 +48,6 @@ export function KumiNode(props: NodeProps) {
         {status ? <span className="kumi-status">{status}</span> : null}
         <span className="kumi-id">{node.id}</span>
       </div>
-      <Handle type="source" position={FlowPosition.Right} />
     </div>
   );
 }
