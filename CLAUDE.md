@@ -1,7 +1,8 @@
 # CLAUDE.md — Kumihimo
 
-Agent context for this repository. Read this, then [PLAN.md](PLAN.md) — the
-plan is the design authority; deviations from it are recorded in
+Agent context for this repository. Read this, then [PLAN2.md](PLAN2.md) —
+the v0.2 design authority (approved 2026-08-24; [PLAN.md](PLAN.md) is the
+v0.1 record). Deviations from the plan are recorded in
 [build/state/journal.md](build/state/journal.md), never silently.
 
 **Running the project?**
