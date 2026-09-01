@@ -154,6 +154,9 @@ means cards never grow into their neighbors as you zoom in.
 
 ## Lenses
 
+![The Status lens: ready frontier glowing, done work dimmed](../assets/lens-status.png)
+
+
 A four-way switch at the top of the sidebar — **Structure** (the default,
 everything described above), **Status**, **Flow**, **Risk** — changes what
 the canvas emphasizes without changing what it contains. Click a tab, or

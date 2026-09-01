@@ -88,6 +88,16 @@ the orchestrator keeps the gates. Rules that made it work:
   composites offscreen. The Claude Browser pane cannot screenshot in this
   environment (hidden, no frames) — an agent told to use it will burn its
   budget discovering that; brief the tool explicitly.
+- **Reviewer scripts operate on COPIES, and every reviewer's last line
+  asserts the real tree unchanged.** The K27 critic's script pointed at the
+  real plans/roadmap and left collapse state behind; the builder caught the
+  contamination a round later. Put the copy rule AND the final
+  `git status --short` assertion in every reviewer brief.
+- **Disputed computed output gets an independent oracle, not a re-read.**
+  The K26 risk-shadow dispute (reviewer saw 1 node, builder claimed 5) was
+  settled by running the Python twin (core.graph.descendants) on the
+  reviewer's exact fixture — most canvas math has a server-side sibling;
+  use it.
 - **A written-down "accepted" visual tradeoff expires at the next critic
   pass.** The near-tier overlap was pre-accepted in a CSS comment and died
   the moment someone looked at real pixels. Comments don't outrank eyes.

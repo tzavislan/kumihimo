@@ -780,3 +780,26 @@ flagged it. Reviewer-script hygiene goes to the M8 retro.
 
 **Gated by me:** ruff, mypy, 143 tests, lint, mkdocs strict — green.
 App.tsx 593/600; containers.ts 307; no exemptions.
+
+## M8 close + retro — 2026-08-24, through iteration 28
+
+**Demo, run for real on plans/roadmap in dark mode (actual outputs):** M4
+collapsed chip reads "M4: Live canvas | milestone | 3/3 done"; Status lens
+glow = ['crew-work'], exactly the server ready() set (after fixing a
+dogfood miss the demo itself exposed — M7's roadmap statuses were never
+set done at its close, so tokens-dark showed ready until corrected);
+blocked tint = ['pypi-release']; Flow critical nodes = [canvas-render,
+editor-conflicts, editor-ops, frontend-stack, pypi-release] end to end.
+Demo residue (a stray collapsed-state view.yaml) removed; the roadmap diff
+is exactly the nine status edits, made through kumihimo set.
+
+**Docs gate:** editor.md and shortcuts.md grew per-item all milestone;
+screenshots re-shot including a NEW lens-status.png wired into the docs
+and the screenshot tool; mkdocs strict green; no README command changes.
+
+**Retro folded:** reviewer-scripts-on-copies + mandatory tree-clean
+assertion; independent-oracle for disputed computed output; close
+checklist step 0 (roadmap statuses through the tool). Training log
+appended. loop.json: iteration=28, last_retro=28, guard cleared. M8
+complete 3/3 — pushing at milestone close per standing say-so. Next: M9
+crew, which needs grooming into queue items first.

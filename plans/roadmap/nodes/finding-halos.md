@@ -6,5 +6,6 @@ in: [m7-see]
 effort: S
 acceptance:
   - Error/warning halos on the offending nodes; sidebar finding rows click-to-jump-and-center.
+status: done
 ---
 Error/warning halos on the offending nodes; sidebar finding rows click-to-jump-and-center.

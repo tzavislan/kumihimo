@@ -58,7 +58,10 @@ verified".
 
 ## Close a milestone
 
-In order: (1) milestone demo run and journaled; (2) **docs gate** — strict
+In order: (0) **roadmap statuses updated through the tool itself** — the
+milestone's plan nodes set done via `kumihimo set` (the M7 close missed
+this and ready() lied until M8's close caught it); (1) milestone demo run
+and journaled; (2) **docs gate** — strict
 docs build green, the milestone's named doc pages exist and describe what
 shipped, screenshots re-shot via `tools/screenshots.py` when any UI pixel
 changed, and any changed README command re-verified on a clean checkout;
@@ -141,3 +144,11 @@ is alive, and a gap in it is itself a finding for the next retro.
   paid one loop after adoption: K22's builder flags became queue items
   K23 (App.tsx split) and K24 (TS linter coverage) instead of lost
   remarks. Nothing pruned.
+- 2026-08-24 — retro at M8 close (iterations 24-28): iteration skill
+  gained reviewer-scripts-on-copies with a mandatory final tree-clean
+  assertion (the K27 critic contaminated the real roadmap; the builder
+  caught it) and the independent-oracle rule for disputed computed
+  output (Python graph.descendants settled the K26 risk-shadow dispute);
+  manage skill's close checklist gained step 0, roadmap statuses via the
+  tool (the M7 miss made ready() lie until caught). Acceptance-authority
+  paid again: the MCP ready rule beat the queue's own summary sentence.

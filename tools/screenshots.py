@@ -8,7 +8,7 @@
 @tags        screenshots, docs-assets, playwright
 @related     docs/index.md and README.md (where the images land),
              tests/test_editor_smoke.py (same server-spawning approach)
-@design      PLAN.md §9 M6
+@design      PLAN.md §9 M6, PLAN2.md §6
 """
 
 from __future__ import annotations
@@ -107,6 +107,12 @@ def main() -> int:
             page.locator(".react-flow__controls-fitview").click()
             page.wait_for_timeout(400)
             page.screenshot(path=str(ASSETS / "canvas-roadmap.png"))
+            # The Status lens (key 2): ready frontier glowing, done dimmed —
+            # M8's face for the docs.
+            page.keyboard.press("2")
+            page.wait_for_timeout(500)
+            page.screenshot(path=str(ASSETS / "lens-status.png"))
+            page.keyboard.press("1")
 
         browser.close()
     for shot in sorted(ASSETS.glob("*.png")):

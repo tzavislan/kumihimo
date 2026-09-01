@@ -7,6 +7,15 @@ All notable changes to Kumihimo. Format follows
 ## [Unreleased]
 
 ### Added
+- M8, the canvas gets its shape: milestones render as real containers —
+  members nested inside, collapse to a chip carrying n/m done with edges
+  rerouted, layout by true elk hierarchy proven pairwise non-overlapping;
+  the lens bar (keys 1-4) with Status (ready frontier glowing, matching the
+  MCP ready rule exactly), Flow (critical path bold), and Risk (open
+  decisions and risks with their blast radius shaded); a depth-lanes
+  arrangement in collision-proof per-container bands; branch re-layout that
+  moves one container or cone and nothing else; and payload echoes that
+  glide instead of teleport (off under prefers-reduced-motion).
 - M7, the canvas learns to explain itself: design tokens with full dark
   mode; per-kind edge ports with readable arrowheads, hover tooltips that
   speak in titles, and an edge panel; double-click focus tinting a node's
