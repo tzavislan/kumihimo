@@ -659,7 +659,7 @@ K24 born from builder flags). loop.json: iteration=23, last_retro=23,
 guard cleared. M7 complete 6/6; next up K23/K24 hygiene, then M8 shape-work
 split. Pushing at milestone close per standing say-so.
 
-## Iteration 24 — 2026-08-24 — K23: App.tsx split (delegated loop)
+## Iteration 24 — 2026-08-31 — K23: App.tsx split (delegated loop)
 
 Builder (Sonnet): pure extraction refactor — edges.ts (127 effective),
 derive.ts (74), useGraphKeyboard.ts (89), theme.ts (19); App.tsx from 1049
@@ -674,7 +674,7 @@ check; no pixels intended to change so no critic.
 
 **Gated by me:** ruff, mypy, 128 tests, lint — green.
 
-## Iteration 25 — 2026-08-24 — K24: the linter learns TypeScript (delegated loop)
+## Iteration 25 — 2026-08-31 — K24: the linter learns TypeScript (delegated loop)
 
 Builder (Sonnet): TS discovery (frontend top-level + src recursive, .d.ts
 included), header extraction with JSDoc-gutter normalization feeding the
@@ -690,7 +690,7 @@ exempt-grammar check mid-build and it fixed the prose, not the check.
 
 **Gated by me:** ruff, mypy, 139 tests, lint (now covering TS) — green.
 
-## Iteration 26 — 2026-08-24 — K25: containers (delegated loop, the M8 spike)
+## Iteration 26 — 2026-08-31 — K25: containers (delegated loop, the M8 spike)
 
 Build round (Sonnet, 40 min): real RF parent containers for any in-target,
 collapse chips with n/m done, edge reroute+dedupe with self-loop dropping,
@@ -725,7 +725,7 @@ mistaken Browser-pane call self-caught and flagged — transparency holding.
 **Gated by me:** ruff, mypy, 143 tests, lint, mkdocs strict — green.
 App.tsx 585/600 effective, no exemptions anywhere.
 
-## Iteration 27 — 2026-08-24 — K26: the lens bar + four inherited fixes (delegated loop)
+## Iteration 27 — 2026-08-31 — K26: the lens bar + four inherited fixes (delegated loop)
 
 Builder (Sonnet, 53 min): lenses.ts (ready frontier mirroring the MCP rule
 EXACTLY — catching that the queue's own summary sentence disagreed with
@@ -753,7 +753,7 @@ source. Ready-glow set equality with the server rule stands.
 
 **Gated by me:** ruff, mypy, 143 tests, lint, mkdocs strict — green.
 
-## Iteration 28 — 2026-08-24 — K27: lanes, branch re-layout, glides (delegated loop)
+## Iteration 28 — 2026-08-31 — K27: lanes, branch re-layout, glides (delegated loop)
 
 Builder (Sonnet): lanes.ts depth-columns, elkBranchPositions with
 centroid-translate, echo glides via a .kumi-glide class honoring the
@@ -781,7 +781,7 @@ flagged it. Reviewer-script hygiene goes to the M8 retro.
 **Gated by me:** ruff, mypy, 143 tests, lint, mkdocs strict — green.
 App.tsx 593/600; containers.ts 307; no exemptions.
 
-## M8 close + retro — 2026-08-24, through iteration 28
+## M8 close + retro — 2026-08-31, through iteration 28
 
 **Demo, run for real on plans/roadmap in dark mode (actual outputs):** M4
 collapsed chip reads "M4: Live canvas | milestone | 3/3 done"; Status lens
@@ -803,3 +803,13 @@ checklist step 0 (roadmap statuses through the tool). Training log
 appended. loop.json: iteration=28, last_retro=28, guard cleared. M8
 complete 3/3 — pushing at milestone close per standing say-so. Next: M9
 crew, which needs grooming into queue items first.
+
+## 2026-08-31 — date correction
+
+GitHub's own timestamps exposed that every entry from iteration 24 through
+the M8 close carried 2026-08-24 — the sessions ran `date` at claim time and
+then wrote journal dates from the previous entry anyway. Six real days
+passed after the M7 close (~2026-08-25). Today's entries above are
+corrected to 2026-08-31; entries for iterations 22-23 and the M7 close were
+written around 2026-08-25 and are left as-dated with this note as the
+correction of record. Lesson folded: journal dates come from the clock.

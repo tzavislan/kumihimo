@@ -195,6 +195,11 @@ runs `tools/screenshots.py`. Docs drift found later is a defect with this
 step's name on it — the outside review that found the README's first command
 dead is the standing example.
 
+**Journal dates come from the clock, not the previous entry.** Six days of
+entries carried a stale date because sessions wrote what the last entry
+said; GitHub's timestamps caught it. `date` runs at claim time — use its
+answer.
+
 **Every number in a journal entry comes from an executed command.** Iteration
 8's first draft reported an edge count computed in the head; it was wrong.
 Run the demo, paste what it printed.

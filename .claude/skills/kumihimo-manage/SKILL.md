@@ -144,7 +144,8 @@ is alive, and a gap in it is itself a finding for the next retro.
   paid one loop after adoption: K22's builder flags became queue items
   K23 (App.tsx split) and K24 (TS linter coverage) instead of lost
   remarks. Nothing pruned.
-- 2026-08-24 — retro at M8 close (iterations 24-28): iteration skill
+- 2026-08-31 — retro at M8 close (iterations 24-28; the log's two prior
+  delegated-loop entries are correctly 08-24, the M5-M7 entries are ~08-25): iteration skill
   gained reviewer-scripts-on-copies with a mandatory final tree-clean
   assertion (the K27 critic contaminated the real roadmap; the builder
   caught it) and the independent-oracle rule for disputed computed

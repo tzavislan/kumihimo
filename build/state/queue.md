@@ -190,7 +190,7 @@ presence/path match, cap with comment/blank exclusion (JSDoc + //), @exempt
 grammar. Accept: seeded TS violation fails CI; current tree passes (after
 K23).
 
-## M8 — Shape (PLAN2.md §2.3-2.4, split 2026-08-24)
+## M8 — Shape (PLAN2.md §2.3-2.4, split 2026-08-31)
 
 ### K25 — Containers: milestones as subflows with collapse
 status: done (iteration 26)
