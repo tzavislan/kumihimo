@@ -2,7 +2,8 @@
 @file        kumihimo/server/payload.py
 @purpose     The one JSON shape the canvas consumes: plan meta, every node with
              raw and effective fields plus body, current findings, the view
-             layout, and the kind definitions the editor's forms will need.
+             layout and collapsed-container ids, and the kind definitions the
+             editor's forms will need.
 @layer       server
 @tags        payload, json, canvas-contract
 @related     kumihimo/server/app.py (serves this over GET and WebSocket),
@@ -47,6 +48,17 @@ def plan_payload(root: Path) -> dict[str, Any]:
         for node_id, position in layout_raw.items():
             if isinstance(position, dict) and "x" in position and "y" in position:
                 layout[str(node_id)] = {"x": int(position["x"]), "y": int(position["y"])}
+    # Filtered against the plan's live node ids: a node collapsed in a past
+    # session and since renamed or removed must not reappear in the payload
+    # as a phantom collapsed container (ops_api.py's set_collapsed validates
+    # on write; this is the read-side twin for view.yaml files older than
+    # that check, or hand-edited).
+    collapsed_raw = view.get("collapsed") if view is not None else None
+    collapsed = (
+        sorted({str(item) for item in collapsed_raw if str(item) in plan.nodes})
+        if isinstance(collapsed_raw, list)
+        else []
+    )
     nodes = []
     for node_id in sorted(plan.nodes):
         node = plan.nodes[node_id]
@@ -83,4 +95,5 @@ def plan_payload(root: Path) -> dict[str, Any]:
         "nodes": nodes,
         "findings": [finding.model_dump() for finding in findings],
         "layout": layout,
+        "collapsed": collapsed,
     }

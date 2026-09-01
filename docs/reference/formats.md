@@ -69,11 +69,15 @@ Field spec keys: `type` (`str` | `int` | `bool` | `list` | `choice`),
 ```yaml
 layout:
   api-endpoints: {x: 40, y: 200}
+collapsed: [ship-guarded-api]
 ```
 
-Integers, sorted keys, flow-style — a layout shuffle is a two-line diff.
-Semantics never live here; deleting the file costs you an arrangement,
-nothing more.
+`layout`: integers, sorted keys, flow-style — a layout shuffle is a
+two-line diff. `collapsed`: which container ids (PLAN2.md §2.3 lens 1 — any
+node named in another node's `in`) are currently folded to a chip on the
+canvas; sorted, flow-style, and the key is dropped entirely rather than
+persisted empty. Semantics never live here; deleting the file costs you an
+arrangement and which containers were folded, nothing more.
 
 ## Fidelity guarantees
 

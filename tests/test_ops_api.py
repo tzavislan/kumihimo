@@ -2,8 +2,10 @@
 @file        tests/test_ops_api.py
 @purpose     The editor's write door behaves: every op lands through core.ops
              with canonical files, stale digests answer 409 while fresh ones
-             pass, positions go to view.yaml only (sorted, flow-style), errors
-             keep their messages at 400, and the braid endpoint compiles.
+             pass, positions and container collapse go to view.yaml only
+             (sorted, flow-style, the latter's key dropped when empty),
+             errors keep their messages at 400, and the braid endpoint
+             compiles.
 @layer       tests
 @tags        ops-envelope, digests, conflicts, view-layout
 @related     kumihimo/server/ops_api.py (under test),
@@ -188,3 +190,58 @@ def test_dirty_endpoint_reports_untracked_gracefully(plan_dir: PlanFactory, tmp_
     body = client.get("/api/dirty").json()
     assert body["tracked"] in (True, False)
     assert isinstance(body["dirty"], list)
+
+
+def test_set_collapsed_persists_and_drops_the_key_when_empty(
+    plan_dir: PlanFactory, tmp_path: Path
+) -> None:
+    root = plan_dir(
+        {
+            "m.md": "---\nkind: milestone\n---\nShip.\n",
+            "a.md": "---\nkind: task\nin: [m]\n---\nA.\n",
+        }
+    )
+    client = client_for(root, tmp_path)
+
+    collapse = client.post("/api/ops", json={"op": "set_collapsed", "collapsed": ["m"]})
+    assert collapse.status_code == 200
+    assert collapse.json()["collapsed"] == ["m"]
+    view = (root / "view.yaml").read_text(encoding="utf-8")
+    assert "collapsed: [m]" in view
+
+    uncollapse = client.post("/api/ops", json={"op": "set_collapsed", "collapsed": []})
+    assert uncollapse.status_code == 200
+    assert uncollapse.json()["collapsed"] == []
+    view_after = (root / "view.yaml").read_text(encoding="utf-8")
+    assert "collapsed" not in view_after
+
+
+def test_set_collapsed_rejects_an_unknown_id(plan_dir: PlanFactory, tmp_path: Path) -> None:
+    root = plan_dir(
+        {
+            "m.md": "---\nkind: milestone\n---\nShip.\n",
+            "a.md": "---\nkind: task\nin: [m]\n---\nA.\n",
+        }
+    )
+    client = client_for(root, tmp_path)
+    response = client.post("/api/ops", json={"op": "set_collapsed", "collapsed": ["ghost"]})
+    assert response.status_code == 400
+    assert "no node 'ghost'" in response.json()["detail"]
+    assert not (root / "view.yaml").is_file()  # rejected before any write
+
+
+def test_set_collapsed_rejects_a_node_that_is_not_a_container(
+    plan_dir: PlanFactory, tmp_path: Path
+) -> None:
+    root = plan_dir(
+        {
+            "m.md": "---\nkind: milestone\n---\nShip.\n",
+            "a.md": "---\nkind: task\nin: [m]\n---\nA.\n",
+        }
+    )
+    client = client_for(root, tmp_path)
+    # "a" is a real node but nothing names it in `in` — it has no members.
+    response = client.post("/api/ops", json={"op": "set_collapsed", "collapsed": ["a"]})
+    assert response.status_code == 400
+    assert "'a' is not a container" in response.json()["detail"]
+    assert not (root / "view.yaml").is_file()

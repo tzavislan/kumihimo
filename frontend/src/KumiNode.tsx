@@ -1,16 +1,19 @@
 /**
  * @file        frontend/src/KumiNode.tsx
- * @purpose     The one custom React Flow node: kind-colored edge stripe,
- *              title, id, and a kind pill; milestones read as section
- *              headers. Renders one of three semantic-zoom tiers (far/mid/
- *              near), chosen upstream in App.tsx from viewport.zoom and
- *              handed down through node data.
+ * @purpose     The leaf React Flow node: kind-colored edge stripe, title,
+ *              id, and a kind pill. Renders one of three semantic-zoom tiers
+ *              (far/mid/near), chosen upstream in App.tsx from viewport.zoom
+ *              and handed down through node data. A node whose kind gathers
+ *              members (memberCounts>0) renders as KumiGroupNode.tsx's
+ *              container instead — this file only ever draws a leaf/member.
  * @layer       frontend
  * @tags        react-flow, node, kind-colors, semantic-zoom, findings
  * @related     frontend/src/App.tsx (registers this as node type "kumi",
  *              tracks the active tier and passes it through node data; also
  *              sets the wrapper's kumi-halo-error/warning class this file's
- *              .kumi-node div is the box-shadow target for — styles.css)
+ *              .kumi-node div is the box-shadow target for — styles.css),
+ *              frontend/src/KumiGroupNode.tsx (the container node; reuses
+ *              this file's exported EdgeHandles for the same four ports)
  * @design      PLAN.md §5.3, PLAN2.md §2.2, §2.4
  */
 import { Handle, Position as FlowPosition, type NodeProps } from "@xyflow/react";
@@ -71,8 +74,14 @@ export interface KumiNodeData extends Record<string, unknown> {
  * draw, so unmounting these at far tier would silently break every edge
  * touching a zoomed-out node (and the drag-to-connect Playwright smoke
  * test). Far tier only shrinks them visually — .kumi-tier-far
- * .react-flow__handle in styles.css — never display:none/pointer-events. */
-function EdgeHandles() {
+ * .react-flow__handle in styles.css — never display:none/pointer-events.
+ *
+ * Exported for KumiGroupNode.tsx: unlike this file's node, a container's own
+ * box size varies (fixed chip when collapsed, a dynamic bounding box when
+ * expanded), so it deliberately carries no declared `handles` coordinates —
+ * these same four `<Handle>` elements anchor to whatever box React Flow
+ * actually measures, edge/percentage-positioned rather than pixel-declared. */
+export function EdgeHandles() {
   return (
     <>
       <Handle type="target" position={FlowPosition.Left} id="in-left" />

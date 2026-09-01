@@ -4,10 +4,11 @@
  *              [data-theme="dark"]) and the canvas chrome they dress:
  *              sidebar + flow grid, node card styling, kind pills, finding
  *              colors and canvas halos, focus/trace cone tints, semantic-zoom
- *              tiers, React Flow chrome. Deliberately small and system-font.
+ *              tiers, containers, React Flow chrome. Deliberately small and
+ *              system-font.
  * @layer       frontend
  * @tags        css, chrome, design-tokens, dark-mode, focus, trace,
- *              semantic-zoom, findings, palette
+ *              semantic-zoom, findings, palette, containers
  * @related     frontend/src/theme.ts (sets data-theme on <html>),
  *              frontend/src/App.tsx (the per-node focus/trace/halo classes
  *              this file styles, and the sidebar finding rows this file's
@@ -18,8 +19,10 @@
  *              STATIC_HANDLES),
  *              KumiNode.tsx (KIND_COLORS accents laid over the surface/text
  *              tokens here; picks the kumi-tier-* class this file styles),
+ *              frontend/src/KumiGroupNode.tsx (.kumi-group-* markup; shares
+ *              .kumi-node with KumiNode.tsx on purpose),
  *              frontend/src/Palette.tsx (renders the kumi-palette-* markup)
- * @design      PLAN.md §5.3, PLAN2.md §2.1-2.2, §2.5
+ * @design      PLAN.md §5.3, PLAN2.md §2.1-2.3, §2.5
  */
 
 /* Tokens. :root is the light theme (the default with no attribute present);
@@ -535,6 +538,59 @@ body {
 .kumi-acceptance-more {
   flex: 0 0 auto;
   color: var(--kumi-text-faint);
+}
+
+/* Containers (PLAN2.md §2.3 lens 1, KumiGroupNode.tsx). .kumi-group shares
+ * .kumi-node's card chrome (border, radius, shadow) plus every focus/trace/
+ * halo/selection rule already keyed on .kumi-node above — a container reads
+ * as any other node in every lens for free. Only what's actually different
+ * from a leaf card gets its own rule below. */
+.kumi-node.kumi-group-collapsed {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+}
+/* The expanded frame fills whatever box App.tsx computed (containers.ts's
+ * boundingBox) rather than the fixed 210x66 leaf size — two classes beats
+ * .kumi-node's own width/min-height on specificity, no !important needed.
+ * Dashed, not solid: reads as a wrapper around other cards, not a card
+ * itself, and doubles as the "this is a group" cue at a glance. */
+.kumi-node.kumi-group-expanded {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  box-shadow: none;
+  border-style: dashed;
+}
+.kumi-group-header {
+  display: flex;
+  align-items: center;
+  gap: var(--kumi-space-6);
+  min-width: 0;
+}
+.kumi-group-expanded .kumi-group-header {
+  padding: var(--kumi-space-6) var(--kumi-space-8);
+  border-bottom: 1px dashed var(--kumi-border-strong);
+}
+.kumi-group-header .kumi-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kumi-group-toggle {
+  flex-shrink: 0;
+  font: inherit;
+  line-height: 1;
+  padding: 1px 5px;
+  border: 1px solid var(--kumi-border-strong);
+  border-radius: var(--kumi-radius-sm);
+  background: var(--kumi-surface);
+  color: var(--kumi-text);
+  cursor: pointer;
+}
+.kumi-group-toggle:hover { background: var(--kumi-surface-hover); }
+.kumi-group-progress {
+  font-size: var(--kumi-text-xs); color: var(--kumi-text-subtle);
+  background: var(--kumi-surface-muted); border-radius: var(--kumi-radius-pill);
+  padding: 1px 7px; white-space: nowrap;
 }
 
 /* Default 6px handles are brutal targets for humans and robots alike. */

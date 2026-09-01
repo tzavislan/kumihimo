@@ -18,6 +18,7 @@ from fastapi.testclient import TestClient
 from kumihimo.server.app import build_app
 from kumihimo.server.payload import plan_payload
 from kumihimo.server.watch import is_relevant
+from tests.conftest import PlanFactory
 
 EXAMPLE = Path(__file__).resolve().parent.parent / "examples" / "apiguard"
 
@@ -33,6 +34,22 @@ def test_payload_carries_the_canvas_contract() -> None:
     assert payload["layout"]["api-endpoints"] == {"x": 40, "y": 200}
     assert payload["kinds"]["task"]["fields"]["effort"]["options"] == ["S", "M", "L"]
     assert payload["findings"] == []
+    assert payload["collapsed"] == []  # no view.yaml `collapsed` key in this fixture
+
+
+def test_payload_filters_collapsed_against_live_node_ids(plan_dir: PlanFactory) -> None:
+    # A view.yaml older than ops_api.py's set_collapsed validation (or hand-
+    # edited) can still name a container that's since been renamed or
+    # removed — the payload must drop it quietly rather than echo a phantom
+    # collapsed id the canvas has no node for.
+    root = plan_dir(
+        {
+            "m.md": "---\nkind: milestone\n---\nShip.\n",
+            "a.md": "---\nkind: task\nin: [m]\n---\nA.\n",
+        }
+    )
+    (root / "view.yaml").write_text("collapsed: [ghost, m]\n", encoding="utf-8")
+    assert plan_payload(root)["collapsed"] == ["m"]
 
 
 def test_api_plan_route_serves_the_payload(tmp_path: Path) -> None:

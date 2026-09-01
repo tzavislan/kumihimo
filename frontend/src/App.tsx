@@ -2,8 +2,9 @@
  * @file        frontend/src/App.tsx
  * @purpose     The editor: payload in (fetch + live socket), React Flow out,
  *              and every gesture — drag, connect, form save, add, delete,
- *              rename, edge removal — posted as one op envelope (edges.ts
- *              builds and parses the edges themselves). View.yaml positions
+ *              rename, edge removal, container collapse — posted as one op
+ *              envelope (containers.ts builds container nodes and reroutes
+ *              edges; edges.ts builds/parses the rest). View.yaml positions
  *              honored with elk filling gaps, braid preview, dirty-vs-HEAD
  *              indicator, findings live in the sidebar — each also haloing
  *              its node on the canvas (error beats warning) and, when it
@@ -27,8 +28,13 @@
  *              favor of these).
  * @layer       frontend
  * @tags        react-flow, editor, ops, live, elk, sidebar, theme, focus,
- *              trace, semantic-zoom, findings, palette, keyboard
+ *              trace, semantic-zoom, findings, palette, keyboard, containers
  * @related     frontend/src/api.ts (the wire),
+ *              frontend/src/containers.ts (grouping/containment math, the
+ *              container node factory, and the collapsed-edge reroute this
+ *              file's nodes-rebuild effect and edges memo call once each),
+ *              frontend/src/KumiGroupNode.tsx (the container node type this
+ *              mounts as "kumiGroup"),
  *              frontend/src/edges.ts (builds/parses edges, STATIC_HANDLES,
  *              the unlink envelope),
  *              frontend/src/derive.ts (every payload-derived per-node fact:
@@ -43,7 +49,7 @@
  *              frontend/src/Palette.tsx (the Ctrl+K overlay this mounts),
  *              frontend/src/styles.css (the tokens data-theme switches),
  *              kumihimo/server/ops_api.py (where every gesture lands)
- * @design      PLAN.md §5.1-5.3, PLAN2.md §2.1-2.2, §2.4-2.5
+ * @design      PLAN.md §5.1-5.3, PLAN2.md §2.1-2.3, §2.4-2.5
  */
 import {
   Background,
@@ -62,40 +68,38 @@ import "@xyflow/react/dist/style.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchBraid, fetchDirty, fetchPlan, openLive, postOp } from "./api";
 import { ancestorsOf, descendantsOf, pathsBetween } from "./cones";
+import { buildContainerNode, containerEdges, groupNodes, membersByContainer, toRelative } from "./containers";
 import {
   acceptanceList,
   colorFor,
   coneClassName,
   findingHalos,
   haloClassName,
-  memberCounts,
   minimapNodeColor,
   nodeTitle,
   type FocusState,
   type TraceState,
 } from "./derive";
-import {
-  buildEdges,
-  edgeSentence,
-  parseEdge,
-  STATIC_HANDLES,
-  unlinkEnvelope,
-  type EdgeMode,
-} from "./edges";
+import { edgeSentence, parseEdge, STATIC_HANDLES, unlinkEnvelope, type EdgeMode } from "./edges";
+import { KumiGroupNode } from "./KumiGroupNode";
 import { KumiNode, zoomTier, type KumiNodeData, type ZoomTier } from "./KumiNode";
-import { elkPositions, NODE_HEIGHT, NODE_WIDTH } from "./layout";
+import { elkPositions, NODE_HEIGHT, NODE_WIDTH, type ContainerSize } from "./layout";
 import { NodeForm } from "./NodeForm";
 import { Palette, type PaletteCommand } from "./Palette";
 import { useTheme } from "./theme";
 import type { Payload, Position } from "./types";
 import { useGraphKeyboard } from "./useGraphKeyboard";
 
-const NODE_TYPES = { kumi: KumiNode };
+const NODE_TYPES = { kumi: KumiNode, kumiGroup: KumiGroupNode };
 
 /** The whole application. */
 export default function App() {
   const [payload, setPayload] = useState<Payload | null>(null);
   const [positions, setPositions] = useState<Record<string, Position>>({});
+  // Elk's own computed size for each EXPANDED container, pure-auto mode only
+  // (containers.ts's buildContainerNode falls back to boundingBox whenever
+  // an entry here is missing — including always, in view.yaml mode).
+  const [containerAutoSizes, setContainerAutoSizes] = useState<Record<string, ContainerSize>>({});
   const [useViewLayout, setUseViewLayout] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedEdge, setSelectedEdge] = useState<string | null>(null);
@@ -131,6 +135,15 @@ export default function App() {
   // Populated via onInit; a ref (not state) because it never needs to
   // trigger a re-render, only to be read from the jump buttons' click.
   const rfInstance = useRef<ReactFlowInstance | null>(null);
+
+  // Which nodes are containers and who's in which (PLAN2.md §2.3 lens 1),
+  // shared by elk (collapsed-as-one-node), the nodes-rebuild effect
+  // (parenting), and the edges memo (reroute) — computed once so the three
+  // never disagree. Payload's own `collapsed` list is the persisted source
+  // of truth; toggling (below) posts a fresh set_collapsed op and waits for
+  // the echo like every other gesture, rather than tracking a local copy.
+  const grouping = useMemo(() => groupNodes(payload?.nodes ?? []), [payload]);
+  const collapsedSet = useMemo(() => new Set(payload?.collapsed ?? []), [payload]);
 
   useEffect(() => {
     fetchPlan().then(setPayload).catch(console.error);
@@ -173,16 +186,30 @@ export default function App() {
     if (!payload) return;
     fetchDirty().then(setDirty).catch(() => undefined);
     let cancelled = false;
-    elkPositions(payload.nodes).then((auto) => {
+    // A collapsed container's members are excluded from elk's graph
+    // entirely (layout.ts substitutes the container itself), so they get no
+    // fresh entry in `auto.positions` — merge over the previous positions
+    // rather than replacing wholesale, or a hidden member's position would
+    // reset to {0,0} the instant its container collapses, surfacing as a
+    // jump on expand. Drags land in view.yaml and echo back through
+    // payload.layout, applied last so it always wins over either.
+    elkPositions(payload.nodes, {
+      collapsed: collapsedSet,
+      containers: grouping.containers,
+      assignments: grouping.assignments,
+    }).then((auto) => {
       if (cancelled) return;
-      // Drags land in view.yaml and echo back through payload.layout, so no
-      // extra local merging: view mode is auto + the sidecar, auto mode is elk.
-      setPositions(useViewLayout ? { ...auto, ...payload.layout } : auto);
+      setPositions((previous) => ({
+        ...previous,
+        ...auto.positions,
+        ...(useViewLayout ? payload.layout : {}),
+      }));
+      setContainerAutoSizes(auto.containerSizes);
     });
     return () => {
       cancelled = true;
     };
-  }, [payload, useViewLayout]);
+  }, [payload, useViewLayout, collapsedSet, grouping]);
 
   // Payload echoes (live socket, or any op's own response) must not silently
   // exit focus/trace — recompute the cones against the fresh node list
@@ -222,50 +249,117 @@ export default function App() {
     }
   }, []);
 
+  // Toggle one container's fold state (the ▸/▾ button on its card).
+  const toggleCollapse = useCallback(
+    (id: string) => {
+      if (!payload) return;
+      const next = new Set(payload.collapsed);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      void applyOp({ op: "set_collapsed", collapsed: [...next] });
+    },
+    [payload, applyOp],
+  );
+
   // Two React Flow v12 controlled-mode traps live here. (1) Without
   // onNodesChange, measure updates are dropped and edges never draw. (2) Any
   // setNodes with fresh objects loses `measured` — so rebuilds carry it over.
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   useEffect(() => {
     if (!payload || interacting) return;
-    // One pass for membership counts (PLAN2.md §2.2) and finding halos
-    // (PLAN2.md §2.1), each shared by every node below rather than
-    // recomputed per node.
-    const counts = memberCounts(payload.nodes);
+    // Finding halos (PLAN2.md §2.1), shared by every node below rather than
+    // recomputed per node; membership counts come from `grouping` above.
     const halos = findingHalos(payload.nodes, payload.findings);
+    const members = membersByContainer(grouping.assignments);
+    const byId = new Map(payload.nodes.map((node) => [node.id, node]));
     setNodes((previous) => {
-      const byId = new Map(previous.map((node) => [node.id, node]));
-      return payload.nodes.map((node) => {
-        const old = byId.get(node.id);
+      const byOldId = new Map(previous.map((node) => [node.id, node]));
+      const built: Node[] = [];
+      // Containers first: React Flow wants a parent present before any node
+      // declares it via parentId.
+      for (const id of grouping.containers) {
+        const containerNode = byId.get(id);
+        if (!containerNode) continue;
+        built.push(
+          buildContainerNode({
+            node: containerNode,
+            color: colorFor(payload, containerNode),
+            collapsed: collapsedSet.has(id),
+            memberIds: members.get(id) ?? [],
+            byId,
+            positions,
+            // Only in pure-auto mode: elk's own compound size for this
+            // container, when it has one — view.yaml mode always falls
+            // through to containers.ts's boundingBox instead (see its own
+            // comment on ContainerNodeParams.autoSize).
+            autoSize: useViewLayout ? undefined : containerAutoSizes[id],
+            onToggle: () => toggleCollapse(id),
+            className:
+              [coneClassName(id, focus, trace), haloClassName(id, halos)].filter(Boolean).join(" ") ||
+              undefined,
+            measured: byOldId.get(id)?.measured,
+          }),
+        );
+      }
+      const containerPosition = new Map(built.map((node) => [node.id, node.position]));
+      for (const node of payload.nodes) {
+        if (grouping.containers.has(node.id)) continue;
+        const old = byOldId.get(node.id);
+        const parentId = grouping.assignments.get(node.id);
+        const hidden = parentId ? collapsedSet.has(parentId) : false;
+        const parentPos = parentId ? containerPosition.get(parentId) : undefined;
+        const absolute = positions[node.id] ?? { x: 0, y: 0 };
         const data: KumiNodeData = {
           node,
           color: colorFor(payload, node),
           tier,
-          memberCount: counts.get(node.id) ?? 0,
+          memberCount: grouping.counts.get(node.id) ?? 0,
           acceptance: acceptanceList(node),
         };
-        return {
+        built.push({
           id: node.id,
           type: "kumi",
-          position: positions[node.id] ?? { x: 0, y: 0 },
+          // Absolute stays the truth everywhere except this one conversion
+          // (containers.ts's toRelative): a member of an EXPANDED container
+          // renders parent-relative, per React Flow's own parentId contract.
+          position: parentPos && !hidden ? toRelative(absolute, parentPos) : absolute,
           data,
           width: NODE_WIDTH,
           height: NODE_HEIGHT,
           handles: STATIC_HANDLES,
           measured: old?.measured,
+          hidden,
+          parentId: !hidden ? parentId : undefined,
+          extent: !hidden && parentId ? "parent" : undefined,
           className: [coneClassName(node.id, focus, trace), haloClassName(node.id, halos)]
             .filter(Boolean)
             .join(" ") || undefined,
-        };
-      });
+        });
+      }
+      return built;
     });
-  }, [payload, positions, setNodes, interacting, focus, trace, tier]);
+  }, [
+    payload,
+    positions,
+    setNodes,
+    interacting,
+    focus,
+    trace,
+    tier,
+    grouping,
+    collapsedSet,
+    toggleCollapse,
+    useViewLayout,
+    containerAutoSizes,
+  ]);
 
   // Focus/trace dim edges too: an edge stays full strength only when both
   // ends are in the active lens's highlighted set, same rule as the nodes.
+  // containerEdges (not edges.ts's buildEdges directly) drops the primary
+  // containment line and re-routes anything a collapsed container hides.
   const edges = useMemo(() => {
     if (!payload) return [];
-    const built = buildEdges(payload);
+    const built = containerEdges(payload, grouping.assignments, collapsedSet);
     const highlighted = focus
       ? new Set([focus.id, ...focus.ancestors.keys(), ...focus.descendants.keys()])
       : trace?.nodes ?? null;
@@ -274,7 +368,7 @@ export default function App() {
       const full = highlighted.has(edge.source) && highlighted.has(edge.target);
       return { ...edge, className: `${edge.className ?? ""} ${full ? "" : "kumi-edge-dim"}`.trim() };
     });
-  }, [payload, focus, trace]);
+  }, [payload, focus, trace, grouping, collapsedSet]);
 
   // A live payload update can remove the hovered edge with the cursor still
   // parked on where it was — no DOM leave event ever fires, and the tooltip
@@ -429,7 +523,21 @@ export default function App() {
   const onNodeDragStop = useCallback(
     (_: unknown, node: Node) => {
       setInteracting(false);
-      const rounded = { x: Math.round(node.position.x), y: Math.round(node.position.y) };
+      // A member of an expanded container reports node.position relative to
+      // its parent (React Flow's own parentId contract) — this used to be
+      // reversed here by hand (parent lookup + addition), which a live
+      // regression traced to real corruption: the lookup could read this
+      // component's own `nodes` state a tick behind React Flow's, or a
+      // container's own position a tick behind ITS OWN boundingBox
+      // recompute, landing the wrong absolute value. React Flow already
+      // computes and maintains the correct one internally (it has to, to
+      // render nested boxes at all) — reading it straight from the live
+      // instance instead is both simpler and the actual fix: no lookup, no
+      // same-tick feedback with anything this component derives, and by
+      // construction exactly one id (node.id) is ever written.
+      const absoluteLive = rfInstance.current?.getInternalNode(node.id)?.internals.positionAbsolute;
+      const absolute = absoluteLive ?? node.position;
+      const rounded = { x: Math.round(absolute.x), y: Math.round(absolute.y) };
       setPositions((current) => ({ ...current, [node.id]: rounded }));
       void applyOp({ op: "set_positions", positions: { [node.id]: rounded } });
     },

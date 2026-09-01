@@ -58,4 +58,8 @@ export interface Payload {
   nodes: PlanNode[];
   findings: Finding[];
   layout: Record<string, Position>;
+  // Container ids currently folded to a chip (PLAN2.md §2.3 lens 1) — view
+  // state from view.yaml's `collapsed` key, sorted, same sidecar rule as
+  // `layout`.
+  collapsed: string[];
 }

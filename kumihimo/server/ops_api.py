@@ -3,12 +3,15 @@
 @purpose     The editor's write path: one op envelope per gesture, validated by
              a discriminated union of pydantic models, digest-gated against
              concurrent edits, serialized by a single-writer lock, and executed
-             through core.ops (positions excepted — they go to view.yaml).
+             through core.ops (positions and container collapse excepted —
+             both are view state that goes straight to view.yaml, never a
+             node file).
 @layer       server
-@tags        ops-envelope, digests, single-writer, view-layout
+@tags        ops-envelope, digests, single-writer, view-layout, containers
 @related     kumihimo/core/ops.py (every mutation lands there),
              kumihimo/server/app.py (mounts apply() at POST /api/ops),
-             kumihimo/server/payload.py (file_digest, the concurrency token)
+             kumihimo/server/payload.py (file_digest, the concurrency token;
+             also reads `collapsed` back out of view.yaml for the payload)
 @design      PLAN.md §5.2-5.3
 """
 
@@ -19,10 +22,11 @@ from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
-from ruamel.yaml.comments import CommentedMap
+from ruamel.yaml.comments import CommentedMap, CommentedSeq
 
 from kumihimo.core import ops, store
 from kumihimo.core.errors import KumihimoError
+from kumihimo.core.plan import Plan
 from kumihimo.server.payload import file_digest
 
 _WRITE_LOCK = threading.Lock()
@@ -139,8 +143,28 @@ class SetPositionsOp(_Op):
     positions: dict[str, dict[str, int]]
 
 
+class SetCollapsedOp(_Op):
+    """Collapsed-container ids into view.yaml — view state, never semantics.
+
+    @purpose  Mirrors SetPositionsOp (PLAN2.md §2.3 lens 1): the collapse
+              toggle writes a sidecar list only, next to `layout`, never a
+              node file. A fresh list, not a delta — the client always sends
+              the whole collapsed set it wants persisted.
+    """
+
+    op: Literal["set_collapsed"]
+    collapsed: list[str]
+
+
 OpRequest = Annotated[
-    AddNodeOp | UpdateNodeOp | RemoveNodeOp | LinkOp | UnlinkOp | RenameNodeOp | SetPositionsOp,
+    AddNodeOp
+    | UpdateNodeOp
+    | RemoveNodeOp
+    | LinkOp
+    | UnlinkOp
+    | RenameNodeOp
+    | SetPositionsOp
+    | SetCollapsedOp,
     Field(discriminator="op"),
 ]
 
@@ -184,6 +208,40 @@ def _set_positions(root: Path, positions: dict[str, dict[str, int]]) -> None:
     for node_id in sorted(layout):
         ordered[node_id] = layout[node_id]
     view["layout"] = ordered
+    store.save_view(root, view)
+
+
+def _set_collapsed(root: Path, collapsed: list[str]) -> None:
+    """Write the collapsed-container id list into view.yaml, sorted, flow.
+
+    @purpose  A container's fold state is layout, not semantics — same
+              sidecar rule as positions. The key is dropped entirely rather
+              than persisted empty, so an all-expanded plan's view.yaml stays
+              exactly as clean as before this op existed. Every id is
+              validated first: a stray or mistyped id would otherwise fold a
+              plain leaf card into an unrenderable "container" client-side —
+              400 with a message naming the actual problem beats a canvas
+              that just goes quiet.
+    """
+    plan = Plan.load(root)
+    container_ids = {
+        target for node in plan.nodes.values() for target in node.in_ if target in plan.nodes
+    }
+    for node_id in collapsed:
+        if node_id not in plan.nodes:
+            raise KumihimoError(f"no node '{node_id}'")
+        if node_id not in container_ids:
+            raise KumihimoError(f"'{node_id}' is not a container (no node names it in `in`)")
+    view = store.load_view(root)
+    if view is None:
+        view = CommentedMap()
+    ids = sorted(set(collapsed))
+    if not ids:
+        view.pop("collapsed", None)
+    else:
+        seq = CommentedSeq(ids)
+        seq.fa.set_flow_style()
+        view["collapsed"] = seq
     store.save_view(root, view)
 
 
@@ -237,5 +295,7 @@ def apply(root: Path, request: OpRequest) -> None:
         elif isinstance(request, RenameNodeOp):
             _check_digest(root, request.old, request.base_digest)
             ops.rename_node(root, request.old, request.new)
-        else:
+        elif isinstance(request, SetPositionsOp):
             _set_positions(root, request.positions)
+        else:
+            _set_collapsed(root, request.collapsed)

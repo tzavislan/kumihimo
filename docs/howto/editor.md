@@ -42,6 +42,40 @@ never ids. Clicking an edge opens a panel with that same sentence, a jump
 button per endpoint (selects the node and centers the canvas on it, zoom
 unchanged), and the Remove edge button.
 
+## Containers
+
+A node that at least one other node names in its `in` renders as a
+container instead of a plain card: its members sit inside it, sized and
+positioned to bound them plus a title-bar strip. The dashed membership line
+"Reading edges" describes above never draws for that primary relationship —
+the nesting says it instead; a member's *other* `in` entries (a second
+group, or a target that isn't itself a container) still draw as ordinary
+edges. Membership assignment matches the braid's own grouped-strategy
+sections: a node's container is the first `in` target that is itself a
+container, so what nests on the canvas is what sections in the compiled
+prompt.
+
+The container's title bar carries a small **▸/▾** button. Clicking it
+collapses the container to a normal-card-sized chip showing a kind pill, an
+*n*/*m* **done** count (members whose effective status is `done`), and a
+member count — its members vanish from the canvas, and any edge that
+touched one re-targets to the chip instead (two edges landing on the same
+chip pair merge into one; an edge whose both ends fold into the same chip
+disappears rather than drawing a loop). Collapse state is per-plan view
+state, saved to `view.yaml`'s `collapsed` key exactly like positions — it
+survives a reload and echoes to every other connected editor.
+
+The container card is otherwise a normal node: click it to open its form,
+double-click to focus it, and it takes part in every halo and lens like any
+other card. Auto-layout treats a *collapsed* container as one node at chip
+size, laid out along its (re-routed) needs edges same as any leaf. An
+*expanded* container is not itself laid out by elk — elk arranges its
+members exactly as it would if they weren't grouped, and the container's box
+is drawn around wherever they land, so an expanded group's members can still
+end up near unrelated nodes rather than in a clean cluster. Members stay
+individually draggable inside their container, which is today's way to shape
+a group by hand.
+
 ## Focus and trace
 
 Double-click a node to focus it: everything it needs (upstream) tints

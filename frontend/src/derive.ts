@@ -20,7 +20,7 @@
  * @design      PLAN2.md §2.1-2.2
  */
 import type { Node } from "@xyflow/react";
-import { FALLBACK_COLOR, KIND_COLORS, type KumiNodeData } from "./KumiNode";
+import { FALLBACK_COLOR, KIND_COLORS } from "./KumiNode";
 import type { Finding, Payload, PlanNode } from "./types";
 
 // Focus and trace are alternatives, never both: entering one clears the
@@ -136,9 +136,11 @@ export function haloClassName(id: string, halos: Map<string, "error" | "warning"
 // var(--kumi-*) token or read our .kumi-dimmed CSS rule — it wants a color
 // string back from this callback. The alpha-hex fallback below is a
 // deliberate, narrow exception to the tokens-only rule, not an oversight:
-// there is no token to hand it.
+// there is no token to hand it. Cast to the minimal shape rather than
+// KumiNodeData specifically — a container node's data (KumiGroupNodeData)
+// carries `color` too, and the minimap doesn't care which node type it is.
 export function minimapNodeColor(node: Node): string {
   const dimmed = typeof node.className === "string" && node.className.includes("kumi-dimmed");
   if (dimmed) return "#94a3b833";
-  return (node.data as KumiNodeData).color;
+  return (node.data as { color: string }).color;
 }

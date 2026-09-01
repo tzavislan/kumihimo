@@ -689,3 +689,38 @@ honestly rather than overpromised). The builder's own new prose tripped the
 exempt-grammar check mid-build and it fixed the prose, not the check.
 
 **Gated by me:** ruff, mypy, 139 tests, lint (now covering TS) — green.
+
+## Iteration 26 — 2026-08-24 — K25: containers (delegated loop, the M8 spike)
+
+Build round (Sonnet, 40 min): real RF parent containers for any in-target,
+collapse chips with n/m done, edge reroute+dedupe with self-loop dropping,
+view.yaml `collapsed` key (absolute positions untouched), set_collapsed op,
+payload plumbing — plus a live-caught RF coupling (draggable:false disables
+onNodeDoubleClick) fixed mid-pass. Spike verdict round 1: collapsed = real
+elk substitution; expanded = documented fallback (flat elk + retroactive
+boxes).
+
+Review: checker REVISE (1 blocking — dragging one member corrupted
+view.yaml, wrong X plus an UNREQUESTED sibling entry, reproduced twice with
+numbers; 4 minors) and critic REVISE (2 blocking — retroactive boxes
+overlapped siblings on 3 of 8 real milestones, M5's members rendered inside
+M6's frame; collapsed chips landed on other milestones' headers after
+auto-layout; "trades spaghetti edges for spaghetti boxes"). All three
+blockings shared the deferred-fallback root cause.
+
+Fix round (same warm builder): drag-stop reads RF's own committed
+positionAbsolute via getInternalNode (verified against installed source
+that it commits before the handler fires) — one node dragged, one entry
+written, exact to the pixel at two magnitudes; expanded containers became
+REAL elk compound nodes (padding for the title bar, hierarchyHandling
+INCLUDE_CHILDREN, edges flat at root — the LCA fear dissolved exactly as
+briefed) — 28/28 pairwise zero-overlap expanded AND mixed-collapsed;
+set_collapsed validates ids as existing containers (400 otherwise);
+payload filters stale collapsed ids; the critic's "miiestone" pill was
+DOM-adjudicated a screenshot artifact. Reviewer evidence re-run by the
+builder as numeric assertions; no third round needed. Deferred with owners:
+four interaction items folded into K26's queue text; checker's one
+mistaken Browser-pane call self-caught and flagged — transparency holding.
+
+**Gated by me:** ruff, mypy, 143 tests, lint, mkdocs strict — green.
+App.tsx 585/600 effective, no exemptions anywhere.

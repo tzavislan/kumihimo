@@ -193,7 +193,7 @@ K23).
 ## M8 — Shape (PLAN2.md §2.3-2.4, split 2026-08-24)
 
 ### K25 — Containers: milestones as subflows with collapse
-status: todo
+status: done (iteration 26)
 needs: —
 PLAN2 §2.3 lens 1; risk 1's spike. RF parent/child containers for in-groups;
 collapse state in view.yaml; collapsed milestone = chip (n/m done) with
@@ -211,6 +211,12 @@ PLAN2 §2.3. Lens switcher in the sidebar; Status draws the ready frontier
 decision/question/risk with descendant shading. Precedence with focus/halos
 documented. Accept: each lens visibly distinct on the roadmap; ready glow
 matches MCP ready() output exactly.
+Inherits four K25 deferrals (review evidence in iteration 26's journal):
+keyboard/palette jump to a hidden member must select the collapsed container
+and center it (today: sidebar detaches from canvas); focus/trace tinting
+must see through rerouted edges and tint the chip; container focus should
+union its members' cones instead of reading upstream 0/downstream 0; edge
+interaction hitboxes can intercept the container toggle click (z-order).
 
 ### K27 — Lanes, partial re-layout, echo glides
 status: todo
