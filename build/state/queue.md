@@ -181,7 +181,7 @@ before M8's shape-work piles more on. Accept: every frontend file under 600
 effective lines; typecheck/build/smoke green.
 
 ### K24 — Conventions linter learns TypeScript
-status: todo
+status: done (iteration 25)
 needs: —
 Discovered at K22: tools/lint.py scans only Python; CONVENTIONS.md promises
 TS header linting "from M4" and nothing enforces it — the exact rot the

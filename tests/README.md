@@ -14,7 +14,7 @@
 | `test_golden.py` | The braid's byte-identity contract: apiguard compiled with each strategy must equal the committed golden exactly. A template change that alters output must upd… |
 | `test_graph.py` | The ordering invariant, executable: braid_order is identical under any insertion order, priority then id breaks ties, cycles are named as exact paths (self-loo… |
 | `test_kinds.py` | The kind system behaves: packs load, manifest overrides merge and extend, bad overrides become findings not crashes, field validation is precise per type, and … |
-| `test_lint.py` | Behaviour coverage for every conventions-linter check: the cap and its counting rules, the @exempt grammar, header tags, public @purpose, and README index gene… |
+| `test_lint.py` | Behaviour coverage for every conventions-linter check: the cap and its counting rules, the exemption grammar, header tags, public purpose coverage, and README … |
 | `test_mcp.py` | The MCP tools behave identically to their ops/CLI twins: reads carry the right shapes, mutations land on disk, errors keep their KumihimoError messages, ready … |
 | `test_ops.py` | The ops layer behaves: canonical files from add, comment-preserving updates, cycle-refusing links, tidy unlinks, renames that fix every referrer and the view l… |
 | `test_ops_api.py` | The editor's write door behaves: every op lands through core.ops with canonical files, stale digests answer 409 while fresh ones pass, positions go to view.yam… |

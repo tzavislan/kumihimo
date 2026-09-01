@@ -1,12 +1,16 @@
 """
 @file        tools/lint.py
 @purpose     Enforces the repo conventions in CI: the 600-code-line file cap with
-             the @exempt escape, the @file/@purpose docstring tag scheme, and
-             per-folder READMEs whose generated index stays true. Reports, without
-             failing, current exemptions and the ten largest files. The Yorishiro
-             lesson this file exists for: rules nobody enforces rot.
+             the @exempt escape, the @file/@purpose header tag scheme, and
+             per-folder READMEs whose generated index stays true — over both the
+             Python packages (AST-based: cap, tags, and per-public-item @purpose)
+             and the TypeScript frontend (line-based: cap and tags only, no
+             per-function rule — see count_ts_code_lines and _gather_ts_facts for
+             why). Reports, without failing, current exemptions and the ten
+             largest files. The Yorishiro lesson this file exists for: rules
+             nobody enforces rot.
 @layer       tools
-@tags        lint, conventions, file-cap, tags, readme-index, ci
+@tags        lint, conventions, file-cap, tags, readme-index, ci, typescript
 @related     CONVENTIONS.md (the rules in prose),
              tests/test_lint.py (behaviour coverage for every check)
 @design      PLAN.md §7.3
@@ -25,11 +29,20 @@ from pathlib import Path
 
 CAP = 600
 SCAN_ROOTS = ("kumihimo", "tools", "tests")
+# TS discovery is two rules, not one SCAN_ROOTS-style tuple: the build config at
+# the frontend top level is scanned non-recursively (frontend/node_modules never
+# needs an explicit exclusion), the app under frontend/src is scanned recursively
+# for both .ts and .tsx.
+TS_TOP = "frontend"
+TS_SRC = "frontend/src"
 EXCLUDE_DIRS = {"__pycache__", ".venv", "node_modules", "static"}
 EXEMPT_RULES = {"file-size"}
 INDEX_BEGIN = "<!-- BEGIN GENERATED INDEX -- do not edit by hand -->"
 INDEX_END = "<!-- END GENERATED INDEX -->"
-EXEMPT_RE = re.compile(r"^\s*@exempt\s+(\S+)\s+reviewer=(\S+)\s+reason=(\S.*)$")
+# The optional `\*?\s*` tolerates a TS header's leading JSDoc gutter (" * ") when
+# this matches a raw source line directly (_exempt_details); it never changes
+# what matches in a Python docstring line, which never carries one.
+EXEMPT_RE = re.compile(r"^\s*\*?\s*@exempt\s+(\S+)\s+reviewer=(\S+)\s+reason=(\S.*)$")
 TAG_RE = re.compile(r"^\s*@([a-z]+)\s+(\S.*)$")
 PURPOSE_TRUNCATE = 160
 
@@ -75,7 +88,13 @@ class LintResult:
 
 @dataclass
 class _FileFacts:
-    """Parsed facts about one Python file, computed once and reused by every check."""
+    """Parsed facts about one source file, computed once and reused by every check.
+
+    Shared shape for Python and TypeScript — _gather_facts fills it via ast,
+    _gather_ts_facts via the line-based TS header/cap scan — since every
+    downstream check (cap, exemptions, README index) reads only these fields
+    and does not care which parser produced them.
+    """
 
     path: Path
     rel: str
@@ -96,6 +115,29 @@ def iter_py_files(repo: Path) -> list[Path]:
         if not base.exists():
             continue
         for path in sorted(base.rglob("*.py")):
+            if not EXCLUDE_DIRS.intersection(p.name for p in path.parents):
+                found.append(path)
+    return found
+
+
+def iter_ts_files(repo: Path) -> list[Path]:
+    """List every TypeScript file the linter owns, in stable order.
+
+    @purpose  Frontend counterpart to iter_py_files: the top-level build config
+              (TS_TOP/*.ts, non-recursive — vite.config.ts today) plus every
+              module under TS_SRC (**/*.ts and **/*.tsx, recursive). .d.ts
+              files are included on purpose — elk.d.ts carries a real header
+              like any other module, so nothing exempts it from these checks.
+    """
+    found: list[Path] = []
+    top = repo / TS_TOP
+    if top.exists():
+        for path in sorted(top.glob("*.ts")):
+            if not EXCLUDE_DIRS.intersection(p.name for p in path.parents):
+                found.append(path)
+    src = repo / TS_SRC
+    if src.exists():
+        for path in sorted({*src.rglob("*.ts"), *src.rglob("*.tsx")}):
             if not EXCLUDE_DIRS.intersection(p.name for p in path.parents):
                 found.append(path)
     return found
@@ -136,6 +178,111 @@ def count_code_lines(source: str, tree: ast.Module) -> int:
             excluded.add(tok.start[0])
     excluded |= _docstring_lines(tree)
     return len(set(range(1, len(physical) + 1)) - excluded)
+
+
+def _extract_ts_header(source: str) -> str | None:
+    """Return the file's opening /** ... */ block, or None if the first
+    non-blank line isn't one.
+
+    @purpose  TS mirror of ast.get_docstring's "module docstring" concept: no
+              TypeScript parser dependency, so this is a line-based scan for
+              "first non-blank line opens /**" rather than a real parse. That
+              is sufficient here because the header is a syntactic-position
+              rule (first thing in the file), not a semantic one.
+    """
+    lines = source.splitlines()
+    i = 0
+    while i < len(lines) and not lines[i].strip():
+        i += 1
+    if i >= len(lines) or not lines[i].lstrip().startswith("/**"):
+        return None
+    start = i
+    while i < len(lines) and "*/" not in lines[i]:
+        i += 1
+    if i >= len(lines):
+        return None  # unterminated block comment: no header to find
+    return "\n".join(lines[start : i + 1])
+
+
+def _jsdoc_to_docstring(block: str) -> str:
+    """Strip JSDoc comment syntax (the opening /**, closing */, and each
+    line's leading `*` gutter) so the block reads exactly like a Python
+    docstring.
+
+    @purpose  Lets parse_tags and _parse_exemptions serve both languages
+              unchanged — one tag grammar, one parser, no parallel TS-only
+              tag reader to keep in sync with the real one.
+    """
+    out: list[str] = []
+    for line in block.splitlines():
+        stripped = line.strip()
+        if stripped.endswith("*/"):
+            stripped = stripped[:-2].rstrip()
+        if stripped.startswith("/**"):
+            stripped = stripped[3:]
+        elif stripped.startswith("*"):
+            stripped = stripped[1:]
+        if stripped.startswith(" "):
+            stripped = stripped[1:]
+        out.append(stripped)
+    return "\n".join(out)
+
+
+def _classify_ts_line(line: str, in_block: bool) -> tuple[bool, bool]:
+    """Classify one physical line for the TS effective-line count.
+
+    Returns (has_code, still_in_block): has_code is True when the line carries
+    anything outside a comment (so the cap counts it); still_in_block reports
+    whether a /* block remains open for the next line.
+
+    @purpose  Deliberately a character scan, not a tokenizer: it knows nothing
+              about string, template-literal, or regex-literal contents, so a
+              `//` or `/*` inside one (a URL in a string, say) is misread as
+              starting a real comment and the line undercounts. That is the
+              documented, accepted precision tradeoff for staying line-based
+              with no TypeScript-parser dependency — see count_ts_code_lines.
+    """
+    i = 0
+    n = len(line)
+    code = False
+    while i < n:
+        if in_block:
+            end = line.find("*/", i)
+            if end == -1:
+                return code, True
+            in_block = False
+            i = end + 2
+            continue
+        two = line[i : i + 2]
+        if two == "//":
+            break  # rest of the line is a line comment
+        if two == "/*":
+            in_block = True
+            i += 2
+            continue
+        if not line[i].isspace():
+            code = True
+        i += 1
+    return code, in_block
+
+
+def count_ts_code_lines(source: str) -> int:
+    """Count lines that are neither blank, //-only, nor entirely inside a
+    /* */ (or /** */) block — the TS mirror of count_code_lines.
+
+    @purpose  Implements the cap's definition of "code line" for TypeScript: a
+              line with real code before a trailing // still counts, only a
+              line wholly consumed by comment does not. Line-based (see
+              _classify_ts_line's own precision note), not AST-based.
+    @tags     file-cap, counting, ts
+    """
+    in_block = False
+    count = 0
+    for line in source.splitlines():
+        has_code, in_block = _classify_ts_line(line, in_block)
+        if has_code:
+            count += 1
+    return count
 
 
 def parse_tags(docstring: str | None) -> dict[str, str]:
@@ -240,6 +387,38 @@ def _gather_facts(path: Path, repo: Path, violations: list[Violation]) -> _FileF
     )
 
 
+def _gather_ts_facts(path: Path, repo: Path, violations: list[Violation]) -> _FileFacts | None:
+    """Parse one TypeScript file and run its per-file checks.
+
+    @purpose  TS mirror of _gather_facts: header presence, @file path match,
+              the line-based effective-line count, and exemptions. There is no
+              per-function @purpose check here (unlike Python) — enforcing
+              that needs a real TypeScript parse, a dependency this repo
+              doesn't carry; CONVENTIONS.md is worded to match this scope.
+    """
+    rel = path.relative_to(repo).as_posix()
+    try:
+        source = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as err:
+        violations.append(Violation(rel, f"cannot read: {err}"))
+        return None
+    block = _extract_ts_header(source)
+    doc = _jsdoc_to_docstring(block) if block is not None else None
+    tags = parse_tags(doc)
+    if block is None or "file" not in tags or "purpose" not in tags:
+        violations.append(Violation(rel, "missing @file/@purpose header block"))
+    elif tags["file"] != rel:
+        mismatch = f"@file header ({tags['file']}) does not match path ({rel})"
+        violations.append(Violation(rel, mismatch))
+    return _FileFacts(
+        path=path,
+        rel=rel,
+        code_lines=count_ts_code_lines(source),
+        tags=tags,
+        exempt_rules=_parse_exemptions(doc, rel, violations),
+    )
+
+
 def _index_table(folder_facts: list[_FileFacts]) -> str:
     """Render the generated README index for one folder's files.
 
@@ -266,7 +445,7 @@ def _check_readme(
     rel = folder.relative_to(repo).as_posix() + "/README.md"
     readme = folder / "README.md"
     if not readme.exists():
-        violations.append(Violation(rel, "folder has .py files but no README.md"))
+        violations.append(Violation(rel, "folder has source files but no README.md"))
         return
     text = readme.read_text(encoding="utf-8")
     if text.count(INDEX_BEGIN) != 1 or text.count(INDEX_END) != 1:
@@ -291,7 +470,10 @@ def _check_readme(
 def run(repo: Path, fix: bool = False) -> LintResult:
     """Run every check over the repo and return everything found.
 
-    @purpose  The whole linter behind one call, so tests and main() cannot diverge.
+    @purpose  The whole linter behind one call, so tests and main() cannot
+              diverge — Python and TypeScript files feed the same all_facts
+              list, so the cap, exemption, and README-index checks below run
+              identically over both.
     @tags     lint, entry
     """
     violations: list[Violation] = []
@@ -301,6 +483,10 @@ def run(repo: Path, fix: bool = False) -> LintResult:
         facts = _gather_facts(path, repo, violations)
         if facts is not None:
             all_facts.append(facts)
+    for path in iter_ts_files(repo):
+        ts_facts = _gather_ts_facts(path, repo, violations)
+        if ts_facts is not None:
+            all_facts.append(ts_facts)
 
     exemptions: list[Exemption] = []
     for facts in all_facts:

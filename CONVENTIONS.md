@@ -50,8 +50,13 @@ an `@file` that doesn't match the real path, or a public item without
 `@purpose` fails `tools/lint.py`. Test files carry the file header; individual
 test functions are exempt from the per-item rule.
 
-The same fields apply to the TypeScript frontend in `/** */` blocks (linted
-from M4).
+The same tag scheme applies to the TypeScript frontend, in `/** */` file
+headers (linted from M4). **Enforced the same way** for the header itself:
+missing `@file`/`@purpose`, or an `@file` that doesn't match the real path,
+fails `tools/lint.py`. Per-function `@purpose` stays Python-only — enforcing
+it in TS needs a real parse (there is no TypeScript AST in the stdlib the way
+there is for Python), a dependency this repo doesn't carry. A judgment call,
+not a plan change; revisit if the frontend grows enough to want it.
 
 ## Design
 
@@ -73,23 +78,28 @@ from M4).
 
 **600 lines per file, excluding comments, blank lines, and docstrings** —
 thorough documentation never fights the cap. Approaching it, split by
-responsibility into a folder with its own README. Exemptions are explicit and
-rare:
+responsibility into a folder with its own README. Applies to the TypeScript
+frontend too, counted line-by-line rather than via a parser: blank, `//`-only,
+and block-comment-only lines are excluded, and a line with real code before a
+trailing `//` still counts. That line-based count cannot see inside strings or
+template literals, so a `//` or `/*` embedded in one (a URL, say) is
+misread as a real comment — an accepted imprecision, not a promise of
+AST-level accuracy. Exemptions are explicit and rare:
 
 ```text
 @exempt file-size reviewer=<name> reason=<free text to end of line>
 ```
 
-placed in the file's header docstring. The linter reports every exemption in
-every run (and flags ones whose file has shrunk back under the cap), so they
-cannot accumulate quietly.
+placed in the file's header — the docstring, or the `/** */` block for
+TypeScript. The linter reports every exemption in every run (and flags ones
+whose file has shrunk back under the cap), so they cannot accumulate quietly.
 
 ## Folders
 
-**Every folder with Python files contains a `README.md`**: a generated index
-(from the files' own `@purpose` lines — `tools/lint.py --fix` refreshes it,
-and CI fails when it's stale) above hand-written prose. `--fix` never creates
-a missing README: the prose half is human or it is nothing.
+**Every folder with Python or TypeScript files contains a `README.md`**: a
+generated index (from the files' own `@purpose` lines — `tools/lint.py --fix`
+refreshes it, and CI fails when it's stale) above hand-written prose. `--fix`
+never creates a missing README: the prose half is human or it is nothing.
 
 ## Comments in code
 

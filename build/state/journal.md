@@ -673,3 +673,19 @@ skipped per the small-item variant: a pure move with the smoke green IS the
 check; no pixels intended to change so no critic.
 
 **Gated by me:** ruff, mypy, 128 tests, lint — green.
+
+## Iteration 25 — 2026-08-24 — K24: the linter learns TypeScript (delegated loop)
+
+Builder (Sonnet): TS discovery (frontend top-level + src recursive, .d.ts
+included), header extraction with JSDoc-gutter normalization feeding the
+SAME tag parser, line-based effective-line cap with its imprecision
+documented in three places, exemptions with gutter tolerance proven a no-op
+for Python, README indexes for TS folders, two hand-written frontend
+READMEs, 11 new lint tests. On the real tree: all 15 TS files already
+compliant — the conventions held by habit before they were enforced, which
+is the best possible audit result. CONVENTIONS.md realigned to what is
+actually enforced (no per-function @purpose for TS — no parser dep; scoped
+honestly rather than overpromised). The builder's own new prose tripped the
+exempt-grammar check mid-build and it fixed the prose, not the check.
+
+**Gated by me:** ruff, mypy, 139 tests, lint (now covering TS) — green.
