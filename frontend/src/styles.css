@@ -8,9 +8,14 @@
  * @layer       frontend
  * @tags        css, chrome, design-tokens, dark-mode, focus, trace,
  *              semantic-zoom, findings, palette
- * @related     frontend/src/App.tsx (sets data-theme on <html>, the per-node
- *              focus/trace/halo classes this file styles, and the sidebar
- *              finding rows this file's .kumi-finding-clickable styles),
+ * @related     frontend/src/theme.ts (sets data-theme on <html>),
+ *              frontend/src/App.tsx (the per-node focus/trace/halo classes
+ *              this file styles, and the sidebar finding rows this file's
+ *              .kumi-finding-clickable styles),
+ *              frontend/src/derive.ts (coneClassName/haloClassName App.tsx
+ *              composes into those classes),
+ *              frontend/src/edges.ts (kumi-edge-* classes on edges,
+ *              STATIC_HANDLES),
  *              KumiNode.tsx (KIND_COLORS accents laid over the surface/text
  *              tokens here; picks the kumi-tier-* class this file styles),
  *              frontend/src/Palette.tsx (renders the kumi-palette-* markup)
@@ -336,7 +341,7 @@ body {
 /* Far tier (PLAN2.md §2.2): the plan's silhouette. The box keeps the exact
  * width/min-height/padding the base .kumi-node rule above already gives it
  * — NODE_WIDTH/NODE_HEIGHT (layout.ts) size elk's layout and the static
- * handle coordinates (App.tsx's STATIC_HANDLES) alike, and resizing per
+ * handle coordinates (edges.ts's STATIC_HANDLES) alike, and resizing per
  * tier would fight both, so "compact" has to come from within that same
  * box instead of by shrinking it (KumiNode.tsx's far-tier comment). Card
  * chrome (surface fill, border, shadow) is switched off here so only the
@@ -406,7 +411,7 @@ body {
  * one (both outline) or the kind stripe (border-left) — all three CSS
  * properties are independent, so every combination just layers. Listed
  * after the base .kumi-node shadow, not in place of it, so the drop shadow
- * survives. Only one of these ever applies to a given node (App.tsx's
+ * survives. Only one of these ever applies to a given node (derive.ts's
  * findingHalos already resolves error-beats-warning before the class is
  * chosen), so there's no ordering concern between the two rules below. */
 .react-flow__node.kumi-halo-error .kumi-node {
@@ -621,7 +626,8 @@ body {
 /* Edge relation labels ("see-also", "threatened-by") read from these two
  * vars in both themes — unconditional, not dark-scoped, because the fix here
  * is making them theme *at all*: they used to come from an inline fill on
- * the label style in App.tsx, which always wins over CSS, dark var included. */
+ * the label style in edges.ts's buildEdges, which always wins over CSS,
+ * dark var included. */
 .react-flow {
   --xy-edge-label-background-color: var(--kumi-bg);
   --xy-edge-label-color: var(--kumi-text-subtle);

@@ -172,7 +172,7 @@ down=dependent), F focuses, Del prompts removal. Accept: palette finds by
 body text; arrow-walk follows edges not screen positions.
 
 ### K23 — Split App.tsx under the cap
-status: todo
+status: done (iteration 24)
 needs: —
 Discovered at K22 (builder flag): App.tsx is ~784 lines, over the 600 cap
 CONVENTIONS.md applies to every language. Extract by responsibility (edge

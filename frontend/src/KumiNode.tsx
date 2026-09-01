@@ -63,7 +63,7 @@ export interface KumiNodeData extends Record<string, unknown> {
 
 /** The four ports, one per edge kind (PLAN2.md §2.4): needs runs left/right,
  * in/link run top/bottom, so membership stops fighting dependencies for the
- * same two pixels. Ids must match STATIC_HANDLES in App.tsx and the
+ * same two pixels. Ids must match STATIC_HANDLES in edges.ts and the
  * sourceHandle/targetHandle buildEdges sets on each edge.
  *
  * Mounted at every zoom tier, far tier included: React Flow resolves an edge
@@ -95,7 +95,7 @@ export function KumiNode(props: NodeProps) {
     // The plan's silhouette (PLAN2.md §2.2): a colored chip, title only, no
     // pill/status/id. NODE_WIDTH/NODE_HEIGHT (layout.ts) never change per
     // tier — elk already laid the whole plan out against those numbers, and
-    // App.tsx's STATIC_HANDLES coordinates assume the same fixed box at
+    // edges.ts's STATIC_HANDLES coordinates assume the same fixed box at
     // every tier. So the box below stays the full 210x66; the chip reads as
     // compact by sitting smaller *inside* it (base .kumi-node padding plus
     // the chip's own), not by the node shrinking.
@@ -105,7 +105,7 @@ export function KumiNode(props: NodeProps) {
         <div
           className="kumi-chip"
           // Data-derived color, not a token: the same narrow exception
-          // App.tsx's minimapNodeColor already carves out. The tint has to
+          // derive.ts's minimapNodeColor already carves out. The tint has to
           // be *this node's* kind color (task/milestone/plan-override), and
           // there's no --kumi-* var for a color that only exists at runtime.
           // Text stays on var(--kumi-text) so legibility never rides on it.

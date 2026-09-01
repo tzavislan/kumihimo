@@ -658,3 +658,18 @@ not-pane screenshot tooling note. Flag-triage validated in the wild (K23,
 K24 born from builder flags). loop.json: iteration=23, last_retro=23,
 guard cleared. M7 complete 6/6; next up K23/K24 hygiene, then M8 shape-work
 split. Pushing at milestone close per standing say-so.
+
+## Iteration 24 — 2026-08-24 — K23: App.tsx split (delegated loop)
+
+Builder (Sonnet): pure extraction refactor — edges.ts (127 effective),
+derive.ts (74), useGraphKeyboard.ts (89), theme.ts (19); App.tsx from 1049
+physical/784 effective down to 691/522, @exempt removed. Zero behavior
+change proven three ways: typecheck, build, and the editor smoke driving
+the real UI. Comment accuracy maintained beyond the moved files (KumiNode/
+styles.css pointers re-homed); historical records left frozen. Judgment
+calls stated and sound (nodeTitle/colorFor to derive.ts, lens types with
+their only reader, theme as a hook with unchanged call order). Reviewer
+skipped per the small-item variant: a pure move with the smoke green IS the
+check; no pixels intended to change so no critic.
+
+**Gated by me:** ruff, mypy, 128 tests, lint — green.

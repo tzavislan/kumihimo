@@ -2,33 +2,41 @@
  * @file        frontend/src/App.tsx
  * @purpose     The editor: payload in (fetch + live socket), React Flow out,
  *              and every gesture — drag, connect, form save, add, delete,
- *              rename, edge removal — posted as one op envelope. View.yaml
- *              positions honored with elk filling gaps, braid preview, dirty-
- *              vs-HEAD indicator, findings live in the sidebar — each also
- *              haloing its node on the canvas (error beats warning) and,
- *              when it names a node rather than a file, click-to-jump to
- *              select and center it. Also owns light/dark theme: init from
- *              storage or OS preference, toggle,
- *              persist — styles.css does the rest via [data-theme="dark"].
- *              Owns two client-side view lenses built on cones.ts's graph
- *              math: focus (double-click dims everything outside the node's
- *              up/downstream cone) and trace (alt-click a second node lights
- *              the needs-paths between them) — both pure view state, never
- *              posted as an op, recomputed whenever a payload echo arrives.
- *              Also tracks the semantic-zoom tier off React Flow's viewport
- *              (onMove), threshold-debounced so a zoom gesture only touches
- *              node state when the tier actually changes, and computes the
- *              per-node data (member count, acceptance list) KumiNode needs
- *              to render it. Owns the Ctrl+K palette's open state and the
- *              graph-directional keyboard (arrows walk needs/in edges,
- *              F focuses, Delete/Backspace removes) — both window-level
- *              listeners gated so neither steals keys from a form field, the
- *              palette's own input, or React Flow's own keyboard handling
- *              (disabled below in favor of these).
+ *              rename, edge removal — posted as one op envelope (edges.ts
+ *              builds and parses the edges themselves). View.yaml positions
+ *              honored with elk filling gaps, braid preview, dirty-vs-HEAD
+ *              indicator, findings live in the sidebar — each also haloing
+ *              its node on the canvas (error beats warning) and, when it
+ *              names a node rather than a file, click-to-jump to select and
+ *              center it; derive.ts computes the halo map and every other
+ *              per-node render fact (color, member count, acceptance list,
+ *              cone/halo class). Owns two client-side view lenses built on
+ *              cones.ts's graph math: focus (double-click dims everything
+ *              outside the node's up/downstream cone) and trace (alt-click a
+ *              second node lights the needs-paths between them) — both pure
+ *              view state, never posted as an op, recomputed whenever a
+ *              payload echo arrives. Also tracks the semantic-zoom tier off
+ *              React Flow's viewport (onMove), threshold-debounced so a zoom
+ *              gesture only touches node state when the tier actually
+ *              changes. Mounts useTheme (theme.ts) for light/dark and
+ *              useGraphKeyboard (useGraphKeyboard.ts) for the graph-
+ *              directional keyboard, alongside the Ctrl+K palette's own open
+ *              state and listener — every window-level listener gated so
+ *              none steals keys from a form field, the palette's own input,
+ *              or React Flow's own keyboard handling (disabled below in
+ *              favor of these).
  * @layer       frontend
  * @tags        react-flow, editor, ops, live, elk, sidebar, theme, focus,
  *              trace, semantic-zoom, findings, palette, keyboard
  * @related     frontend/src/api.ts (the wire),
+ *              frontend/src/edges.ts (builds/parses edges, STATIC_HANDLES,
+ *              the unlink envelope),
+ *              frontend/src/derive.ts (every payload-derived per-node fact:
+ *              color, member count, acceptance, cone/halo class, findings
+ *              halos, minimap color),
+ *              frontend/src/useGraphKeyboard.ts (the graph-directional
+ *              keyboard hook this mounts),
+ *              frontend/src/theme.ts (the useTheme hook this mounts),
  *              frontend/src/cones.ts (focus/trace graph math),
  *              frontend/src/KumiNode.tsx (zoomTier thresholds + tier render),
  *              frontend/src/NodeForm.tsx (the selected node's form),
@@ -36,21 +44,16 @@
  *              frontend/src/styles.css (the tokens data-theme switches),
  *              kumihimo/server/ops_api.py (where every gesture lands)
  * @design      PLAN.md §5.1-5.3, PLAN2.md §2.1-2.2, §2.4-2.5
- * @exempt      file-size reviewer=thomas-pending reason=crossed the cap at K22; split queued as K23 before M8
  */
 import {
   Background,
   Controls,
-  MarkerType,
   MiniMap,
-  Position as FlowPosition,
   ReactFlow,
   useNodesState,
   type Connection,
-  type Edge,
   type EdgeMouseHandler,
   type Node,
-  type NodeHandle,
   type NodeMouseHandler,
   type ReactFlowInstance,
   type Viewport,
@@ -60,332 +63,34 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchBraid, fetchDirty, fetchPlan, openLive, postOp } from "./api";
 import { ancestorsOf, descendantsOf, pathsBetween } from "./cones";
 import {
-  FALLBACK_COLOR,
-  KIND_COLORS,
-  KumiNode,
-  zoomTier,
-  type KumiNodeData,
-  type ZoomTier,
-} from "./KumiNode";
+  acceptanceList,
+  colorFor,
+  coneClassName,
+  findingHalos,
+  haloClassName,
+  memberCounts,
+  minimapNodeColor,
+  nodeTitle,
+  type FocusState,
+  type TraceState,
+} from "./derive";
+import {
+  buildEdges,
+  edgeSentence,
+  parseEdge,
+  STATIC_HANDLES,
+  unlinkEnvelope,
+  type EdgeMode,
+} from "./edges";
+import { KumiNode, zoomTier, type KumiNodeData, type ZoomTier } from "./KumiNode";
 import { elkPositions, NODE_HEIGHT, NODE_WIDTH } from "./layout";
 import { NodeForm } from "./NodeForm";
 import { Palette, type PaletteCommand } from "./Palette";
-import type { Finding, Payload, PlanNode, Position } from "./types";
+import { useTheme } from "./theme";
+import type { Payload, Position } from "./types";
+import { useGraphKeyboard } from "./useGraphKeyboard";
 
 const NODE_TYPES = { kumi: KumiNode };
-
-type EdgeMode = "needs" | "in" | "link";
-
-// Focus and trace are alternatives, never both: entering one clears the
-// other so a node's class is never ambiguous between two active lenses.
-interface FocusState {
-  id: string;
-  ancestors: Map<string, number>;
-  descendants: Map<string, number>;
-}
-interface TraceState {
-  a: string;
-  b: string;
-  nodes: Set<string>;
-}
-
-// Bucket BFS distance into the 3 CSS steps (kumi-cone-{up,down}-1..3) the
-// tokens fade across; distance 3+ shares the faintest step rather than
-// growing an unbounded class list.
-function coneStep(distance: number): number {
-  return Math.min(distance, 3);
-}
-
-/** The node wrapper class for the active lens, or undefined outside one —
- * cone tint for ancestors/descendants, a distinct ring for the focus node
- * itself or a trace endpoint/path node, ~15% dim for everything else. */
-function coneClassName(id: string, focus: FocusState | null, trace: TraceState | null): string | undefined {
-  if (focus) {
-    if (id === focus.id) return "kumi-focus-self";
-    const up = focus.ancestors.get(id);
-    if (up !== undefined) return `kumi-cone-up-${coneStep(up)}`;
-    const down = focus.descendants.get(id);
-    if (down !== undefined) return `kumi-cone-down-${coneStep(down)}`;
-    return "kumi-dimmed";
-  }
-  if (trace) {
-    return trace.nodes.has(id) ? "kumi-trace-node" : "kumi-dimmed";
-  }
-  return undefined;
-}
-
-// Milestone member count (PLAN2.md §2.2 mid tier): how many payload nodes
-// name this id in their `in` — i.e. how many threads belong to it. One pass
-// over every node's `in` list per payload, alongside the nodes-rebuild
-// effect that already walks payload.nodes once per render; KumiNode only
-// ever sees one node, so this has to happen up here.
-function memberCounts(nodes: PlanNode[]): Map<string, number> {
-  const counts = new Map<string, number>();
-  for (const node of nodes) {
-    for (const group of node.in) {
-      counts.set(group, (counts.get(group) ?? 0) + 1);
-    }
-  }
-  return counts;
-}
-
-// Near-tier acceptance checklist (PLAN2.md §2.2): only effective.acceptance
-// that actually resolved to a list (kinds.yaml's "list" field type) renders
-// as checkboxes — a hand-edited file that turned it into a string or number
-// must not be coerced into one, so KumiNode gets null instead.
-function acceptanceList(node: PlanNode): string[] | null {
-  const value = node.effective.acceptance;
-  if (!Array.isArray(value)) return null;
-  return value.filter((item): item is string => typeof item === "string");
-}
-
-// Findings-on-the-graph halo (PLAN2.md §2.1): node id -> worst level of any
-// finding naming it. finding.where is a node id when the finding is about
-// that node; a file-level finding (kumihimo.yaml, a kind's schema) never
-// matches an id and so never halos. Error beats warning when a node carries
-// both, regardless of which finding came first in payload.findings, since a
-// node shows at most one ring. The sidebar's click-to-jump reuses this same
-// map's key set as its "is this finding's `where` a node id" check — every
-// finding that matches gets inserted here independent of level.
-function findingHalos(nodes: PlanNode[], findings: Finding[]): Map<string, "error" | "warning"> {
-  const ids = new Set(nodes.map((node) => node.id));
-  const halos = new Map<string, "error" | "warning">();
-  for (const finding of findings) {
-    if (!ids.has(finding.where)) continue;
-    if (finding.level === "error" || !halos.has(finding.where)) {
-      halos.set(finding.where, finding.level);
-    }
-  }
-  return halos;
-}
-
-// The halo wrapper class for one node, or undefined when it has none —
-// composed alongside coneClassName's lens class rather than replacing it,
-// same pattern as the edges useMemo below composing an edge's kind class
-// with kumi-edge-dim.
-function haloClassName(id: string, halos: Map<string, "error" | "warning">): string | undefined {
-  const level = halos.get(id);
-  return level ? `kumi-halo-${level}` : undefined;
-}
-
-// MiniMap paints to a <canvas>, not the DOM, so it can't resolve a
-// var(--kumi-*) token or read our .kumi-dimmed CSS rule — it wants a color
-// string back from this callback. The alpha-hex fallback below is a
-// deliberate, narrow exception to the tokens-only rule, not an oversight:
-// there is no token to hand it.
-function minimapNodeColor(node: Node): string {
-  const dimmed = typeof node.className === "string" && node.className.includes("kumi-dimmed");
-  if (dimmed) return "#94a3b833";
-  return (node.data as KumiNodeData).color;
-}
-
-// Static handle geometry (React Flow's SSR recipe): with node dimensions and
-// handle coordinates declared, edges render without any browser measure pass —
-// including in renderers that never composite a frame.
-//
-// Four handles, one per edge kind, so membership stops fighting dependencies
-// for the same two pixels (PLAN2.md §2.4): needs run left/right, in/link run
-// top/bottom. Ids are referenced by buildEdges' sourceHandle/targetHandle.
-const STATIC_HANDLES: NodeHandle[] = [
-  {
-    id: "in-left",
-    type: "target",
-    position: FlowPosition.Left,
-    x: 0,
-    y: NODE_HEIGHT / 2,
-    width: 6,
-    height: 6,
-  },
-  {
-    id: "out-right",
-    type: "source",
-    position: FlowPosition.Right,
-    x: NODE_WIDTH,
-    y: NODE_HEIGHT / 2,
-    width: 6,
-    height: 6,
-  },
-  {
-    id: "in-top",
-    type: "target",
-    position: FlowPosition.Top,
-    x: NODE_WIDTH / 2,
-    y: 0,
-    width: 6,
-    height: 6,
-  },
-  {
-    id: "out-bottom",
-    type: "source",
-    position: FlowPosition.Bottom,
-    x: NODE_WIDTH / 2,
-    y: NODE_HEIGHT,
-    width: 6,
-    height: 6,
-  },
-];
-
-const THEME_KEY = "kumi-theme";
-type Theme = "light" | "dark";
-
-// Storage wins once the user has chosen; before that, follow the OS so a
-// fresh install doesn't default to a jarring light canvas on a dark desktop.
-function initialTheme(): Theme {
-  const stored = localStorage.getItem(THEME_KEY);
-  if (stored === "light" || stored === "dark") return stored;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-}
-
-function colorFor(payload: Payload, node: PlanNode): string {
-  return payload.kinds[node.kind]?.color ?? KIND_COLORS[node.kind] ?? FALLBACK_COLOR;
-}
-
-// Readable-scale closed arrows on the two directional kinds; links stay
-// unmarked since they're a bidirectional annotation, not a dependency arrow.
-const ARROW_NEEDS = { type: MarkerType.ArrowClosed, width: 18, height: 18, color: "var(--kumi-edge)" };
-const ARROW_IN = { type: MarkerType.ArrowClosed, width: 18, height: 18, color: "var(--kumi-edge-in)" };
-
-function buildEdges(payload: Payload): Edge[] {
-  const ids = new Set(payload.nodes.map((node) => node.id));
-  const edges: Edge[] = [];
-  for (const node of payload.nodes) {
-    for (const dep of node.needs) {
-      if (!ids.has(dep)) continue;
-      edges.push({
-        id: `needs:${dep}->${node.id}`,
-        source: dep,
-        sourceHandle: "out-right",
-        target: node.id,
-        targetHandle: "in-left",
-        className: "kumi-edge-needs",
-        markerEnd: ARROW_NEEDS,
-      });
-    }
-    for (const group of node.in) {
-      if (!ids.has(group)) continue;
-      edges.push({
-        id: `in:${node.id}->${group}`,
-        source: node.id,
-        sourceHandle: "out-bottom",
-        target: group,
-        targetHandle: "in-top",
-        className: "kumi-edge-in",
-        markerEnd: ARROW_IN,
-      });
-    }
-    for (const link of node.links) {
-      if (!ids.has(link.to)) continue;
-      edges.push({
-        id: `link:${node.id}->${link.to}:${link.rel}`,
-        source: node.id,
-        sourceHandle: "out-bottom",
-        target: link.to,
-        targetHandle: "in-top",
-        label: link.rel,
-        className: "kumi-edge-link",
-        // No color/dasharray here: an inline style beats CSS regardless of
-        // specificity, which is exactly what silently broke this label in
-        // dark mode before — styles.css themes stroke and label via
-        // --kumi-edge-link and --xy-edge-label-color instead.
-        labelStyle: { fontSize: 10 },
-      });
-    }
-  }
-  return edges;
-}
-
-// One id format ("kind:from->to[:rel]"), three consumers: the unlink op, the
-// hover tooltip sentence, and the edge panel's jump buttons — parsed once so
-// they can't drift apart.
-interface EdgeInfo {
-  kind: EdgeMode;
-  from: string;
-  to: string;
-  rel?: string;
-}
-
-function parseEdge(edgeId: string): EdgeInfo | null {
-  if (edgeId.startsWith("needs:")) {
-    const [dep, node] = edgeId.slice(6).split("->");
-    return { kind: "needs", from: node, to: dep };
-  }
-  if (edgeId.startsWith("in:")) {
-    const [member, group] = edgeId.slice(3).split("->");
-    return { kind: "in", from: member, to: group };
-  }
-  if (edgeId.startsWith("link:")) {
-    const [src, toRel] = edgeId.slice(5).split("->");
-    const separator = toRel.indexOf(":");
-    const to = separator === -1 ? toRel : toRel.slice(0, separator);
-    const rel = separator === -1 ? undefined : toRel.slice(separator + 1);
-    return { kind: "link", from: src, to, rel };
-  }
-  return null;
-}
-
-function nodeTitle(payload: Payload, id: string): string {
-  return payload.nodes.find((node) => node.id === id)?.title ?? id;
-}
-
-/** "A needs B" / "A is in B" / "A links B (rel)" — titles, not ids. */
-function edgeSentence(payload: Payload, info: EdgeInfo): string {
-  const from = nodeTitle(payload, info.from);
-  const to = nodeTitle(payload, info.to);
-  if (info.kind === "needs") return `${from} needs ${to}`;
-  if (info.kind === "in") return `${from} is in ${to}`;
-  return `${from} links ${to}${info.rel ? ` (${info.rel})` : ""}`;
-}
-
-function unlinkEnvelope(edgeId: string): Record<string, unknown> | null {
-  const info = parseEdge(edgeId);
-  if (!info) return null;
-  if (info.kind === "needs") return { op: "unlink", src: info.from, needs: info.to };
-  if (info.kind === "in") return { op: "unlink", src: info.from, in: info.to };
-  return { op: "unlink", src: info.from, to: info.to };
-}
-
-// Graph-directional keyboard (PLAN2.md §2.5). The plan's own prose says
-// up=dependency/down=dependent, but K18 already committed `needs` to the
-// canvas's real left/right axis (STATIC_HANDLES above draws dependency ->
-// dependent left-to-right) — mapping the arrow that visually points at a
-// node's dependency beats matching screen-relative prose that predates the
-// ports work. Up/Down are freed up for sibling-cycling instead.
-//
-// "First" dependency/dependent is needs[0] / the first node in payload
-// order whose needs include this id — simple and deterministic rather than
-// tracking a per-selection cursor through a multi-dependency fan-out, which
-// the spec explicitly asked to skip in favor of the honest simple version.
-function firstDependency(nodes: PlanNode[], id: string): string | null {
-  const node = nodes.find((candidate) => candidate.id === id);
-  if (!node || node.needs.length === 0) return null;
-  const target = node.needs[0];
-  return nodes.some((candidate) => candidate.id === target) ? target : null;
-}
-
-function firstDependent(nodes: PlanNode[], id: string): string | null {
-  return nodes.find((candidate) => candidate.needs.includes(id))?.id ?? null;
-}
-
-// Siblings: other nodes sharing this selection's first `in` group, or, when
-// the selection belongs to no group, other likewise-ungrouped nodes — both
-// rings sorted by id so repeated Up/Down presses cycle a stable order.
-function siblingRing(nodes: PlanNode[], id: string): string[] {
-  const self = nodes.find((candidate) => candidate.id === id);
-  if (!self) return [];
-  const group = self.in[0];
-  const pool = group
-    ? nodes.filter((candidate) => candidate.in.includes(group))
-    : nodes.filter((candidate) => candidate.in.length === 0);
-  return pool.map((candidate) => candidate.id).sort();
-}
-
-function cycleSibling(nodes: PlanNode[], id: string, delta: 1 | -1): string | null {
-  const ring = siblingRing(nodes, id);
-  if (ring.length <= 1) return null;
-  const index = ring.indexOf(id);
-  if (index === -1) return null;
-  return ring[(index + delta + ring.length) % ring.length];
-}
 
 /** The whole application. */
 export default function App() {
@@ -411,7 +116,7 @@ export default function App() {
   // While a drag or connect gesture is in flight, payload echoes must not
   // rebuild the nodes under the pointer — the gesture would be cancelled.
   const [interacting, setInteracting] = useState(false);
-  const [theme, setTheme] = useState<Theme>(initialTheme);
+  const { theme, toggleTheme } = useTheme();
   // Ctrl+K palette (PLAN2.md §2.5): open/close only, Palette.tsx owns query
   // and highlight state internally.
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -443,18 +148,6 @@ export default function App() {
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
-
-  // The attribute, not the state value, is what styles.css keys off of —
-  // this is the one place that writes it, so toggle and persistence can't
-  // drift apart.
-  useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
-    localStorage.setItem(THEME_KEY, theme);
-  }, [theme]);
-
-  const toggleTheme = useCallback(() => {
-    setTheme((current) => (current === "dark" ? "light" : "dark"));
   }, []);
 
   // Shared by the sidebar button and the palette's "Toggle auto-layout"
@@ -709,61 +402,10 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  // Graph-directional keyboard (PLAN2.md §2.5): live only with a node
-  // selected, the palette closed, and focus outside any form field — the
-  // last guard by event.target's tag, same as the spec asks for. Every arrow
-  // move also centers, via jumpTo, so keyboard and mouse selection always
-  // agree on what "selected" looks like on screen.
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (paletteOpen || !payload || !selectedId) return;
-      // Leaves browser/OS chords (Ctrl+F, Alt+Left history-back, etc.) alone.
-      if (event.ctrlKey || event.metaKey || event.altKey) return;
-      const tag = (event.target as HTMLElement | null)?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-
-      if (event.key === "ArrowLeft") {
-        const target = firstDependency(payload.nodes, selectedId);
-        if (target) {
-          event.preventDefault();
-          jumpTo(target);
-        }
-      } else if (event.key === "ArrowRight") {
-        const target = firstDependent(payload.nodes, selectedId);
-        if (target) {
-          event.preventDefault();
-          jumpTo(target);
-        }
-      } else if (event.key === "ArrowUp") {
-        const target = cycleSibling(payload.nodes, selectedId, -1);
-        if (target) {
-          event.preventDefault();
-          jumpTo(target);
-        }
-      } else if (event.key === "ArrowDown") {
-        const target = cycleSibling(payload.nodes, selectedId, 1);
-        if (target) {
-          event.preventDefault();
-          jumpTo(target);
-        }
-      } else if (event.key.toLowerCase() === "f") {
-        event.preventDefault();
-        focusOn(selectedId);
-      } else if (event.key === "Delete" || event.key === "Backspace") {
-        event.preventDefault();
-        const node = payload.nodes.find((candidate) => candidate.id === selectedId);
-        if (!node) return;
-        // No auto-force: a referenced node's remove_node 400s with the
-        // referrer list, and applyOp's existing else-branch already surfaces
-        // that in the same notice banner every other op error uses.
-        if (window.confirm(`Delete "${node.title || node.id}"?`)) {
-          void applyOp({ op: "remove_node", node_id: node.id, base_digest: node.digest });
-        }
-      }
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [payload, selectedId, paletteOpen, jumpTo, focusOn, applyOp]);
+  // Graph-directional keyboard (PLAN2.md §2.5): arrows walk needs/in edges,
+  // F focuses, Delete/Backspace removes — see useGraphKeyboard.ts for the
+  // key bindings and the form-field guard.
+  useGraphKeyboard({ payload, selectedId, paletteOpen, jumpTo, focusOn, applyOp });
 
   const onConnect = useCallback(
     (connection: Connection) => {
