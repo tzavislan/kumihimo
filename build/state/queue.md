@@ -225,3 +225,52 @@ PLAN2 §2.3-2.5. Depth-lanes layout option; re-layout selection only
 (through set_positions); payload echoes animate transforms (suppressed
 mid-drag). Accept: glides visible on an MCP-driven edit; partial re-layout
 leaves unselected positions untouched in view.yaml.
+
+## M9 — Crew (PLAN2.md §3, split 2026-09-01)
+
+### K28 — Crew model: three mention keys, three kinds, prose mentions
+status: todo
+needs: —
+PLAN2 §3.1-3.2, §3.6-3.7 (model half). RESERVED_KEYS grows agents/skills/
+trains (scalar-or-list, like needs/in); Node carries them; validation:
+targets must exist, agents:->kind agent, skills:->kind skill, trains:->agent
+or skill, all as errors; engineering pack gains agent (runtime choice
+[claude-code, cloud, human, other], model str, entry str, scope list,
+retrieval str, trained str), skill (invocation str, source str, cadence str,
+trained str), reference (locator str, retriever str); @id prose mentions
+scanned READ-ONLY from bodies (one documented regex; dangling @id = warning;
+bodies never rewritten — PLAN2 §3.2's line); ops.link/unlink accept
+agents=/skills=/trains= (no cycle guard — mentions are not ordering edges);
+format stays 1 (additive keys; older readers warn as unknown fields).
+Accept: round-trip fidelity holds for the new keys; every validation rule
+has a trigger and non-trigger test; a v0.1-style file with agents: loads
+with a warning, not corruption.
+
+### K29 — Braid --for, Cast section, crew surface, JSONL export
+status: todo
+needs: [K28]
+PLAN2 §3.3, §3.6-3.7 (compile half). Task templates render *Assigned:* /
+*With:* / *Trains:* lines; consult-links (links rel=consult to reference
+nodes) render *Consult:* title — locator (via retriever); grouped strategy
+gains a Cast section when agent/skill nodes are selected (each with
+invocation/entry, trained, cadence); braid --for AGENT: selection = nodes
+mentioning that agent + context stubs + its skills' nodes, work orders open
+with *Ground with:* from the agent's retrieval field; kumihimo crew (CLI) +
+crew MCP tool: the roster with trained/cadence/mention counts — dates
+emitted, never compared to now (no clock in the library); ready(for_agent=)
+filter; kumihimo export --format jsonl (one line per node: id, kind, title,
+body, effective, edges incl. mentions). Goldens regenerated and READ.
+Accept: --for output opens with the grounding line; crew lists the roster;
+jsonl round-trips through json.loads line by line; check gate still holds.
+
+### K30 — Crew lens, mention edges, chip editors
+status: todo
+needs: [K28]
+PLAN2 §3 (canvas half). Payload + ops envelopes carry the three mention
+keys; mention edges render distinctly (thin, labeled, own class/tokens; no
+ordering ports — bottom-to-top like links); Crew lens (5th): nodes tinted
+by first assigned agent, skill chips at near tier, unassigned WORK (task
+kind, no agents:) outlined, trains edges emphasized; sidebar gains chip
+editors with id autocomplete for needs/agents/skills (add/remove chips ->
+link/unlink ops). Accept: roadmap-with-crew renders legibly under the Crew
+lens; chip edit round-trips through ops; lens count stays capped at five.
