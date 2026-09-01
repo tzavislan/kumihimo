@@ -2,22 +2,30 @@
  * @file        frontend/src/App.tsx
  * @purpose     The editor: payload in (fetch + live socket), React Flow out,
  *              and every gesture — drag, connect, form save, add, delete,
- *              rename, edge removal, container collapse — posted as one op
- *              envelope (containers.ts builds container nodes and reroutes
- *              edges; edges.ts builds/parses the rest). View.yaml positions
- *              honored with elk filling gaps, braid preview, dirty-vs-HEAD
- *              indicator, findings live in the sidebar — each also haloing
- *              its node on the canvas (error beats warning) and, when it
- *              names a node rather than a file, click-to-jump to select and
- *              center it; derive.ts computes the halo map and every other
- *              per-node render fact (color, member count, acceptance list,
- *              cone/halo class). Owns two client-side view lenses built on
- *              cones.ts's graph math: focus (double-click dims everything
- *              outside the node's up/downstream cone) and trace (alt-click a
- *              second node lights the needs-paths between them) — both pure
- *              view state, never posted as an op, recomputed whenever a
- *              payload echo arrives. Also tracks the semantic-zoom tier off
- *              React Flow's viewport (onMove), threshold-debounced so a zoom
+ *              rename, edge removal, container collapse, lens switch —
+ *              posted as one op envelope or held as pure view state.
+ *              canvasBuild.ts turns payload+view-state into React Flow's
+ *              nodes/edges arrays (containers.ts builds container nodes and
+ *              reroutes edges; edges.ts builds/parses the rest; lenses.ts
+ *              supplies the Status/Flow/Risk math); derive.ts computes the
+ *              halo map and every other per-node render fact. View.yaml
+ *              positions honored with elk filling gaps, braid preview,
+ *              dirty-vs-HEAD indicator, findings live in the sidebar — each
+ *              also haloing its node on the canvas (error beats warning)
+ *              and, when it names a node rather than a file, click-to-jump
+ *              to select and center it (jumpTo also resolves a hidden
+ *              container member to its collapsed container, with a notice —
+ *              Inherited fix A, K26). Owns the client-side view lenses built
+ *              on cones.ts's graph math: focus (double-click dims everything
+ *              outside the node's up/downstream cone — a container unions
+ *              its members' cones, Inherited fix C) and trace (alt-click a
+ *              second node lights the needs-paths between them), plus the
+ *              lens bar itself (LensBar.tsx; Structure/Status/Flow/Risk,
+ *              keys 1-4 via useGraphKeyboard.ts) — entering focus/trace
+ *              suspends lens emphasis (PLAN2.md §2.3), all four pure view
+ *              state, never posted as an op, recomputed whenever a payload
+ *              echo arrives. Also tracks the semantic-zoom tier off React
+ *              Flow's viewport (onMove), threshold-debounced so a zoom
  *              gesture only touches node state when the tier actually
  *              changes. Mounts useTheme (theme.ts) for light/dark and
  *              useGraphKeyboard (useGraphKeyboard.ts) for the graph-
@@ -28,28 +36,34 @@
  *              favor of these).
  * @layer       frontend
  * @tags        react-flow, editor, ops, live, elk, sidebar, theme, focus,
- *              trace, semantic-zoom, findings, palette, keyboard, containers
- * @related     frontend/src/api.ts (the wire),
- *              frontend/src/containers.ts (grouping/containment math, the
- *              container node factory, and the collapsed-edge reroute this
- *              file's nodes-rebuild effect and edges memo call once each),
+ *              trace, semantic-zoom, findings, palette, keyboard, containers,
+ *              lenses
+ * @related     frontend/src/canvasBuild.ts (buildCanvasNodes/buildCanvasEdges
+ *              — the nodes-rebuild effect's and edges memo's own bodies,
+ *              moved out to stay under the line cap),
+ *              frontend/src/containers.ts (grouping/containment math and
+ *              jumpTarget, Inherited fix A),
  *              frontend/src/KumiGroupNode.tsx (the container node type this
  *              mounts as "kumiGroup"),
- *              frontend/src/edges.ts (builds/parses edges, STATIC_HANDLES,
- *              the unlink envelope),
- *              frontend/src/derive.ts (every payload-derived per-node fact:
- *              color, member count, acceptance, cone/halo class, findings
- *              halos, minimap color),
+ *              frontend/src/edges.ts (parseEdge/edgeSentence/unlinkEnvelope
+ *              for the edge panel),
+ *              frontend/src/derive.ts (nodeTitle, findingHalos, FocusState/
+ *              TraceState),
+ *              frontend/src/lenses.ts (Lens, computeLensContext — the
+ *              Status/Flow/Risk math LensBar.tsx and canvasBuild.ts share),
+ *              frontend/src/LensBar.tsx (the sidebar segmented control this
+ *              mounts),
  *              frontend/src/useGraphKeyboard.ts (the graph-directional
- *              keyboard hook this mounts),
+ *              keyboard hook this mounts, keys 1-4 included),
  *              frontend/src/theme.ts (the useTheme hook this mounts),
- *              frontend/src/cones.ts (focus/trace graph math),
+ *              frontend/src/cones.ts (focus/trace graph math, containerCones
+ *              for Inherited fix C),
  *              frontend/src/KumiNode.tsx (zoomTier thresholds + tier render),
  *              frontend/src/NodeForm.tsx (the selected node's form),
  *              frontend/src/Palette.tsx (the Ctrl+K overlay this mounts),
  *              frontend/src/styles.css (the tokens data-theme switches),
  *              kumihimo/server/ops_api.py (where every gesture lands)
- * @design      PLAN.md §5.1-5.3, PLAN2.md §2.1-2.3, §2.4-2.5
+ * @design      PLAN.md §5.1-5.3, PLAN2.md §2.1-2.5
  */
 import {
   Background,
@@ -67,23 +81,16 @@ import {
 import "@xyflow/react/dist/style.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchBraid, fetchDirty, fetchPlan, openLive, postOp } from "./api";
-import { ancestorsOf, descendantsOf, pathsBetween } from "./cones";
-import { buildContainerNode, containerEdges, groupNodes, membersByContainer, toRelative } from "./containers";
-import {
-  acceptanceList,
-  colorFor,
-  coneClassName,
-  findingHalos,
-  haloClassName,
-  minimapNodeColor,
-  nodeTitle,
-  type FocusState,
-  type TraceState,
-} from "./derive";
-import { edgeSentence, parseEdge, STATIC_HANDLES, unlinkEnvelope, type EdgeMode } from "./edges";
+import { buildCanvasEdges, buildCanvasNodes } from "./canvasBuild";
+import { ancestorsOf, containerCones, descendantsOf, pathsBetween } from "./cones";
+import { groupNodes, jumpTarget, membersByContainer } from "./containers";
+import { findingHalos, minimapNodeColor, nodeTitle, type FocusState, type TraceState } from "./derive";
+import { edgeSentence, parseEdge, unlinkEnvelope, type EdgeMode } from "./edges";
 import { KumiGroupNode } from "./KumiGroupNode";
-import { KumiNode, zoomTier, type KumiNodeData, type ZoomTier } from "./KumiNode";
+import { KumiNode, zoomTier, type ZoomTier } from "./KumiNode";
 import { elkPositions, NODE_HEIGHT, NODE_WIDTH, type ContainerSize } from "./layout";
+import { computeLensContext, type Lens } from "./lenses";
+import { LensBar } from "./LensBar";
 import { NodeForm } from "./NodeForm";
 import { Palette, type PaletteCommand } from "./Palette";
 import { useTheme } from "./theme";
@@ -111,6 +118,9 @@ export default function App() {
   const [notice, setNotice] = useState<string | null>(null);
   const [focus, setFocus] = useState<FocusState | null>(null);
   const [trace, setTrace] = useState<TraceState | null>(null);
+  // The lens bar (PLAN2.md §2.3, K26): pure view state, never posted as an
+  // op. Structure is the default — today's rendering, no extra emphasis.
+  const [lens, setLens] = useState<Lens>("structure");
   const [braidText, setBraidText] = useState<string | null>(null);
   const [dirty, setDirty] = useState<{ tracked: boolean; dirty: string[] }>({
     tracked: false,
@@ -137,13 +147,25 @@ export default function App() {
   const rfInstance = useRef<ReactFlowInstance | null>(null);
 
   // Which nodes are containers and who's in which (PLAN2.md §2.3 lens 1),
-  // shared by elk (collapsed-as-one-node), the nodes-rebuild effect
-  // (parenting), and the edges memo (reroute) — computed once so the three
-  // never disagree. Payload's own `collapsed` list is the persisted source
-  // of truth; toggling (below) posts a fresh set_collapsed op and waits for
-  // the echo like every other gesture, rather than tracking a local copy.
+  // shared by elk (collapsed-as-one-node), canvasBuild.ts (parenting,
+  // reroute), and jumpTo/focusOn below — computed once so none of them can
+  // disagree. Payload's own `collapsed` list is the persisted source of
+  // truth; toggling (below) posts a fresh set_collapsed op and waits for the
+  // echo like every other gesture, rather than tracking a local copy.
   const grouping = useMemo(() => groupNodes(payload?.nodes ?? []), [payload]);
   const collapsedSet = useMemo(() => new Set(payload?.collapsed ?? []), [payload]);
+  // Container id -> its member ids, the reverse of grouping.assignments —
+  // shared by focusOn (Inherited fix C) and the payload-echo reconciliation
+  // effect below, so a container's own cones are never rebuilt two ways.
+  const members = useMemo(() => membersByContainer(grouping.assignments), [grouping]);
+  // Status/Flow/Risk math (lenses.ts): recomputed only for the active lens,
+  // and only while focus/trace aren't suspending lens emphasis (PLAN2.md
+  // §2.3) — computeLensContext leaves the other two null either way, so
+  // canvasBuild.ts's per-node/per-edge lookups are no-ops outside their lens.
+  const lensCtx = useMemo(
+    () => computeLensContext(payload?.nodes ?? [], lens, !focus && !trace, grouping.assignments, collapsedSet),
+    [payload, lens, focus, trace, grouping, collapsedSet],
+  );
 
   useEffect(() => {
     fetchPlan().then(setPayload).catch(console.error);
@@ -216,12 +238,19 @@ export default function App() {
   // instead, only clearing when an endpoint itself is gone from this payload.
   // The functional setFocus/setTrace form reads current state without
   // needing focus/trace in the dependency array, so this only reruns on a
-  // genuine new payload, never loops on its own setState.
+  // genuine new payload, never loops on its own setState. A container focus
+  // (FocusState.members set — Inherited fix C) re-derives via containerCones,
+  // never degrading to plain leaf ancestors/descendants on an echo.
   useEffect(() => {
     if (!payload) return;
     setFocus((current) => {
       if (!current) return current;
       if (!payload.nodes.some((node) => node.id === current.id)) return null;
+      if (current.members) {
+        const memberIds = members.get(current.id) ?? [];
+        const { ancestors, descendants } = containerCones(payload.nodes, memberIds);
+        return { id: current.id, ancestors, descendants, members: new Set(memberIds) };
+      }
       return {
         id: current.id,
         ancestors: ancestorsOf(payload.nodes, current.id),
@@ -235,7 +264,7 @@ export default function App() {
       const onPath = pathsBetween(payload.nodes, current.a, current.b);
       return onPath.size > 0 ? { a: current.a, b: current.b, nodes: onPath } : null;
     });
-  }, [payload]);
+  }, [payload, members]);
 
   const applyOp = useCallback(async (envelope: Record<string, unknown>) => {
     const result = await postOp(envelope);
@@ -267,77 +296,23 @@ export default function App() {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   useEffect(() => {
     if (!payload || interacting) return;
-    // Finding halos (PLAN2.md §2.1), shared by every node below rather than
-    // recomputed per node; membership counts come from `grouping` above.
-    const halos = findingHalos(payload.nodes, payload.findings);
-    const members = membersByContainer(grouping.assignments);
-    const byId = new Map(payload.nodes.map((node) => [node.id, node]));
-    setNodes((previous) => {
-      const byOldId = new Map(previous.map((node) => [node.id, node]));
-      const built: Node[] = [];
-      // Containers first: React Flow wants a parent present before any node
-      // declares it via parentId.
-      for (const id of grouping.containers) {
-        const containerNode = byId.get(id);
-        if (!containerNode) continue;
-        built.push(
-          buildContainerNode({
-            node: containerNode,
-            color: colorFor(payload, containerNode),
-            collapsed: collapsedSet.has(id),
-            memberIds: members.get(id) ?? [],
-            byId,
-            positions,
-            // Only in pure-auto mode: elk's own compound size for this
-            // container, when it has one — view.yaml mode always falls
-            // through to containers.ts's boundingBox instead (see its own
-            // comment on ContainerNodeParams.autoSize).
-            autoSize: useViewLayout ? undefined : containerAutoSizes[id],
-            onToggle: () => toggleCollapse(id),
-            className:
-              [coneClassName(id, focus, trace), haloClassName(id, halos)].filter(Boolean).join(" ") ||
-              undefined,
-            measured: byOldId.get(id)?.measured,
-          }),
-        );
-      }
-      const containerPosition = new Map(built.map((node) => [node.id, node.position]));
-      for (const node of payload.nodes) {
-        if (grouping.containers.has(node.id)) continue;
-        const old = byOldId.get(node.id);
-        const parentId = grouping.assignments.get(node.id);
-        const hidden = parentId ? collapsedSet.has(parentId) : false;
-        const parentPos = parentId ? containerPosition.get(parentId) : undefined;
-        const absolute = positions[node.id] ?? { x: 0, y: 0 };
-        const data: KumiNodeData = {
-          node,
-          color: colorFor(payload, node),
-          tier,
-          memberCount: grouping.counts.get(node.id) ?? 0,
-          acceptance: acceptanceList(node),
-        };
-        built.push({
-          id: node.id,
-          type: "kumi",
-          // Absolute stays the truth everywhere except this one conversion
-          // (containers.ts's toRelative): a member of an EXPANDED container
-          // renders parent-relative, per React Flow's own parentId contract.
-          position: parentPos && !hidden ? toRelative(absolute, parentPos) : absolute,
-          data,
-          width: NODE_WIDTH,
-          height: NODE_HEIGHT,
-          handles: STATIC_HANDLES,
-          measured: old?.measured,
-          hidden,
-          parentId: !hidden ? parentId : undefined,
-          extent: !hidden && parentId ? "parent" : undefined,
-          className: [coneClassName(node.id, focus, trace), haloClassName(node.id, halos)]
-            .filter(Boolean)
-            .join(" ") || undefined,
-        });
-      }
-      return built;
-    });
+    setNodes((previous) =>
+      buildCanvasNodes({
+        payload,
+        positions,
+        grouping,
+        collapsedSet,
+        focus,
+        trace,
+        tier,
+        selectedId,
+        useViewLayout,
+        containerAutoSizes,
+        lensCtx,
+        previous,
+        onToggleCollapse: toggleCollapse,
+      }),
+    );
   }, [
     payload,
     positions,
@@ -351,24 +326,18 @@ export default function App() {
     toggleCollapse,
     useViewLayout,
     containerAutoSizes,
+    selectedId,
+    lensCtx,
   ]);
 
-  // Focus/trace dim edges too: an edge stays full strength only when both
-  // ends are in the active lens's highlighted set, same rule as the nodes.
-  // containerEdges (not edges.ts's buildEdges directly) drops the primary
-  // containment line and re-routes anything a collapsed container hides.
+  // Focus/trace dim edges; the Flow lens bolds/faints them instead, only
+  // while neither is active (PLAN2.md §2.3 — computeLensContext already
+  // nulls lensCtx.flow whenever focus/trace is set, so buildCanvasEdges
+  // never has to choose between the two itself).
   const edges = useMemo(() => {
     if (!payload) return [];
-    const built = containerEdges(payload, grouping.assignments, collapsedSet);
-    const highlighted = focus
-      ? new Set([focus.id, ...focus.ancestors.keys(), ...focus.descendants.keys()])
-      : trace?.nodes ?? null;
-    if (!highlighted) return built;
-    return built.map((edge) => {
-      const full = highlighted.has(edge.source) && highlighted.has(edge.target);
-      return { ...edge, className: `${edge.className ?? ""} ${full ? "" : "kumi-edge-dim"}`.trim() };
-    });
-  }, [payload, focus, trace, grouping, collapsedSet]);
+    return buildCanvasEdges({ payload, grouping, collapsedSet, focus, trace, flow: lensCtx.flow });
+  }, [payload, focus, trace, grouping, collapsedSet, lensCtx]);
 
   // A live payload update can remove the hovered edge with the cursor still
   // parked on where it was — no DOM leave event ever fires, and the tooltip
@@ -406,17 +375,27 @@ export default function App() {
 
   // Double-click and the graph keyboard's F key are the same gesture on two
   // different inputs — one shared callback so they can't drift apart.
+  // Inherited fix C (K26): focusing a CONTAINER unions its members' own
+  // cones (cones.ts's containerCones) instead of reading the container's
+  // own always-empty needs list ("upstream 0, downstream 0" regardless of
+  // what its threads actually depend on).
   const focusOn = useCallback(
     (id: string) => {
       if (!payload) return;
       setTrace(null);
+      if (grouping.containers.has(id)) {
+        const memberIds = members.get(id) ?? [];
+        const { ancestors, descendants } = containerCones(payload.nodes, memberIds);
+        setFocus({ id, ancestors, descendants, members: new Set(memberIds) });
+        return;
+      }
       setFocus({
         id,
         ancestors: ancestorsOf(payload.nodes, id),
         descendants: descendantsOf(payload.nodes, id),
       });
     },
-    [payload],
+    [payload, grouping, members],
   );
 
   const onNodeDoubleClick: NodeMouseHandler = useCallback((_, node) => focusOn(node.id), [focusOn]);
@@ -440,20 +419,35 @@ export default function App() {
     setEdgeTip(null);
   }, []);
 
-  // Shared by the edge panel's two endpoint buttons: select like a node
-  // click would, then re-center the viewport if the instance is ready and
-  // the endpoint has a known position (elk/view.yaml may still be loading).
-  const jumpTo = useCallback((nodeId: string) => {
-    setSelectedId(nodeId);
-    setSelectedEdge(null);
-    const instance = rfInstance.current;
-    const position = positions[nodeId];
-    if (instance && position) {
-      void instance.setCenter(position.x + NODE_WIDTH / 2, position.y + NODE_HEIGHT / 2, {
-        zoom: instance.getZoom(),
-      });
-    }
-  }, [positions]);
+  // Shared by the edge panel's two endpoint buttons, the sidebar's clickable
+  // finding rows, and the palette's node results: select like a node click
+  // would, then re-center the viewport if the instance is ready and the
+  // endpoint has a known position (elk/view.yaml may still be loading).
+  // Inherited fix A (K26): when the target is hidden inside a collapsed
+  // container, redirect to that container instead (never auto-expand) and
+  // say why — jumping "into" nothing on the canvas is the sidebar-detached-
+  // from-canvas bug this closes.
+  const jumpTo = useCallback(
+    (nodeId: string) => {
+      if (!payload) return;
+      const { targetId, hiddenIn } = jumpTarget(nodeId, grouping.assignments, collapsedSet);
+      setSelectedId(targetId);
+      setSelectedEdge(null);
+      if (hiddenIn) {
+        setNotice(
+          `${nodeTitle(payload, nodeId)} is inside collapsed ${nodeTitle(payload, hiddenIn)} — expand to open it`,
+        );
+      }
+      const instance = rfInstance.current;
+      const position = positions[targetId];
+      if (instance && position) {
+        void instance.setCenter(position.x + NODE_WIDTH / 2, position.y + NODE_HEIGHT / 2, {
+          zoom: instance.getZoom(),
+        });
+      }
+    },
+    [payload, positions, grouping, collapsedSet],
+  );
 
   // Shared by the sidebar Braid button and the palette's "Braid" command.
   const runBraid = useCallback(() => {
@@ -497,9 +491,10 @@ export default function App() {
   }, []);
 
   // Graph-directional keyboard (PLAN2.md §2.5): arrows walk needs/in edges,
-  // F focuses, Delete/Backspace removes — see useGraphKeyboard.ts for the
-  // key bindings and the form-field guard.
-  useGraphKeyboard({ payload, selectedId, paletteOpen, jumpTo, focusOn, applyOp });
+  // F focuses, Delete/Backspace removes, digits 1-4 switch the lens bar
+  // (K26) — see useGraphKeyboard.ts for the key bindings and the form-field
+  // guard.
+  useGraphKeyboard({ payload, selectedId, paletteOpen, jumpTo, focusOn, applyOp, onLensChange: setLens });
 
   const onConnect = useCallback(
     (connection: Connection) => {
@@ -574,6 +569,7 @@ export default function App() {
             {theme === "dark" ? "☀" : "🌙"}
           </button>
         </div>
+        <LensBar lens={lens} onChange={setLens} />
         <p className="kumi-counts">
           {payload.nodes.length} nodes · {edges.length} edges
           {dirty.tracked
@@ -589,8 +585,9 @@ export default function App() {
         ) : null}
         {focus ? (
           <p className="kumi-focus-hint">
-            Focused on {nodeTitle(payload, focus.id)} — upstream {focus.ancestors.size}, downstream{" "}
-            {focus.descendants.size}. Esc to exit.
+            Focused on {nodeTitle(payload, focus.id)}
+            {focus.members ? ` (${focus.members.size} member${focus.members.size === 1 ? "" : "s"})` : ""} —
+            upstream {focus.ancestors.size}, downstream {focus.descendants.size}. Esc to exit.
           </p>
         ) : null}
         {trace ? (

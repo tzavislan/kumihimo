@@ -19,6 +19,21 @@ explanation of what each gesture means and shows.
 | Hover an edge | Thicken and brighten its stroke; show a tooltip naming it in words ("A needs B") |
 | Click a clickable finding row | Select and center the node it names (a row naming a file, like `kumihimo.yaml`, isn't clickable) |
 
+Jumping to a node hidden inside a collapsed container — any of the rows
+above, or an edge panel's endpoint button, or a palette result — selects and
+centers the **container** instead, with a notice naming what happened;
+nothing auto-expands.
+
+## Lens bar
+
+A four-way segmented control at the top of the sidebar, right below the
+plan name. See [The editor](../howto/editor.md#lenses) for what each one
+actually shows.
+
+| Gesture | Does |
+|---|---|
+| Click a tab, or press `1`-`4` (canvas focused, no form field active) | Switch to Structure / Status / Flow / Risk |
+
 ## Ctrl+K palette
 
 `Ctrl+K` (`Cmd+K` on macOS) opens a centered search overlay from anywhere —
@@ -40,15 +55,16 @@ entire large plan.
 
 ## Graph keyboard
 
-Active on the canvas whenever a node is selected, the palette is closed, and
-focus isn't in a text field.
+Active on the canvas whenever the palette is closed and focus isn't in a
+text field; the arrow/F/Delete rows below additionally need a node selected.
 
 | Key | Does |
 |---|---|
+| 1 / 2 / 3 / 4 | Switch to the Structure / Status / Flow / Risk lens — works with or without a selection |
 | ← | Select the node's first dependency (`needs[0]`) |
 | → | Select its first dependent (the first other node whose `needs` names it) |
 | ↑ / ↓ | Cycle among siblings: other nodes sharing this one's first `in` group, or, if it belongs to no group, other likewise-ungrouped nodes — both rings in id order |
-| F | Enter focus mode on the selection (same as double-click) |
+| F | Enter focus mode on the selection (same as double-click; a container focuses the union of its members' cones) |
 | Delete / Backspace | Confirm, then remove the node; a referenced node's removal is refused, naming the referrers — same rule as the sidebar's Delete button, and there's no auto-force from the keyboard |
 | Esc | Exit focus or trace |
 

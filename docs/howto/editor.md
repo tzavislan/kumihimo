@@ -65,6 +65,13 @@ disappears rather than drawing a loop). Collapse state is per-plan view
 state, saved to `view.yaml`'s `collapsed` key exactly like positions — it
 survives a reload and echoes to every other connected editor.
 
+Jumping to a node that's currently hidden inside a collapsed container — via
+the Ctrl+K palette, a clickable finding, or an edge panel's endpoint button —
+selects and centers the **container** instead of silently doing nothing, and
+a notice names what happened: "*title* is inside collapsed *container* —
+expand to open it." Nothing auto-expands; that stays a deliberate click on
+the ▸ button.
+
 The container card is otherwise a normal node: click it to open its form,
 double-click to focus it, and it takes part in every halo and lens like any
 other card. Auto-layout treats a *collapsed* container as one node at chip
@@ -92,10 +99,22 @@ sidebar shows a "*N* nodes on paths between A and B" summary with a Clear
 button. If the two aren't connected by any `needs` chain, a notice says so
 and trace mode isn't entered. Esc clears trace the same way it exits focus.
 
-Both lenses are purely client-side view state, computed over the `needs`
-edges already in the payload — nothing is written to disk, and a live
-payload update (another editor, a file edit) recomputes the cones instead of
-kicking you out, unless the node you'd focused or traced is itself gone.
+Double-clicking a **container** focuses the union of its members' own cones
+instead of the container's own (always empty) needs list — everything any of
+its threads needs or is needed by, minus its other members — and the sidebar
+summary grows a member count: "Focused on M8 — Shape (6 members) — upstream
+2, downstream 1."
+
+Both lenses see through a collapsed container: if a hidden member sits in the
+upstream or downstream cone (or on a trace path), its container tints or
+lights up in its place, and a `needs` edge that got rerouted onto a chip
+still dims or stays bright by the real endpoints its file names, never by
+whatever the chip happens to be. Both are purely client-side view state,
+computed over the `needs` edges already in the payload — nothing is written
+to disk, and a live payload update (another editor, a file edit) recomputes
+the cones instead of kicking you out, unless the node you'd focused or traced
+is itself gone. Entering either one also pauses the lens bar's own tinting
+(below) until Esc — see "Lenses"' precedence note.
 
 ## Findings on the canvas
 
@@ -134,14 +153,60 @@ in smaller type — readable because you're zoomed in to see it. That keeps
 dragging, edges, and the auto-layout stable across a zoom gesture, and
 means cards never grow into their neighbors as you zoom in.
 
+## Lenses
+
+A four-way switch at the top of the sidebar — **Structure** (the default,
+everything described above), **Status**, **Flow**, **Risk** — changes what
+the canvas emphasizes without changing what it contains. Click a tab, or
+press `1`-`4` with the canvas focused and no form field active. A lens
+choice is pure view state: nothing is written to disk, and it survives a
+payload echo untouched.
+
+- **Status** tints each node by its effective status: doing picks up the
+  accent color, blocked the error color, done dims and desaturates by about
+  45%. The **ready frontier** — every node whose own status is `todo` and
+  whose every dependency is satisfied — glows with its own ring. This is the
+  same computation the MCP `ready()` tool uses, to the letter: a node is
+  never shown as ready here and refused as not-ready there, or the reverse.
+  A dependency hidden inside a collapsed container still counts as satisfied
+  or not the same as if it were visible; if the ready node itself is the one
+  that's hidden, its container glows in its place rather than the fact
+  disappearing.
+- **Flow** finds the longest `needs` chain through the graph — the critical
+  path — and bolds its nodes and edges; every other edge fades. A collapsed
+  container stands in for its hidden members here exactly as it does for
+  auto-layout, so the chain can run straight through a chip.
+- **Risk** enlarges every `risk`-kind node and every `decision`/`question`
+  still `open`, gives them a stronger border, and shades everything
+  downstream of them (through `needs`, containers substituted the same way
+  as Flow) — the blast radius of what's currently unresolved. Everything
+  else dims slightly.
+
+**Precedence**, when more than one visual channel would apply to the same
+node: a finding halo always wins, and for the two lens treatments that dim a
+card (Status's done tinge, Risk's "everything else" dim) that's an
+exclusion, not just a preference — a haloed node never gets those classes at
+all, so the ring always renders at full, undimmed strength rather than being
+faded along with the rest of the card the way plain CSS layering would fade
+it (opacity dims a box-shadow too; a done node with an error halo used to
+show no discernible ring until this was enforced). The Status lens's
+ready-glow uses the same box-shadow channel as a halo and loses to it the
+same way. Risk's enlarge-and-border (a source) and shaded wash (its blast
+radius) don't dim anything, so they still show alongside a halo. Focus and
+trace suspend lens emphasis entirely while active: the lens stays selected,
+but its tints, bolding, and shading pause until Esc, since both already use
+the same border/opacity channels a lens does and showing both at once would
+just be noise. Semantic zoom tiers are unaffected by any of this.
+
 ## Command palette and keyboard
 
 `Ctrl+K` (`Cmd+K` on macOS) opens a search palette over every node's id,
 title, and body, plus four quick commands (Add node, Braid, Toggle theme,
-Toggle auto-layout); with the palette closed and a node selected, arrow keys
-walk the graph itself rather than the screen, F focuses, and Delete or
-Backspace removes with a confirmation. The full gesture-by-gesture table —
-this and everything above — lives in the
+Toggle auto-layout). With the palette closed and focus outside any form
+field, `1`-`4` switch the lens bar above from anywhere on the canvas; with a
+node also selected, arrow keys walk the graph itself rather than the screen,
+F focuses, and Delete or Backspace removes with a confirmation. The full
+gesture-by-gesture table — this and everything above — lives in the
 [shortcuts reference](../reference/shortcuts.md).
 
 ## Sync, conflicts, and undo

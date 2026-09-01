@@ -9,15 +9,20 @@
  *              minimap's fill color. No React, no DOM.
  * @layer       frontend
  * @tags        payload, focus, trace, findings, semantic-zoom, minimap
- * @related     frontend/src/App.tsx (the nodes-rebuild effect and sidebar
- *              call every export here once per payload/render; also holds
- *              FocusState/TraceState as its own lens state),
+ * @related     frontend/src/canvasBuild.ts (the nodes/edges builders call
+ *              every export here once per payload/render; also the only
+ *              other file that reads FocusState.members),
+ *              frontend/src/App.tsx (holds FocusState/TraceState as its own
+ *              lens state; focusOn builds a container's FocusState.members
+ *              from containers.ts's membersByContainer),
  *              frontend/src/cones.ts (the BFS distances coneClassName tints
- *              by, and the ancestor/descendant maps FocusState holds),
+ *              by, and the ancestor/descendant maps FocusState holds;
+ *              containerCones — the source of a container FocusState's own
+ *              ancestors/descendants),
  *              frontend/src/KumiNode.tsx (KIND_COLORS/FALLBACK_COLOR colorFor
  *              falls back to; KumiNodeData minimapNodeColor reads),
  *              frontend/src/edges.ts (imports nodeTitle for edgeSentence)
- * @design      PLAN2.md §2.1-2.2
+ * @design      PLAN2.md §2.1-2.2, Inherited fixes B and C (K26)
  */
 import type { Node } from "@xyflow/react";
 import { FALLBACK_COLOR, KIND_COLORS } from "./KumiNode";
@@ -30,6 +35,12 @@ export interface FocusState {
   id: string;
   ancestors: Map<string, number>;
   descendants: Map<string, number>;
+  // Populated only when `id` is itself a container (Inherited fix C, K26):
+  // its own members render at full strength, same as the focus node itself,
+  // rather than falling through to coneClassName's "unrelated -> dimmed"
+  // branch just because cones.ts's containerCones deliberately excludes a
+  // container's own members from both its ancestor and descendant cones.
+  members?: Set<string>;
 }
 export interface TraceState {
   a: string;
@@ -44,26 +55,51 @@ function coneStep(distance: number): number {
   return Math.min(distance, 3);
 }
 
-/** The node wrapper class for the active lens, or undefined outside one —
+/**
+ * The node wrapper class for the active lens, or undefined outside one —
  * cone tint for ancestors/descendants, a distinct ring for the focus node
- * itself or a trace endpoint/path node, ~15% dim for everything else. */
+ * itself or a trace endpoint/path node, ~15% dim for everything else.
+ *
+ * @purpose  `hiddenMembers` is Inherited fix B (K26): pass a collapsed
+ *           container's (now-hidden) member ids and its chip is checked
+ *           right alongside its own id — closest match wins the same way a
+ *           single node's own distance would — so folding a container never
+ *           silently drops a member out of the visible cone/trace set. Leaf
+ *           nodes call this with no third argument and see identical
+ *           behavior to before K26.
+ */
 export function coneClassName(
   id: string,
   focus: FocusState | null,
   trace: TraceState | null,
+  hiddenMembers?: string[],
 ): string | undefined {
+  const candidates = hiddenMembers && hiddenMembers.length > 0 ? [id, ...hiddenMembers] : [id];
   if (focus) {
-    if (id === focus.id) return "kumi-focus-self";
-    const up = focus.ancestors.get(id);
-    if (up !== undefined) return `kumi-cone-up-${coneStep(up)}`;
-    const down = focus.descendants.get(id);
-    if (down !== undefined) return `kumi-cone-down-${coneStep(down)}`;
+    if (candidates.some((candidate) => candidate === focus.id || focus.members?.has(candidate))) {
+      return "kumi-focus-self";
+    }
+    const bestUp = closest(candidates, focus.ancestors);
+    if (bestUp !== undefined) return `kumi-cone-up-${coneStep(bestUp)}`;
+    const bestDown = closest(candidates, focus.descendants);
+    if (bestDown !== undefined) return `kumi-cone-down-${coneStep(bestDown)}`;
     return "kumi-dimmed";
   }
   if (trace) {
-    return trace.nodes.has(id) ? "kumi-trace-node" : "kumi-dimmed";
+    return candidates.some((candidate) => trace.nodes.has(candidate)) ? "kumi-trace-node" : "kumi-dimmed";
   }
   return undefined;
+}
+
+/** The smallest distance any candidate has in `distances`, or undefined when
+ * none of them are in it — shared by coneClassName's up/down checks above. */
+function closest(candidates: string[], distances: Map<string, number>): number | undefined {
+  let best: number | undefined;
+  for (const candidate of candidates) {
+    const distance = distances.get(candidate);
+    if (distance !== undefined && (best === undefined || distance < best)) best = distance;
+  }
+  return best;
 }
 
 // Milestone member count (PLAN2.md §2.2 mid tier): how many payload nodes

@@ -8,8 +8,10 @@
  * @tags        graph, bfs, needs-edges, focus, trace
  * @related     frontend/src/App.tsx (double-click/alt-click handlers call
  *              these and hold the results as view state),
- *              frontend/src/types.ts (PlanNode.needs is the only edge read)
- * @design      PLAN2.md §2.1
+ *              frontend/src/types.ts (PlanNode.needs is the only edge read),
+ *              frontend/src/containers.ts (Grouping — App.tsx's focusOn
+ *              passes a container's memberIds from here to containerCones)
+ * @design      PLAN2.md §2.1, Inherited fix C (K26)
  */
 import type { PlanNode } from "./types";
 
@@ -87,4 +89,37 @@ export function pathsBetween(nodes: PlanNode[], a: string, b: string): Set<strin
   forward(a, b);
   forward(b, a);
   return onPath;
+}
+
+/**
+ * Focus cones for a CONTAINER (Inherited fix C, K26): the union of every
+ * member's ancestor/descendant cone, closest hop-distance winning when two
+ * members share a neighbor, with the container's OWN members excluded from
+ * both — a member needing a sibling member must not appear as its own
+ * container's upstream or downstream neighbor when the container is focused.
+ *
+ * @purpose  Replaces the old "read the container's own needs" (always empty —
+ *           containers carry no needs of their own) with what a double-click
+ *           on a container should actually mean: everything its threads
+ *           collectively depend on or unblock.
+ */
+export function containerCones(
+  nodes: PlanNode[],
+  memberIds: string[],
+): { ancestors: Map<string, number>; descendants: Map<string, number> } {
+  const memberSet = new Set(memberIds);
+  const ancestors = new Map<string, number>();
+  const descendants = new Map<string, number>();
+  const union = (target: Map<string, number>, source: Map<string, number>) => {
+    for (const [id, distance] of source) {
+      if (memberSet.has(id)) continue;
+      const current = target.get(id);
+      if (current === undefined || distance < current) target.set(id, distance);
+    }
+  };
+  for (const member of memberIds) {
+    union(ancestors, ancestorsOf(nodes, member));
+    union(descendants, descendantsOf(nodes, member));
+  }
+  return { ancestors, descendants };
 }

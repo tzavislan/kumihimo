@@ -39,13 +39,16 @@
  *              the containerSizes buildContainerNode prefers in auto mode),
  *              frontend/src/derive.ts (memberCounts — "is a container" is
  *              literally memberCounts(node) > 0, reused not recomputed),
+ *              frontend/src/lenses.ts (imports resolveEndpoint — Flow/Risk's
+ *              "collapsed containers substitute for their members" is the
+ *              same rule, K26),
  *              kumihimo/compile/strategies/grouped.py (assigned_group, the
  *              server-side grouping this mirrors for canvas rendering)
  * @design      PLAN2.md §2.3 lens 1, §5 risk 1
  */
 import type { Edge, Node } from "@xyflow/react";
 import { memberCounts } from "./derive";
-import { buildEdges } from "./edges";
+import { buildEdges, STATIC_HANDLES } from "./edges";
 import type { KumiGroupNodeData } from "./KumiGroupNode";
 import { NODE_HEIGHT, NODE_WIDTH } from "./layout";
 import type { Payload, PlanNode, Position } from "./types";
@@ -144,10 +147,32 @@ export function toRelative(child: Position, parent: Position): Position {
 }
 
 /** id as the edge/canvas layer should see it: itself, or its container when
- * that container is collapsed. */
-function resolveEndpoint(id: string, assignments: Map<string, string>, collapsed: Set<string>): string {
+ * that container is collapsed. Exported for lenses.ts (K26): Flow's critical
+ * path and Risk's descendant shading walk the needs graph with the same
+ * substitution, so a collapsed container counts as its hidden members there
+ * too, never re-derived a third way. */
+export function resolveEndpoint(
+  id: string,
+  assignments: Map<string, string>,
+  collapsed: Set<string>,
+): string {
   const parent = assignments.get(id);
   return parent && collapsed.has(parent) ? parent : id;
+}
+
+/** Where a jump/select gesture should actually land (Inherited fix A, K26):
+ * itself, or its collapsed container when `id` is currently hidden inside
+ * one. `hiddenIn` distinguishes a real redirect from the no-op case — App.tsx
+ * uses it to decide whether to show the "expand to open it" notice, which
+ * resolveEndpoint's plain id-in/id-out shape can't answer on its own. */
+export function jumpTarget(
+  id: string,
+  assignments: Map<string, string>,
+  collapsed: Set<string>,
+): { targetId: string; hiddenIn: string | null } {
+  const parent = assignments.get(id);
+  const hiddenIn = parent && collapsed.has(parent) ? parent : null;
+  return { targetId: hiddenIn ?? id, hiddenIn };
 }
 
 /** Every canvas edge, containers applied: the primary containment `in` edge
@@ -161,7 +186,18 @@ function resolveEndpoint(id: string, assignments: Map<string, string>, collapsed
  * invent a container-to-container link nothing on disk says, so a rerouted
  * edge just isn't clickable for that panel. Multi-edges collapsing onto the
  * same pair dedupe by kind (className) + resolved endpoints; an edge
- * collapsing into itself (both ends the same container) is dropped. */
+ * collapsing into itself (both ends the same container) is dropped.
+ *
+ * A rerouted edge also carries its ORIGINAL endpoints in `data` (Inherited
+ * fix B, K25->K26): focus/trace dimming (App.tsx's edges builder) judges an
+ * edge by the real ids a file names, not by the container this reroute now
+ * visually points at — a hidden member sitting in a focused node's cone must
+ * not read as "unrelated" just because its edge got redrawn onto its chip. */
+export interface OriginalEndpoints {
+  originalSource: string;
+  originalTarget: string;
+}
+
 export function containerEdges(
   payload: Payload,
   assignments: Map<string, string>,
@@ -176,6 +212,16 @@ export function containerEdges(
     const target = resolveEndpoint(edge.target, assignments, collapsed);
     if (source === target) continue;
     const changed = source !== edge.source || target !== edge.target;
+    // sourceHandle/targetHandle are never touched on reroute, changed or
+    // not: edges.ts's STATIC_HANDLES ids (in-left/out-right/in-top/out-
+    // bottom) are the same four on a container as on a leaf (KumiNode's
+    // EdgeHandles, reused verbatim by KumiGroupNode.tsx) — the id names an
+    // edge KIND's port, not a specific node, so it's exactly as valid on
+    // whichever node ends up as the endpoint. Clearing it to undefined here
+    // used to make React Flow silently drop the edge instead of drawing it:
+    // a container has two same-type ("source") handles, and RF can't infer
+    // which one an undefined sourceHandle means — live-caught reproducing
+    // Inherited fix B's own scenario (K26), not a fix B behavior itself.
     const rerouted: Edge = !changed
       ? edge
       : {
@@ -183,8 +229,7 @@ export function containerEdges(
           id: `reroute:${edge.id}=>${source}->${target}`,
           source,
           target,
-          sourceHandle: source === edge.source ? edge.sourceHandle : undefined,
-          targetHandle: target === edge.target ? edge.targetHandle : undefined,
+          data: { originalSource: edge.source, originalTarget: edge.target } satisfies OriginalEndpoints,
         };
     const key = `${rerouted.className ?? ""}:${source}->${target}`;
     if (!seen.has(key)) seen.set(key, rerouted);
@@ -258,6 +303,19 @@ export function buildContainerNode(params: ContainerNodeParams): Node {
     // together on drop, never a partial or corrupted layout.
     draggable: true,
     data,
+    // Declared coordinates only for the COLLAPSED case, whose box is always
+    // exactly NODE_WIDTH x NODE_HEIGHT — identical to a leaf's, so the same
+    // STATIC_HANDLES apply verbatim. Live-caught (K26, reproducing Inherited
+    // fix B): without this, React Flow silently drops any edge rerouted
+    // onto a collapsed chip instead of drawing it — a container's handles
+    // are otherwise DOM-measured (KumiGroupNode's EdgeHandles, percentage-
+    // positioned, the right call for an EXPANDED frame's variable box), and
+    // an edge whose endpoint has no declared handles needs that measurement
+    // to land before its first paint or it never appears at all. An
+    // expanded frame's box size is genuinely dynamic (elk or boundingBox),
+    // so it keeps relying on measurement — only the fixed-size collapsed
+    // case gets the SSR-style shortcut leaves already use.
+    handles: collapsed ? STATIC_HANDLES : undefined,
     measured: collapsed ? measured : undefined,
     className,
   };

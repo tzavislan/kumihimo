@@ -1,24 +1,28 @@
 /**
  * @file        frontend/src/useGraphKeyboard.ts
- * @purpose     Graph-directional keyboard (PLAN2.md §2.5): with a node
- *              selected, the palette closed, and focus outside any form
- *              field, Left/Right walk the first needs dependency/dependent,
- *              Up/Down cycle the selection's sibling ring (other nodes
- *              sharing its first `in` group, or other ungrouped nodes),
- *              F focuses, Delete/Backspace confirms and removes. A single
- *              window-level listener, mounted for as long as the caller
- *              renders — not React Flow's own per-node keyboard handling
- *              (App.tsx disables that in favor of this).
+ * @purpose     Graph-directional keyboard (PLAN2.md §2.5): with the palette
+ *              closed and focus outside any form field, digits 1-4 switch
+ *              the lens bar (K26) regardless of selection; with a node also
+ *              selected, Left/Right walk the first needs dependency/
+ *              dependent, Up/Down cycle the selection's sibling ring (other
+ *              nodes sharing its first `in` group, or other ungrouped
+ *              nodes), F focuses, Delete/Backspace confirms and removes. A
+ *              single window-level listener, mounted for as long as the
+ *              caller renders — not React Flow's own per-node keyboard
+ *              handling (App.tsx disables that in favor of this).
  * @layer       frontend
- * @tags        keyboard, navigation, hook
- * @related     frontend/src/App.tsx (mounts this with its selection/palette
- *              state and jumpTo/focusOn/applyOp callbacks),
+ * @tags        keyboard, navigation, hook, lenses
+ * @related     frontend/src/App.tsx (mounts this with its selection/palette/
+ *              lens state and jumpTo/focusOn/applyOp callbacks),
  *              frontend/src/cones.ts (ancestorsOf/descendantsOf, what
  *              focusOn's caller builds the focus lens from),
+ *              frontend/src/lenses.ts (the Lens type, LENS_ORDER — 1-4 map to
+ *              it positionally so this file never hand-lists lens names),
  *              kumihimo/server/ops_api.py (remove_node, the op Delete sends)
- * @design      PLAN2.md §2.5
+ * @design      PLAN2.md §2.5, §2.3
  */
 import { useEffect } from "react";
+import { LENS_ORDER, type Lens } from "./lenses";
 import type { Payload, PlanNode } from "./types";
 
 // "First" dependency/dependent is needs[0] / the first node in payload
@@ -64,7 +68,14 @@ export interface UseGraphKeyboardParams {
   jumpTo: (nodeId: string) => void;
   focusOn: (id: string) => void;
   applyOp: (envelope: Record<string, unknown>) => Promise<void>;
+  onLensChange: (lens: Lens) => void;
 }
+
+// "1".."4" -> LENS_ORDER's positional entries, so this file never hand-lists
+// lens names and can't drift from lenses.ts/LensBar.tsx's own ordering.
+const LENS_KEYS: Record<string, Lens> = Object.fromEntries(
+  LENS_ORDER.map((lens, index) => [String(index + 1), lens]),
+);
 
 /** Mount the graph-directional keyboard listener; see the file header for
  * the key bindings. */
@@ -75,18 +86,28 @@ export function useGraphKeyboard({
   jumpTo,
   focusOn,
   applyOp,
+  onLensChange,
 }: UseGraphKeyboardParams): void {
-  // Live only with a node selected, the palette closed, and focus outside
-  // any form field — the last guard by event.target's tag, same as the spec
-  // asks for. Every arrow move also centers, via jumpTo, so keyboard and
-  // mouse selection always agree on what "selected" looks like on screen.
+  // Live with the palette closed and focus outside any form field — the tag
+  // guard, same as the spec asks for — regardless of selection, since lens
+  // switching (below) doesn't need one; the rest of this handler then bails
+  // without a selection. Every arrow move also centers, via jumpTo, so
+  // keyboard and mouse selection always agree on what "selected" looks like.
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      if (paletteOpen || !payload || !selectedId) return;
+      if (paletteOpen || !payload) return;
       // Leaves browser/OS chords (Ctrl+F, Alt+Left history-back, etc.) alone.
       if (event.ctrlKey || event.metaKey || event.altKey) return;
       const tag = (event.target as HTMLElement | null)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+
+      const lens = LENS_KEYS[event.key];
+      if (lens) {
+        event.preventDefault();
+        onLensChange(lens);
+        return;
+      }
+      if (!selectedId) return;
 
       if (event.key === "ArrowLeft") {
         const target = firstDependency(payload.nodes, selectedId);
@@ -129,5 +150,5 @@ export function useGraphKeyboard({
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [payload, selectedId, paletteOpen, jumpTo, focusOn, applyOp]);
+  }, [payload, selectedId, paletteOpen, jumpTo, focusOn, applyOp, onLensChange]);
 }

@@ -4,17 +4,22 @@
  *              [data-theme="dark"]) and the canvas chrome they dress:
  *              sidebar + flow grid, node card styling, kind pills, finding
  *              colors and canvas halos, focus/trace cone tints, semantic-zoom
- *              tiers, containers, React Flow chrome. Deliberately small and
+ *              tiers, containers, the lens bar and Status/Flow/Risk lens
+ *              classes (K26), React Flow chrome. Deliberately small and
  *              system-font.
  * @layer       frontend
  * @tags        css, chrome, design-tokens, dark-mode, focus, trace,
- *              semantic-zoom, findings, palette, containers
+ *              semantic-zoom, findings, palette, containers, lenses
  * @related     frontend/src/theme.ts (sets data-theme on <html>),
  *              frontend/src/App.tsx (the per-node focus/trace/halo classes
  *              this file styles, and the sidebar finding rows this file's
  *              .kumi-finding-clickable styles),
- *              frontend/src/derive.ts (coneClassName/haloClassName App.tsx
- *              composes into those classes),
+ *              frontend/src/canvasBuild.ts (composes derive.ts's and
+ *              lenses.ts's class names into the className this file styles),
+ *              frontend/src/derive.ts (coneClassName/haloClassName),
+ *              frontend/src/lenses.ts (lensNodeClasses/flowEdgeClassName —
+ *              the kumi-status, kumi-flow, and kumi-risk classes here),
+ *              frontend/src/LensBar.tsx (renders the kumi-lens-* markup),
  *              frontend/src/edges.ts (kumi-edge-* classes on edges,
  *              STATIC_HANDLES),
  *              KumiNode.tsx (KIND_COLORS accents laid over the surface/text
@@ -101,6 +106,28 @@
   --kumi-cone-up: #d946ef;
   --kumi-cone-down: #84cc16;
 
+  /* Status lens ready-glow (PLAN2.md §2.3, K26): a box-shadow ring like the
+   * halo rings above, its own hue so "ready to start" never reads as "has a
+   * finding" — halo still wins when a node carries both, ENFORCED in
+   * lenses.ts's lensNodeClasses (a haloed node never gets this class at
+   * all — see the precedence comment further down this file for why a mere
+   * CSS layering order wasn't enough). Doing/blocked reuse --kumi-accent/
+   * --kumi-error directly ("tinge" of an existing signal, not a fourth hue)
+   * rather than minting redundant aliases for them.
+   * --kumi-ready-glow is the same translucent-derivation the halo tokens
+   * below already use, declared once for the same reason theirs are: the
+   * nested var(--kumi-ready) re-resolves per theme automatically, so a dark-
+   * block redefinition would just be redundant. It backs the soft outer
+   * spread a fix-round finding asked for — the crisp ring alone read fine
+   * zoomed in but nearly vanished at a full-roadmap fitView. */
+  --kumi-ready: #10b981;
+  --kumi-ready-glow: color-mix(in srgb, var(--kumi-ready) 70%, transparent);
+
+  /* Flow lens critical path (K26): its own hue, distinct from every
+   * KIND_COLOR, the cone tints, and --kumi-ready — "on the critical path"
+   * must never read as any of those other signals. */
+  --kumi-flow-critical: #ea580c;
+
   /* React Flow minimap's mask over the area outside the current viewport */
   --kumi-minimap-mask: rgba(240, 240, 240, 0.6);
 
@@ -175,6 +202,9 @@
   --kumi-cone-up: #e879f9;
   --kumi-cone-down: #a3e635;
 
+  --kumi-ready: #34d399;
+  --kumi-flow-critical: #fb923c;
+
   --kumi-minimap-mask: rgba(2, 6, 23, 0.6);
 
   --kumi-overlay: rgba(0, 0, 0, 0.7);
@@ -206,6 +236,35 @@ body {
   flex-shrink: 0;
 }
 .kumi-side h1 { font-size: var(--kumi-text-lg); margin: 0 0 var(--kumi-space-4); }
+/* Lens bar (PLAN2.md §2.3, K26): a four-way segmented control right below
+ * the header. Active tab reads via aria-selected (LensBar.tsx), not just a
+ * class, so a screen reader gets the same signal a sighted user does. */
+.kumi-lens-bar {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  margin: 0 0 var(--kumi-space-12);
+  background: var(--kumi-surface-muted);
+  border-radius: var(--kumi-radius-sm);
+}
+.kumi-lens-btn {
+  flex: 1;
+  font: inherit;
+  font-size: var(--kumi-text-sm);
+  padding: 4px 0;
+  border: none;
+  border-radius: var(--kumi-radius-sm);
+  background: transparent;
+  color: var(--kumi-text-muted);
+  cursor: pointer;
+}
+.kumi-lens-btn:hover { background: var(--kumi-surface-hover); }
+.kumi-lens-active {
+  background: var(--kumi-surface);
+  color: var(--kumi-text);
+  font-weight: 600;
+  box-shadow: var(--kumi-shadow-sm);
+}
 .kumi-side h2 { font-size: var(--kumi-text-md); margin: var(--kumi-space-16) 0 var(--kumi-space-6); color: var(--kumi-text-muted); }
 .kumi-desc { font-size: var(--kumi-text-md); color: var(--kumi-text-muted); margin: 0 0 var(--kumi-space-8); }
 .kumi-counts { font-size: var(--kumi-text-sm); color: var(--kumi-text-subtle); margin: 0 0 var(--kumi-space-12); }
@@ -436,6 +495,88 @@ body {
 .react-flow__node.kumi-halo-warning .kumi-node.kumi-tier-far .kumi-chip {
   box-shadow: 0 0 0 2px var(--kumi-halo-warning);
 }
+
+/* Status/Flow/Risk lenses (PLAN2.md §2.3, K26). lenses.ts decides which of
+ * these classes applies (and, for the ready-glow-vs-halo box-shadow
+ * channel, which one wins when both would); App.tsx composes the result
+ * alongside the cone/halo classes above, entirely absent while focus/trace
+ * is active — lens emphasis is suspended, not merely overridden, per
+ * PLAN2.md §2.3's documented precedence (halos > focus/trace > lenses).
+ *
+ * "Halo wins" is an EXCLUSION, enforced in lenses.ts's lensNodeClasses, not
+ * a CSS layering trick: `opacity`/`filter` on .kumi-node (kumi-status-done
+ * below, kumi-risk-dim further down) composites the halo's box-shadow right
+ * along with everything else on the element, so a done+haloed node rendered
+ * with NO discernible ring before this was enforced in code — a real
+ * fix-round finding. lensNodeClasses now never emits kumi-status-* (any of
+ * them) or kumi-risk-dim specifically for a node that already has a halo
+ * class; kumi-risk-source/kumi-risk-shadow (border/transform/background,
+ * never opacity) are unaffected by the bug and still show alongside a halo. */
+
+/* Status: doing/blocked tinge the existing accent/error hues rather than
+ * minting a fourth/fifth one; done dims and desaturates by ~45% so it reads
+ * as "settled" rather than picking a color. Todo/open stay untouched — the
+ * lens's neutral bucket is simply today's card. Never applied to a haloed
+ * node (see the precedence note above) — a halo always renders at full,
+ * undimmed strength. */
+.react-flow__node.kumi-status-doing .kumi-node { border-color: var(--kumi-accent); }
+.react-flow__node.kumi-status-blocked .kumi-node { border-color: var(--kumi-error); }
+.react-flow__node.kumi-status-done .kumi-node { opacity: 0.55; filter: grayscale(0.5); }
+/* The ready frontier's glow: a crisp 3px ring plus a soft outer spread, both
+ * off --kumi-ready. A ring alone (the halos' own recipe) read fine zoomed in
+ * but all but disappeared at a full-roadmap fitView — a fix-round finding —
+ * since box-shadow is defined in layout px same as the card, and at a
+ * zoomed-out fitView's small on-screen scale a crisp few-px ring can shrink
+ * under a real screen pixel. The blurred, lower-opacity outer layer (the
+ * same color-mix-a-translucent-version recipe --kumi-halo-error/warning
+ * already use, at a stronger 70% here) still reads as a soft colored bloom
+ * at that scale even when the crisp ring itself aliases away — no animation
+ * (motion is M10), just a bigger static footprint. The 8px-blur/6px-spread
+ * pairing (over a first, subtler 12px/4px pass) was chosen by screenshotting
+ * a real 32-node fitView side by side with the un-glowed ring and judging
+ * which one a glance actually catches — the first pass was a real
+ * improvement but still modest; this one reads clearly. */
+.react-flow__node.kumi-status-ready .kumi-node {
+  box-shadow:
+    var(--kumi-shadow-sm),
+    0 0 0 3px var(--kumi-ready),
+    0 0 8px 6px var(--kumi-ready-glow);
+}
+
+/* Flow: the critical path's nodes get an outline ring — the same visual
+ * grammar as focus-self/trace-node above ("this node is the point"), a
+ * distinct hue so it never reads as either. Its edges (App.tsx's edges
+ * builder) get a matching bold stroke; every OTHER edge fades. Nodes off
+ * the path are left alone — only edges dim, per the K26 queue text. */
+.react-flow__node.kumi-flow-critical .kumi-node {
+  outline: 3px solid var(--kumi-flow-critical);
+  outline-offset: 2px;
+}
+.kumi-flow-critical-edge .react-flow__edge-path { stroke: var(--kumi-flow-critical); stroke-width: 3; }
+.kumi-flow-faint-edge .react-flow__edge-path { opacity: 0.25; }
+
+/* Risk: a source (an open decision/question, or any risk-kind node) enlarges
+ * and gets a stronger border in the same red findings and the risk kind
+ * already use for "attention" elsewhere in this file. Its downstream shadow
+ * gets a soft wash instead of a ring — "under this," not "is this." Every
+ * other node dims slightly, well short of focus's 15% — Risk stays a scan,
+ * not a spotlight. */
+.react-flow__node.kumi-risk-source .kumi-node {
+  transform: scale(1.06);
+  transform-origin: center;
+  border-width: 2px;
+  border-color: var(--kumi-error);
+}
+.react-flow__node.kumi-risk-shadow .kumi-node {
+  background: color-mix(in srgb, var(--kumi-error) 12%, var(--kumi-surface));
+}
+/* Opacity-based, so — like Status's kumi-status-done above — never applied
+ * to a haloed node (lenses.ts's lensNodeClasses excludes it specifically);
+ * kumi-risk-source/-shadow above have no such exclusion since border/
+ * transform/background don't composite-dim a box-shadow the way opacity
+ * does, and both are valuable enough to keep showing alongside a halo. */
+.react-flow__node.kumi-risk-dim .kumi-node { opacity: 0.65; }
+
 .kumi-title { font-size: var(--kumi-text-md); font-weight: 600; line-height: 1.25; }
 /* wrap, not nowrap (PLAN2.md §2.2): mid tier can now carry a status glyph,
  * effort chip, and member badge alongside the pill/status/id that were
@@ -563,6 +704,32 @@ body {
   padding: 0;
   box-shadow: none;
   border-style: dashed;
+}
+/* Inherited fix D (K25->K26, RESCOPED after a fix-round finding): the ▸/▾
+ * toggle must win clicks over an edge's invisible interaction stroke,
+ * collapsed or expanded. Live-confirmed via elementsFromPoint at the
+ * toggle's own screen position that a `react-flow__edge-interaction` path
+ * can render ABOVE a plain z-index:0/1 node despite coming first in DOM
+ * order — React Flow does not guarantee nodes beat edges on stacking by DOM
+ * order alone.
+ *
+ * The first attempt elevated `.react-flow__node-kumiGroup` itself (every
+ * container, z-index 10 !important). That fixed the toggle but broke
+ * something else: a container's OWN MEMBERS are separate, later-rendered
+ * `.react-flow__node`s with their own lower default z-index (React Flow
+ * gave them 1 in the fix-round's own probe), and z-index compares those
+ * siblings directly — elevating only the container made it win over its own
+ * members wherever their cards overlap its frame, stealing clicks meant for
+ * them (reproduced: elementsFromPoint at a member's center returned the
+ * container's div first). Fixed from the EDGE side instead, which needs no
+ * node-side rule at all: edges dropped below every node's existing default
+ * stacking (whatever it is — 0, 1, elevated-on-select, doesn't matter, as
+ * long as it's non-negative) rather than any one node type raised above its
+ * siblings. `.react-flow__edges` had no z-index of its own (computed
+ * "auto"), so a plain rule is enough — no !important needed, nothing to
+ * override. */
+.react-flow__edges {
+  z-index: -1;
 }
 .kumi-group-header {
   display: flex;

@@ -204,7 +204,7 @@ documented. Accept: roadmap renders M7 as a container; collapsing it to a
 chip survives reload and echoes; no view.yaml format change.
 
 ### K26 — The lens bar (Structure/Status/Flow/Risk)
-status: todo
+status: done (iteration 27)
 needs: [K25]
 PLAN2 §2.3. Lens switcher in the sidebar; Status draws the ready frontier
 (glow) and dims done; Flow bolds the critical path; Risk enlarges open

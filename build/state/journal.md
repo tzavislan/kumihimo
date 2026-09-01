@@ -724,3 +724,31 @@ mistaken Browser-pane call self-caught and flagged — transparency holding.
 
 **Gated by me:** ruff, mypy, 143 tests, lint, mkdocs strict — green.
 App.tsx 585/600 effective, no exemptions anywhere.
+
+## Iteration 27 — 2026-08-24 — K26: the lens bar + four inherited fixes (delegated loop)
+
+Builder (Sonnet, 53 min): lenses.ts (ready frontier mirroring the MCP rule
+EXACTLY — catching that the queue's own summary sentence disagreed with
+tools.py's DONE_VALUES={done,settled,answered} and dangling-blocks
+semantics; acceptance-authority rule applied as written), Flow's topo-DP
+critical path, Risk's descendant shadows through cones.ts, keys 1-4, the
+canvasBuild.ts extraction keeping App.tsx at 558, and all four inherited
+K25 fixes with live evidence — plus two live-only bugs found in its own
+verification (rerouted edges silently dropped over handle ambiguity;
+Status suspension incomplete). Reviewer (combined, both themes): REVISE —
+2 blocking (the fix-D z-index scoped to the whole container broke member
+click-to-select, elementsFromPoint-proven; Status done-dimming's
+opacity+filter visually cancelled the halo it documents losing to), 2
+minors (glow too thin at fitView; risk shadow looked narrow).
+
+Fix round (warm): the z-index rule DELETED — edges dropped to z:-1 fixes
+member-vs-container and toggle-vs-edge by construction; halo-beats-tint
+enforced in lensNodeClasses (computed-style proof: full ring, opacity 1,
+filter none on a done+error node); glow iterated twice against real
+fitView screenshots; the risk discrepancy adjudicated with an INDEPENDENT
+ORACLE — kumihimo.core.graph.descendants run on the reviewer's own fixture
+matched the TS output exactly, expanded and substituted — the shadow was
+always right, the 12% wash on dark navy just reads subtle next to a loud
+source. Ready-glow set equality with the server rule stands.
+
+**Gated by me:** ruff, mypy, 143 tests, lint, mkdocs strict — green.
