@@ -219,7 +219,7 @@ union its members' cones instead of reading upstream 0/downstream 0; edge
 interaction hitboxes can intercept the container toggle click (z-order).
 
 ### K27 — Lanes, partial re-layout, echo glides
-status: todo
+status: done (iteration 28) — M8 items complete
 needs: [K25]
 PLAN2 §2.3-2.5. Depth-lanes layout option; re-layout selection only
 (through set_positions); payload echoes animate transforms (suppressed

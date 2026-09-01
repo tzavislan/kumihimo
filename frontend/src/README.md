@@ -6,6 +6,7 @@
 | `App.tsx` | The editor: payload in (fetch + live socket), React Flow out, and every gesture — drag, connect, form save, add, delete, rename, edge removal, container collap… |
 | `KumiGroupNode.tsx` | The container React Flow node (PLAN2.md §2.3 lens 1): any node with members renders as this instead of KumiNode.tsx's leaf card. Two looks, chosen by data.coll… |
 | `KumiNode.tsx` | The leaf React Flow node: kind-colored edge stripe, title, id, and a kind pill. Renders one of three semantic-zoom tiers (far/mid/near), chosen upstream in App… |
+| `LayoutControls.tsx` | The sidebar's layout controls (PLAN2.md §2.3-2.5, K27): the Auto-layout/Use view.yaml toggle (unchanged), the new Lanes button next to it, and Re-layout branch… |
 | `LensBar.tsx` | The sidebar's lens switcher (PLAN2.md §2.3): a four-way segmented control — Structure (default), Status, Flow, Risk — sitting right below the sidebar header. P… |
 | `NodeForm.tsx` | The selected node's editor: title, kind, schema-driven field inputs (choice→select, bool→checkbox, int→number, list→comma text), body textarea, rename, and del… |
 | `Palette.tsx` | Ctrl+K/Cmd+K command palette: one text box searching two groups — NODES (substring match over id/title/body, title-or- id hits ranked above body-only hits, the… |
@@ -16,6 +17,7 @@
 | `derive.ts` | Pure functions turning one payload (or one payload plus an active lens) into the small per-node facts App.tsx and KumiNode need to render: node title/color loo… |
 | `edges.ts` | The edge model: build every React Flow edge from a payload's needs/in/link lists, the static four-port handle geometry those edges (and every node) anchor to, … |
 | `elk.d.ts` | Types for the bundled elkjs entry point, which ships without its own declaration for this subpath. |
+| `lanes.ts` | The Lanes layout option (PLAN2.md §2.3-2.5, K27; restructured in the K27 fix round after critic9 found two container frames/headers landing pixel-identical and… |
 | `layout.ts` | Auto-layout: run elk's layered algorithm over the needs edges (order-carrying edges only) and return positions per node id, plus computed sizes for expanded co… |
 | `lenses.ts` | The lens bar's math (PLAN2.md §2.3): pure functions computing which visual treatment each node/edge gets under Status, Flow, or Risk — Structure is the baselin… |
 | `main.tsx` | Entry point: mount App under #root. |

@@ -36,25 +36,37 @@
  *              its output rather than duplicating the four-port model),
  *              frontend/src/layout.ts (elk's real hierarchy — the same
  *              containers/assignments/collapsed shapes this mirrors, and
- *              the containerSizes buildContainerNode prefers in auto mode),
+ *              the containerSizes buildContainerNode prefers in auto mode;
+ *              also elkBranchPositions, the consumer of relayoutScope
+ *              below),
+ *              frontend/src/lanes.ts (resolveEndpoint — the same collapsed-
+ *              container substitution, reused for Lanes' needs-depth),
  *              frontend/src/derive.ts (memberCounts — "is a container" is
  *              literally memberCounts(node) > 0, reused not recomputed),
  *              frontend/src/lenses.ts (imports resolveEndpoint — Flow/Risk's
  *              "collapsed containers substitute for their members" is the
  *              same rule, K26),
+ *              frontend/src/cones.ts (ancestorsOf/descendantsOf — the raw
+ *              cone relayoutScope below builds a leaf's branch scope from),
+ *              frontend/src/App.tsx (relayoutScope's sole caller —
+ *              relayoutBranch, K27),
  *              kumihimo/compile/strategies/grouped.py (assigned_group, the
  *              server-side grouping this mirrors for canvas rendering)
- * @design      PLAN2.md §2.3 lens 1, §5 risk 1
+ * @design      PLAN2.md §2.3 lens 1, §5 risk 1, §2.3-2.5 (relayoutScope, K27)
  */
 import type { Edge, Node } from "@xyflow/react";
+import { ancestorsOf, descendantsOf } from "./cones";
 import { memberCounts } from "./derive";
 import { buildEdges, STATIC_HANDLES } from "./edges";
 import type { KumiGroupNodeData } from "./KumiGroupNode";
-import { NODE_HEIGHT, NODE_WIDTH } from "./layout";
+import { elkBranchPositions, NODE_HEIGHT, NODE_WIDTH } from "./layout";
 import type { Payload, PlanNode, Position } from "./types";
 
-const PADDING = 16;
-const HEADER_HEIGHT = 32;
+// Exported (K27 fix round): lanes.ts's band layout needs the exact same
+// header allowance boundingBox below adds, so containers actually get
+// enough room reserved instead of a second, possibly-drifting guess.
+export const PADDING = 16;
+export const HEADER_HEIGHT = 32;
 
 export interface ContainerBox {
   x: number;
@@ -114,8 +126,17 @@ function doneCount(byId: Map<string, PlanNode>, memberIds: string[]): { done: nu
 
 /** The absolute box bounding every member's card plus padding and a header
  * strip, or null when no member has a known position yet (briefly, before
- * the first elk/view.yaml pass resolves). */
-export function boundingBox(memberIds: string[], positions: Record<string, Position>): ContainerBox | null {
+ * the first elk/view.yaml pass resolves). `withFrame=false` (K27 fix round)
+ * returns the plain card envelope instead — no PADDING/HEADER_HEIGHT — for a
+ * caller with no frame of its own to draw (a leaf-cone Re-layout branch
+ * scope isn't a container, so nothing bounds it beyond its cards' own
+ * edges); the default stays the container-frame shape every existing
+ * caller relies on. */
+export function boundingBox(
+  memberIds: string[],
+  positions: Record<string, Position>,
+  withFrame = true,
+): ContainerBox | null {
   let minX = Infinity;
   let minY = Infinity;
   let maxX = -Infinity;
@@ -129,6 +150,7 @@ export function boundingBox(memberIds: string[], positions: Record<string, Posit
     maxY = Math.max(maxY, pos.y + NODE_HEIGHT);
   }
   if (!Number.isFinite(minX)) return null;
+  if (!withFrame) return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
   return {
     x: minX - PADDING,
     y: minY - PADDING - HEADER_HEIGHT,
@@ -247,9 +269,13 @@ export interface ContainerNodeParams {
   // Elk's own computed compound size (layout.ts's containerSizes), present
   // only in pure-auto mode. When set, it — and positions[node.id], elk's own
   // absolute top-left for this compound — govern the box outright;
-  // boundingBox is never called. Absent in view.yaml mode (or when a
-  // container has no elk entry yet), where a hand-dragged member can land
-  // somewhere elk's own layout never touched, so the box must be read back
+  // boundingBox is never called. Absent in view.yaml OR Lanes mode (K27 —
+  // Lanes never computes a compound size at all, App.tsx clears this map
+  // when Lanes is active), or when a container has no elk entry yet, or
+  // right after a Re-layout branch has moved its members (App.tsx drops
+  // that one container's own entry so this doesn't go stale) — in every one
+  // of those cases a hand-moved-by-SOME-algorithm member can land somewhere
+  // elk's own compound layout never touched, so the box must be read back
   // off wherever the members actually are.
   autoSize: { width: number; height: number } | undefined;
   onToggle: () => void;
@@ -319,4 +345,209 @@ export function buildContainerNode(params: ContainerNodeParams): Node {
     measured: collapsed ? measured : undefined,
     className,
   };
+}
+
+export interface RelayoutScope {
+  scope: Set<string>;
+  // True only when `selectedId` names a currently-COLLAPSED container: its
+  // members aren't even rendered right now, so there's nothing to lay out —
+  // `scope` is always empty alongside this. App.tsx composes the actual
+  // notice text (it has the title; this file deliberately doesn't take a
+  // full Payload just to look one up), the same split jumpTarget already
+  // uses for its own structured-result-vs-notice-text division.
+  collapsedContainer: boolean;
+}
+
+/**
+ * Re-layout branch's scope (PLAN2.md §2.3-2.5, K27): a container's own
+ * members when `selectedId` names one (refused while it's collapsed), else
+ * the selection plus its full ancestor/descendant cone over the RAW needs
+ * graph (cones.ts's plain BFS — the same one a leaf's own focus/F already
+ * uses, NOT the container-substituted containerCones, since "the selected
+ * node's branch" means its own real dependency chain here, not a container
+ * union). A raw cone id currently hidden inside some OTHER collapsed
+ * container is dropped from scope rather than repositioned invisibly or
+ * substituted for its container — nothing in the queue text asked for that
+ * substitution, and inventing it here would be scope creep.
+ */
+export function relayoutScope(
+  nodes: PlanNode[],
+  selectedId: string,
+  grouping: Grouping,
+  collapsedSet: Set<string>,
+  members: Map<string, string[]>,
+): RelayoutScope {
+  let rawScope: string[];
+  if (grouping.containers.has(selectedId)) {
+    if (collapsedSet.has(selectedId)) {
+      return { scope: new Set(), collapsedContainer: true };
+    }
+    rawScope = members.get(selectedId) ?? [];
+  } else {
+    const ancestors = ancestorsOf(nodes, selectedId);
+    const descendants = descendantsOf(nodes, selectedId);
+    rawScope = [selectedId, ...ancestors.keys(), ...descendants.keys()];
+  }
+  const scope = new Set(
+    rawScope.filter((id) => {
+      const parent = grouping.assignments.get(id);
+      return !(parent && collapsedSet.has(parent));
+    }),
+  );
+  return { scope, collapsedContainer: false };
+}
+
+// K27 fix round: centroid-preserving translate alone let a Re-layout branch
+// result land on top of unrelated cards and container frames (critic9's
+// relayout.png — M5's frame bisecting M10's cards). clearCollisions below
+// shifts the whole result off of everything it would otherwise overlap.
+const CLEAR_MARGIN = 8;
+const MAX_CLEAR_ITERATIONS = 8;
+
+export interface ObstacleBox {
+  id: string;
+  box: ContainerBox;
+}
+
+/** True when `a` and `b` are closer than `margin` on both axes — an actual
+ * overlap, or near enough that the cards'/frames' own visual chrome (the
+ * finding-halo ring, the container's dashed outline) would touch. */
+function boxesTooClose(a: ContainerBox, b: ContainerBox, margin: number): boolean {
+  return (
+    a.x - margin < b.x + b.width &&
+    a.x + a.width + margin > b.x &&
+    a.y - margin < b.y + b.height &&
+    a.y + a.height + margin > b.y
+  );
+}
+
+/**
+ * Every currently-visible, out-of-scope node's or container's box — the
+ * obstacle set clearCollisions must not land on. `containerId` (the scope's
+ * own source container, when scope came from a container selection) is
+ * excluded: its frame IS the scope's own moving box, computed by the caller
+ * from the same positions, not a separate obstacle. `effective` mixes
+ * current positions with the just-translated scope so an incidentally
+ * touched OTHER container's frame (one of whose members is in scope without
+ * the rest of it) reflects where its members will actually end up, not
+ * where they used to be.
+ */
+export function obstacleBoxes(
+  nodes: PlanNode[],
+  scope: Set<string>,
+  containerId: string | null,
+  grouping: Grouping,
+  collapsedSet: Set<string>,
+  effective: Record<string, Position>,
+): ObstacleBox[] {
+  const members = membersByContainer(grouping.assignments);
+  const boxes: ObstacleBox[] = [];
+  for (const node of nodes) {
+    const id = node.id;
+    if (scope.has(id) || id === containerId) continue;
+    const parent = grouping.assignments.get(id);
+    if (parent && collapsedSet.has(parent)) continue; // hidden, not rendered
+    if (grouping.containers.has(id)) {
+      if (collapsedSet.has(id)) {
+        const pos = effective[id];
+        if (pos) boxes.push({ id, box: { x: pos.x, y: pos.y, width: NODE_WIDTH, height: NODE_HEIGHT } });
+      } else {
+        const box = boundingBox(members.get(id) ?? [], effective);
+        if (box) boxes.push({ id, box });
+      }
+    } else {
+      const pos = effective[id];
+      if (pos) boxes.push({ id, box: { x: pos.x, y: pos.y, width: NODE_WIDTH, height: NODE_HEIGHT } });
+    }
+  }
+  return boxes;
+}
+
+export interface ClearResult {
+  positions: Record<string, Position>;
+  // Net displacement applied, or null when the scope was already clear —
+  // exported so a caller (App.tsx, verification) can report "the shift
+  // vector used" in real coordinate space.
+  shift: Position | null;
+}
+
+/**
+ * Shift a Re-layout branch result off of every out-of-scope box it
+ * currently overlaps. Each pass tries the four axis-aligned directions —
+ * clear right, left, down, up — and takes whichever needs the smallest
+ * displacement, with an 8px margin so cards don't just kiss edges; then
+ * re-measures and repeats (bounded) rather than stopping after one pass,
+ * since clearing the first obstacle set in one direction can, in a dense
+ * plan, walk the box into a second one the first pass never saw.
+ *
+ * Centroid preservation is best-effort past this point, not a guarantee:
+ * when nothing needs clearing, `translated`'s centroid (elkBranchPositions'
+ * own) stands untouched; when it does, this moves the whole subgraph to the
+ * nearest CLEAR placement instead of the exact prior centroid —
+ * docs/howto/editor.md's Layout section states this contract in those
+ * words, updated in the same fix round this function landed in.
+ */
+export function clearCollisions(
+  translated: Record<string, Position>,
+  scope: Set<string>,
+  containerId: string | null,
+  nodes: PlanNode[],
+  grouping: Grouping,
+  collapsedSet: Set<string>,
+  currentPositions: Record<string, Position>,
+): ClearResult {
+  let positions = { ...translated };
+  let shiftX = 0;
+  let shiftY = 0;
+  for (let pass = 0; pass < MAX_CLEAR_ITERATIONS; pass += 1) {
+    const effective = { ...currentPositions, ...positions };
+    const subject = boundingBox([...scope], positions, containerId !== null);
+    if (!subject) break;
+    const hit = obstacleBoxes(nodes, scope, containerId, grouping, collapsedSet, effective).filter((o) =>
+      boxesTooClose(subject, o.box, CLEAR_MARGIN),
+    );
+    if (hit.length === 0) break;
+
+    const right = Math.max(...hit.map((o) => o.box.x + o.box.width + CLEAR_MARGIN - subject.x));
+    const left = Math.max(...hit.map((o) => subject.x + subject.width + CLEAR_MARGIN - o.box.x));
+    const down = Math.max(...hit.map((o) => o.box.y + o.box.height + CLEAR_MARGIN - subject.y));
+    const up = Math.max(...hit.map((o) => subject.y + subject.height + CLEAR_MARGIN - o.box.y));
+    const candidates = [
+      { magnitude: right, dx: right, dy: 0 },
+      { magnitude: left, dx: -left, dy: 0 },
+      { magnitude: down, dx: 0, dy: down },
+      { magnitude: up, dx: 0, dy: -up },
+    ];
+    let best = candidates[0];
+    for (const candidate of candidates.slice(1)) {
+      if (candidate.magnitude < best.magnitude) best = candidate;
+    }
+
+    const next: Record<string, Position> = {};
+    for (const [id, pos] of Object.entries(positions)) {
+      next[id] = { x: Math.round(pos.x + best.dx), y: Math.round(pos.y + best.dy) };
+    }
+    positions = next;
+    shiftX += best.dx;
+    shiftY += best.dy;
+  }
+  const shift = shiftX === 0 && shiftY === 0 ? null : { x: Math.round(shiftX), y: Math.round(shiftY) };
+  return { positions, shift };
+}
+
+/** Re-layout branch, start to finish: elk over the scope subgraph, centroid
+ * -translated (layout.ts's elkBranchPositions), then shifted clear of
+ * everything out of scope (clearCollisions above). One entry point so
+ * App.tsx's relayoutBranch — already orchestration-only per this file's own
+ * header note — doesn't have to chain the two itself. */
+export async function relayoutBranchPositions(
+  nodes: PlanNode[],
+  scope: Set<string>,
+  containerId: string | null,
+  grouping: Grouping,
+  collapsedSet: Set<string>,
+  currentPositions: Record<string, Position>,
+): Promise<ClearResult> {
+  const translated = await elkBranchPositions(nodes, scope, currentPositions);
+  return clearCollisions(translated, scope, containerId, nodes, grouping, collapsedSet, currentPositions);
 }

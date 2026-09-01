@@ -49,9 +49,10 @@ just a canvas shortcut.
 | Esc | Close the palette without running anything |
 
 Commands: **Add node** (closes the palette and focuses the sidebar's id
-field), **Braid**, **Toggle theme**, **Toggle auto-layout**. Results are
-capped around 12 with a trailing "*n* more" line rather than listing an
-entire large plan.
+field), **Braid**, **Toggle theme**, **Toggle auto-layout**, **Lanes
+layout**, **Re-layout branch** (see [The editor](../howto/editor.md#layout)
+for what the last two do). Results are capped around 12 with a trailing
+"*n* more" line rather than listing an entire large plan.
 
 ## Graph keyboard
 
@@ -82,4 +83,6 @@ result, so they cycle siblings rather than sitting unused.
 |---|---|
 | 🌙 / ☀ toggle, top of sidebar | Switch light/dark theme; your choice is remembered across reloads, otherwise the OS preference wins |
 | Auto-layout / Use view.yaml button | Toggle between the elk auto-layout and your saved positions, without touching what's saved |
+| Lanes button | Arrange every node into one column per dependency depth ([Layout](../howto/editor.md#layout)) |
+| Re-layout branch button | With a node selected, re-arrange just its container or dependency cone in place, leaving everything else untouched ([Layout](../howto/editor.md#layout)) |
 | Braid button | Compile the current plan and show it in a modal with a Copy button |

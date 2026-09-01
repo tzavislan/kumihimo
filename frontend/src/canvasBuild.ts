@@ -60,7 +60,11 @@ export interface BuildCanvasNodesParams {
   trace: TraceState | null;
   tier: ZoomTier;
   selectedId: string | null;
-  useViewLayout: boolean;
+  // Whether to size an EXPANDED container from layout.ts's elk-computed
+  // containerAutoSizes (pure-auto layoutMode only, K27 — renamed from
+  // useViewLayout when a third layoutMode, Lanes, made the old inverted
+  // "unless view.yaml" phrasing wrong) or fall back to boundingBox.
+  useElkSizes: boolean;
   containerAutoSizes: Record<string, ContainerSize>;
   lensCtx: LensContext;
   previous: Node[];
@@ -78,7 +82,7 @@ export function buildCanvasNodes(params: BuildCanvasNodesParams): Node[] {
     trace,
     tier,
     selectedId,
-    useViewLayout,
+    useElkSizes,
     containerAutoSizes,
     lensCtx,
     previous,
@@ -111,7 +115,7 @@ export function buildCanvasNodes(params: BuildCanvasNodesParams): Node[] {
         memberIds,
         byId,
         positions,
-        autoSize: useViewLayout ? undefined : containerAutoSizes[id],
+        autoSize: useElkSizes ? containerAutoSizes[id] : undefined,
         onToggle: () => onToggleCollapse(id),
         className,
         measured: byOldId.get(id)?.measured,

@@ -17,13 +17,20 @@
  *              cross-container edges itself, no lowest-common-ancestor
  *              classification needed on this side.
  * @layer       frontend
- * @tags        elkjs, layout, layered, containers, collapse, hierarchy
+ * @tags        elkjs, layout, layered, containers, collapse, hierarchy,
+ *              layout-mode, re-layout, centroid
  * @related     frontend/src/App.tsx (merges these with view.yaml positions;
  *              containerSizes only consulted in pure-auto mode — view.yaml
  *              mode keeps containers.ts's boundingBox derivation instead),
  *              frontend/src/containers.ts (Grouping — the same containers/
- *              assignments/collapsed shapes this mirrors for the hierarchy)
- * @design      PLAN.md §5.1, PLAN2.md §2.3 lens 1
+ *              assignments/collapsed shapes this mirrors for the hierarchy;
+ *              also relayoutScope, which resolves the scope
+ *              elkBranchPositions below lays out),
+ *              frontend/src/lanes.ts (the Lanes layoutMode alternative to
+ *              elkPositions — reuses NODE_WIDTH/NODE_HEIGHT and
+ *              LayoutContext from here rather than redeclaring them)
+ * @design      PLAN.md §5.1, PLAN2.md §2.3 lens 1, §2.3-2.5 (layoutMode,
+ *              Re-layout branch, K27)
  */
 import ELK from "elkjs/lib/elk.bundled.js";
 import type { ElkExtendedEdge, ElkNode } from "elkjs";
@@ -31,6 +38,14 @@ import type { PlanNode, Position } from "./types";
 
 export const NODE_WIDTH = 210;
 export const NODE_HEIGHT = 66;
+
+// Which position source is currently driving the canvas (PLAN2.md §2.3-2.5,
+// K27): "view" is view.yaml-with-elk-filling-gaps (today's only mode before
+// K27); "auto" is pure elk, exactly as the old useViewLayout=false meant;
+// "lanes" is lanes.ts's depth-lanes algorithm. All three are App.tsx state,
+// never persisted — the mode itself is view state, same as the positions it
+// produces.
+export type LayoutMode = "view" | "auto" | "lanes";
 
 // Top-heavy for the title bar (KumiGroupNode.tsx's header); left/bottom/
 // right just enough that a member card's shadow doesn't touch the frame.
@@ -162,4 +177,82 @@ export async function elkPositions(nodes: PlanNode[], context?: LayoutContext): 
     }
   }
   return { positions, containerSizes };
+}
+
+/**
+ * Re-layout branch (PLAN2.md §2.3-2.5, K27): run elk over ONLY `scope` — a
+ * flat layered subgraph, no container hierarchy (scope members are leaves
+ * regardless of whether one happens to be a container id itself; the common
+ * case is a container's own members, already flat, and containers.ts's
+ * relayoutScope never puts a container's own members-of-members in scope
+ * since containment is single-level) — using only `needs` edges between two
+ * scope members, same restriction elkPositions above already applies to the
+ * full graph. The raw result is then translated as a whole so its centroid
+ * lands exactly on the scope's PREVIOUS centroid (`currentPositions`, read
+ * before this call): elk's own subgraph layout starts counting from an
+ * arbitrary near-{0,0} origin with no memory of where the scope used to sit
+ * on THIS canvas, so using it as-is would teleport the branch to a corner.
+ */
+export async function elkBranchPositions(
+  nodes: PlanNode[],
+  scope: Set<string>,
+  currentPositions: Record<string, Position>,
+): Promise<Record<string, Position>> {
+  const scoped = nodes.filter((node) => scope.has(node.id));
+  const ids = new Set(scoped.map((node) => node.id));
+  const edgeIds = new Set<string>();
+  const edges: ElkExtendedEdge[] = [];
+  for (const node of scoped) {
+    for (const dep of node.needs) {
+      if (!ids.has(dep) || dep === node.id) continue;
+      const key = `${dep}->${node.id}`;
+      if (edgeIds.has(key)) continue;
+      edgeIds.add(key);
+      edges.push({ id: `e:${key}`, sources: [dep], targets: [node.id] });
+    }
+  }
+  const graph: ElkNode = {
+    id: "root",
+    layoutOptions: {
+      "elk.algorithm": "layered",
+      "elk.direction": "RIGHT",
+      "elk.spacing.nodeNode": "40",
+      "elk.layered.spacing.nodeNodeBetweenLayers": "90",
+    },
+    children: scoped.map((node) => ({ id: node.id, width: NODE_WIDTH, height: NODE_HEIGHT })),
+    edges,
+  };
+  const laid = await elk.layout(graph);
+  const raw: Record<string, Position> = {};
+  for (const child of laid.children ?? []) {
+    raw[child.id] = { x: Math.round(child.x ?? 0), y: Math.round(child.y ?? 0) };
+  }
+
+  const before = centroidOf(scope, currentPositions);
+  const after = centroidOf(new Set(Object.keys(raw)), raw);
+  if (!before || !after) return raw;
+  const dx = before.x - after.x;
+  const dy = before.y - after.y;
+  const translated: Record<string, Position> = {};
+  for (const [id, pos] of Object.entries(raw)) {
+    translated[id] = { x: Math.round(pos.x + dx), y: Math.round(pos.y + dy) };
+  }
+  return translated;
+}
+
+/** The average x/y of every id in `ids` that has a known position, or null
+ * when none do — callers bail to the untranslated result rather than divide
+ * by zero. */
+function centroidOf(ids: Set<string>, positions: Record<string, Position>): Position | null {
+  let sumX = 0;
+  let sumY = 0;
+  let count = 0;
+  for (const id of ids) {
+    const pos = positions[id];
+    if (!pos) continue;
+    sumX += pos.x;
+    sumY += pos.y;
+    count += 1;
+  }
+  return count > 0 ? { x: sumX / count, y: sumY / count } : null;
 }

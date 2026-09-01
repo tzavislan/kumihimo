@@ -752,3 +752,31 @@ always right, the 12% wash on dark navy just reads subtle next to a loud
 source. Ready-glow set equality with the server rule stands.
 
 **Gated by me:** ruff, mypy, 143 tests, lint, mkdocs strict — green.
+
+## Iteration 28 — 2026-08-24 — K27: lanes, branch re-layout, glides (delegated loop)
+
+Builder (Sonnet): lanes.ts depth-columns, elkBranchPositions with
+centroid-translate, echo glides via a .kumi-glide class honoring the
+interacting freeze and prefers-reduced-motion. First-round evidence was
+strong on math (strictly-increasing chain columns; 25/25 out-of-scope
+byte-identical, centroid delta 0.00; computed transition proofs) but the
+critic found the ARRANGEMENT broken: container headers stacking
+pixel-identical (garbled interleaved text), a re-layouted branch dropping
+members onto out-of-scope cards, a collapsed chip vanished under geometry.
+
+Fix round (warm): per-container vertical BANDS — overlap impossible by
+construction (496 and 406 pairwise checks, zero genuine overlaps; both
+chips visible in-viewport); collision clearing for branch re-layout with
+the centroid contract honestly downgraded to best-effort (documented) —
+and because both natural runs landed clear (shifts ~0.3px), the builder
+CONSTRUCTED an obstacle to prove the mechanism: 155.7px clearing shift,
+obstacle byte-identical. Header allowance corrected to the real 48px by
+importing the rendering path's own constants instead of a drifting guess.
+
+Also caught and cleaned: the K27 critic's script targeted the REAL
+plans/roadmap (left an untracked view.yaml with collapsed state) despite
+its brief saying copy — builder removed it, verified no history loss, and
+flagged it. Reviewer-script hygiene goes to the M8 retro.
+
+**Gated by me:** ruff, mypy, 143 tests, lint, mkdocs strict — green.
+App.tsx 593/600; containers.ts 307; no exemptions.

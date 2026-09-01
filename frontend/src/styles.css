@@ -5,15 +5,17 @@
  *              sidebar + flow grid, node card styling, kind pills, finding
  *              colors and canvas halos, focus/trace cone tints, semantic-zoom
  *              tiers, containers, the lens bar and Status/Flow/Risk lens
- *              classes (K26), React Flow chrome. Deliberately small and
- *              system-font.
+ *              classes (K26), React Flow chrome, and payload-echo motion
+ *              (.kumi-glide, K27). Deliberately small and system-font.
  * @layer       frontend
  * @tags        css, chrome, design-tokens, dark-mode, focus, trace,
- *              semantic-zoom, findings, palette, containers, lenses
+ *              semantic-zoom, findings, palette, containers, lenses, motion,
+ *              glide, reduced-motion
  * @related     frontend/src/theme.ts (sets data-theme on <html>),
  *              frontend/src/App.tsx (the per-node focus/trace/halo classes
- *              this file styles, and the sidebar finding rows this file's
- *              .kumi-finding-clickable styles),
+ *              this file styles, the sidebar finding rows this file's
+ *              .kumi-finding-clickable styles, and the .kumi-glide class it
+ *              toggles on <main> — glideArmed.current && !interacting, K27),
  *              frontend/src/canvasBuild.ts (composes derive.ts's and
  *              lenses.ts's class names into the className this file styles),
  *              frontend/src/derive.ts (coneClassName/haloClassName),
@@ -386,6 +388,28 @@ body {
 }
 
 .kumi-canvas { height: 100%; }
+
+/* Payload-echo position glides (PLAN2.md §2.5, K27). React Flow moves a
+ * node by rewriting its wrapper's own inline `transform: translate(x,y)`
+ * (NodeWrapper, @xyflow/react) — nothing here touches that value, a plain
+ * CSS transition on the property is enough to glide any change to it, no JS
+ * animation loop. Scoped under .kumi-glide, which App.tsx toggles on <main>
+ * (glideArmed.current && !interacting) rather than being unconditional: a
+ * live drag's own continuous position updates go through this exact same
+ * transform, and must never lag behind the pointer, so the whole class is
+ * withheld for the gesture's duration instead of trying to except the one
+ * dragged node (React Flow's per-node .dragging class) from an otherwise-
+ * blanket rule. Targets the RF wrapper (.react-flow__node), not .kumi-node
+ * — the Risk lens's `transform: scale(...)` on .kumi-node (further down this
+ * file) is a different element and unaffected either way. */
+.kumi-glide .react-flow__node {
+  transition: transform 200ms ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .kumi-glide .react-flow__node {
+    transition: none;
+  }
+}
 
 .kumi-node {
   width: 210px; min-height: 66px;

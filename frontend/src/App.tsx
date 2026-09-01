@@ -15,7 +15,13 @@
  *              and, when it names a node rather than a file, click-to-jump
  *              to select and center it (jumpTo also resolves a hidden
  *              container member to its collapsed container, with a notice —
- *              Inherited fix A, K26). Owns the client-side view lenses built
+ *              Inherited fix A, K26). layoutMode (K27) picks the position
+ *              source — view.yaml-with-elk-gaps, pure elk (Auto), or
+ *              lanes.ts's depth-lanes (Lanes) — and Re-layout branch
+ *              (relayoutBranch) re-runs elk over just a selection's
+ *              container-or-cone scope, translated back onto its own prior
+ *              centroid; both are ephemeral like Auto always was. Owns the
+ *              client-side view lenses built
  *              on cones.ts's graph math: focus (double-click dims everything
  *              outside the node's up/downstream cone — a container unions
  *              its members' cones, Inherited fix C) and trace (alt-click a
@@ -33,16 +39,33 @@
  *              state and listener — every window-level listener gated so
  *              none steals keys from a form field, the palette's own input,
  *              or React Flow's own keyboard handling (disabled below in
- *              favor of these).
+ *              favor of these). Motion (K27): once positions first exist,
+ *              a `glideArmed` ref latch stays on for the rest of the
+ *              session, and the canvas wrapper carries .kumi-glide (a CSS
+ *              transition on the RF node transform, styles.css) whenever
+ *              that's true and no drag/connect gesture (`interacting`) is
+ *              in flight — echoes, Auto/Lanes, and Re-layout branch all
+ *              glide by the same flag; only a live drag's own continuous
+ *              position updates are excluded, by suppressing the class
+ *              rather than by tracking "was this an echo" anywhere.
  * @layer       frontend
  * @tags        react-flow, editor, ops, live, elk, sidebar, theme, focus,
  *              trace, semantic-zoom, findings, palette, keyboard, containers,
- *              lenses
+ *              lenses, lanes, layout-mode, re-layout, motion, glide
  * @related     frontend/src/canvasBuild.ts (buildCanvasNodes/buildCanvasEdges
  *              — the nodes-rebuild effect's and edges memo's own bodies,
  *              moved out to stay under the line cap),
- *              frontend/src/containers.ts (grouping/containment math and
- *              jumpTarget, Inherited fix A),
+ *              frontend/src/containers.ts (grouping/containment math,
+ *              jumpTarget for Inherited fix A, relayoutScope, and
+ *              relayoutBranchPositions — elk-plus-clearCollisions in one
+ *              call, K27 fix round),
+ *              frontend/src/layout.ts (elkPositions and the LayoutMode
+ *              type — one of the three layoutMode position sources, K27;
+ *              also elkBranchPositions, relayoutBranchPositions' own first
+ *              half),
+ *              frontend/src/lanes.ts (lanesPositions — a second source),
+ *              frontend/src/LayoutControls.tsx (the sidebar's Auto/Lanes/
+ *              Re-layout branch buttons this mounts, K27),
  *              frontend/src/KumiGroupNode.tsx (the container node type this
  *              mounts as "kumiGroup"),
  *              frontend/src/edges.ts (parseEdge/edgeSentence/unlinkEnvelope
@@ -83,14 +106,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchBraid, fetchDirty, fetchPlan, openLive, postOp } from "./api";
 import { buildCanvasEdges, buildCanvasNodes } from "./canvasBuild";
 import { ancestorsOf, containerCones, descendantsOf, pathsBetween } from "./cones";
-import { groupNodes, jumpTarget, membersByContainer } from "./containers";
+import { groupNodes, jumpTarget, membersByContainer, relayoutBranchPositions, relayoutScope } from "./containers";
 import { findingHalos, minimapNodeColor, nodeTitle, type FocusState, type TraceState } from "./derive";
 import { edgeSentence, parseEdge, unlinkEnvelope, type EdgeMode } from "./edges";
 import { KumiGroupNode } from "./KumiGroupNode";
 import { KumiNode, zoomTier, type ZoomTier } from "./KumiNode";
-import { elkPositions, NODE_HEIGHT, NODE_WIDTH, type ContainerSize } from "./layout";
+import { lanesPositions } from "./lanes";
+import { elkPositions, NODE_HEIGHT, NODE_WIDTH, type ContainerSize, type LayoutMode } from "./layout";
 import { computeLensContext, type Lens } from "./lenses";
 import { LensBar } from "./LensBar";
+import { LayoutControls } from "./LayoutControls";
 import { NodeForm } from "./NodeForm";
 import { Palette, type PaletteCommand } from "./Palette";
 import { useTheme } from "./theme";
@@ -107,7 +132,11 @@ export default function App() {
   // (containers.ts's buildContainerNode falls back to boundingBox whenever
   // an entry here is missing — including always, in view.yaml mode).
   const [containerAutoSizes, setContainerAutoSizes] = useState<Record<string, ContainerSize>>({});
-  const [useViewLayout, setUseViewLayout] = useState(true);
+  // Which position source drives the canvas (PLAN2.md §2.3-2.5, K27):
+  // view.yaml-with-elk-gaps (today's default, was useViewLayout=true), pure
+  // elk (was useViewLayout=false), or the new Lanes algorithm — see
+  // layout.ts's own doc comment on the type.
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>("view");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedEdge, setSelectedEdge] = useState<string | null>(null);
   // clientX/Y at last hover, not canvas coordinates — the tooltip is a
@@ -145,6 +174,24 @@ export default function App() {
   // Populated via onInit; a ref (not state) because it never needs to
   // trigger a re-render, only to be read from the jump buttons' click.
   const rfInstance = useRef<ReactFlowInstance | null>(null);
+
+  // Mounting the canvas before positions exist would let fitView fire on the
+  // placeholder {0,0} cluster and then watch the real layout slide away —
+  // also the gate below for arming motion, so the very first paint never
+  // glides in from nothing.
+  const positionsReady =
+    payload !== null && (payload.nodes.length === 0 || Object.keys(positions).length > 0);
+  // Motion (PLAN2.md §2.5, K27): a ref latch, set the instant positions
+  // first exist and never unset — every position change from then on is
+  // either a payload echo or a layout action the user just triggered, and
+  // both are meant to glide (styles.css's .kumi-glide; the class is
+  // withheld only while `interacting`, below, never by unsetting this).
+  // Mutated during render rather than in an effect+state pair — a safe,
+  // idempotent "remember the first time a condition held" latch (React's own
+  // documented escape hatch for exactly this), and one fewer render-cycle
+  // delay than an effect would add.
+  const glideArmed = useRef(false);
+  if (positionsReady) glideArmed.current = true;
 
   // Which nodes are containers and who's in which (PLAN2.md §2.3 lens 1),
   // shared by elk (collapsed-as-one-node), canvasBuild.ts (parenting,
@@ -186,9 +233,13 @@ export default function App() {
   }, []);
 
   // Shared by the sidebar button and the palette's "Toggle auto-layout"
-  // command, same reasoning as toggleTheme above.
+  // command, same reasoning as toggleTheme above. Two-way regardless of the
+  // third mode (K27): "not view" collapses lanes into the same bucket as
+  // auto, so clicking this while Lanes is active goes straight to view.yaml,
+  // same as it would from Auto — Lanes gets its own dedicated button
+  // (LayoutControls.tsx) rather than a slot in this toggle's cycle.
   const toggleAutoLayout = useCallback(() => {
-    setUseViewLayout((current) => !current);
+    setLayoutMode((current) => (current === "view" ? "auto" : "view"));
   }, []);
 
   // Semantic zoom (PLAN2.md §2.2): onMove fires on every pointer-driven pan/
@@ -208,6 +259,20 @@ export default function App() {
     if (!payload) return;
     fetchDirty().then(setDirty).catch(() => undefined);
     let cancelled = false;
+    const context = { collapsed: collapsedSet, containers: grouping.containers, assignments: grouping.assignments };
+    // Lanes (K27) needs no elk call: lanesPositions is a pure, synchronous
+    // longest-path-plus-stacking computation (lanes.ts) that gives every
+    // visible node a fresh entry every run (unlike elk's collapsed-member
+    // gap below), so a plain merge is enough and there's nothing to cancel.
+    // containerAutoSizes is elk-compound-size-only (containers.ts) and would
+    // go stale the moment members land somewhere Lanes put them instead, so
+    // it's cleared rather than left stale.
+    if (layoutMode === "lanes") {
+      const lanes = lanesPositions(payload.nodes, context);
+      setPositions((previous) => ({ ...previous, ...lanes.positions }));
+      setContainerAutoSizes({});
+      return;
+    }
     // A collapsed container's members are excluded from elk's graph
     // entirely (layout.ts substitutes the container itself), so they get no
     // fresh entry in `auto.positions` — merge over the previous positions
@@ -215,23 +280,19 @@ export default function App() {
     // reset to {0,0} the instant its container collapses, surfacing as a
     // jump on expand. Drags land in view.yaml and echo back through
     // payload.layout, applied last so it always wins over either.
-    elkPositions(payload.nodes, {
-      collapsed: collapsedSet,
-      containers: grouping.containers,
-      assignments: grouping.assignments,
-    }).then((auto) => {
+    elkPositions(payload.nodes, context).then((auto) => {
       if (cancelled) return;
       setPositions((previous) => ({
         ...previous,
         ...auto.positions,
-        ...(useViewLayout ? payload.layout : {}),
+        ...(layoutMode === "view" ? payload.layout : {}),
       }));
       setContainerAutoSizes(auto.containerSizes);
     });
     return () => {
       cancelled = true;
     };
-  }, [payload, useViewLayout, collapsedSet, grouping]);
+  }, [payload, layoutMode, collapsedSet, grouping]);
 
   // Payload echoes (live socket, or any op's own response) must not silently
   // exit focus/trace — recompute the cones against the fresh node list
@@ -306,7 +367,7 @@ export default function App() {
         trace,
         tier,
         selectedId,
-        useViewLayout,
+        useElkSizes: layoutMode === "auto",
         containerAutoSizes,
         lensCtx,
         previous,
@@ -324,7 +385,7 @@ export default function App() {
     grouping,
     collapsedSet,
     toggleCollapse,
-    useViewLayout,
+    layoutMode,
     containerAutoSizes,
     selectedId,
     lensCtx,
@@ -456,6 +517,38 @@ export default function App() {
       .catch((err) => setNotice(String(err)));
   }, []);
 
+  // "Re-layout branch" (PLAN2.md §2.3-2.5, K27): scope resolution lives in
+  // containers.ts's relayoutScope, and collision clearing (fix round: a
+  // centroid-preserving translate alone let scope land on unrelated cards)
+  // in its clearCollisions — both pure functions, kept out of this
+  // component for the same reason canvasBuild.ts's own header gives, this
+  // stays orchestration. Ephemeral like Auto/Lanes: only setPositions,
+  // never an op, so view.yaml never sees it.
+  const relayoutBranch = useCallback(() => {
+    if (!payload || !selectedId) {
+      setNotice("select a node to re-layout its branch");
+      return;
+    }
+    const { scope, collapsedContainer } = relayoutScope(payload.nodes, selectedId, grouping, collapsedSet, members);
+    if (collapsedContainer) {
+      setNotice(`expand ${nodeTitle(payload, selectedId)} to re-layout its members`);
+      return;
+    }
+    if (scope.size === 0) {
+      setNotice("nothing in scope to re-layout");
+      return;
+    }
+    const containerId = grouping.containers.has(selectedId) ? selectedId : null;
+    void relayoutBranchPositions(payload.nodes, scope, containerId, grouping, collapsedSet, positions).then((r) => {
+      setPositions((current) => ({ ...current, ...r.positions }));
+      // Elk's compound size for THIS container (pure-auto mode only) was
+      // computed from where its members stood before this — now stale.
+      // Dropping the entry falls back to boundingBox, which re-reads
+      // wherever they actually are (containers.ts's own doc comment).
+      if (containerId) setContainerAutoSizes(({ [containerId]: _dropped, ...rest }) => rest);
+    });
+  }, [payload, selectedId, grouping, collapsedSet, members, positions]);
+
   // The palette's "Add node" command: focus the sidebar's id input after the
   // overlay closes. A macrotask, not a bare call — React hasn't committed the
   // close yet at the point this runs, and queuing the focus for the next
@@ -471,8 +564,10 @@ export default function App() {
       { id: "braid", label: "Braid", run: runBraid },
       { id: "toggle-theme", label: "Toggle theme", run: toggleTheme },
       { id: "toggle-auto-layout", label: "Toggle auto-layout", run: toggleAutoLayout },
+      { id: "lanes-layout", label: "Lanes layout", run: () => setLayoutMode("lanes") },
+      { id: "relayout-branch", label: "Re-layout branch", run: relayoutBranch },
     ],
-    [focusAddNodeInput, runBraid, toggleTheme, toggleAutoLayout],
+    [focusAddNodeInput, runBraid, toggleTheme, toggleAutoLayout, relayoutBranch],
   );
 
   // Ctrl+K / Cmd+K opens the palette from anywhere, form fields included —
@@ -539,10 +634,6 @@ export default function App() {
     [applyOp],
   );
 
-  // Mounting the canvas before positions exist would let fitView fire on the
-  // placeholder {0,0} cluster and then watch the real layout slide away.
-  const positionsReady =
-    payload !== null && (payload.nodes.length === 0 || Object.keys(positions).length > 0);
   if (!payload || !positionsReady) {
     return <div className="kumi-loading">loading plan…</div>;
   }
@@ -599,8 +690,14 @@ export default function App() {
             </button>
           </p>
         ) : null}
+        <LayoutControls
+          mode={layoutMode}
+          onToggleAuto={toggleAutoLayout}
+          onLanes={() => setLayoutMode("lanes")}
+          onRelayoutBranch={relayoutBranch}
+          canRelayout={selectedId !== null}
+        />
         <div className="kumi-actions">
-          <button onClick={toggleAutoLayout}>{useViewLayout ? "Auto-layout" : "Use view.yaml"}</button>
           <button className="kumi-primary" onClick={runBraid}>
             Braid
           </button>
@@ -712,7 +809,7 @@ export default function App() {
           <p className="kumi-hint">Click a node to edit it; drag between handles to draw an edge.</p>
         )}
       </aside>
-      <main className="kumi-canvas">
+      <main className={`kumi-canvas${glideArmed.current && !interacting ? " kumi-glide" : ""}`}>
         <ReactFlow
           nodes={nodes}
           edges={edges}

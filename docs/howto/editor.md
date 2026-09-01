@@ -74,14 +74,13 @@ the ▸ button.
 
 The container card is otherwise a normal node: click it to open its form,
 double-click to focus it, and it takes part in every halo and lens like any
-other card. Auto-layout treats a *collapsed* container as one node at chip
-size, laid out along its (re-routed) needs edges same as any leaf. An
-*expanded* container is not itself laid out by elk — elk arranges its
-members exactly as it would if they weren't grouped, and the container's box
-is drawn around wherever they land, so an expanded group's members can still
-end up near unrelated nodes rather than in a clean cluster. Members stay
-individually draggable inside their container, which is today's way to shape
-a group by hand.
+other card. Every layout mode below (Auto, Lanes) treats a *collapsed*
+container as one node at chip size, laid out along its (re-routed) needs
+edges same as any leaf. An *expanded* container is never laid out as a
+cluster by Lanes, and only sometimes by Auto — see "Layout" below for what
+each mode does with its members instead. Members stay individually
+draggable inside their container, which is today's way to shape a group by
+hand.
 
 ## Focus and trace
 
@@ -201,8 +200,9 @@ just be noise. Semantic zoom tiers are unaffected by any of this.
 ## Command palette and keyboard
 
 `Ctrl+K` (`Cmd+K` on macOS) opens a search palette over every node's id,
-title, and body, plus four quick commands (Add node, Braid, Toggle theme,
-Toggle auto-layout). With the palette closed and focus outside any form
+title, and body, plus six quick commands (Add node, Braid, Toggle theme,
+Toggle auto-layout, Lanes layout, Re-layout branch). With the palette closed
+and focus outside any form
 field, `1`-`4` switch the lens bar above from anywhere on the canvas; with a
 node also selected, arrow keys walk the graph itself rather than the screen,
 F focuses, and Delete or Backspace removes with a confirmation. The full
@@ -223,11 +223,59 @@ and nothing is clobbered — refresh (the watcher already did) and re-apply.
 Undo is git. That's a feature: every session's worth of edits is a reviewable
 diff, and `git checkout -- .` is a bigger undo than any editor ships.
 
-## Auto-layout
+## Layout
 
 `view.yaml` positions win when present; the elk layered algorithm fills the
-gaps. The Auto-layout button toggles to a pure elk arrangement (left to right
-along dependencies) without touching your saved positions.
+gaps. The **Auto-layout** button toggles to a pure elk arrangement (left to
+right along dependencies) without touching your saved positions — click it
+again ("Use view.yaml") to go back. Both Auto and the two actions below are
+ephemeral: nothing is written to `view.yaml` until you drag a node, exactly
+like today's Auto-layout always worked.
+
+**Lanes**, next to it, is a second one-shot arrangement: one column per
+node's **NEEDS-DEPTH** (its longest dependency-chain distance from a root —
+a node with no `needs` of its own), generously spaced left to right. A
+collapsed container counts as one node here too, standing in for its hidden
+members exactly as Auto's elk layout does. Unlike Auto, Lanes never clusters
+an *expanded* container's members as a tight group — each one gets its own
+column purely by its own needs-depth, so a container's members can end up
+spread across several lanes; its frame still bounds wherever they land, the
+same as it always has for a hand-dragged group, and a wide frame with only a
+few cards inside one end of it is the expected result of a spread-out lanes
+arrangement, not a bug. Every container that currently has visible members
+gets its own vertical *band* — a reserved horizontal strip nothing else is
+ever placed in — so two containers' frames, or a frame and a collapsed
+chip, can never land on the same pixels; everything ungrouped (plain leaves
+and collapsed chips alike) shares one further band at the bottom. That
+guarantee costs some vertical compactness: a band reserves room for its
+single busiest column across every column it spans, so a container with one
+crowded lane and several sparse ones leaves visible empty space beside the
+sparse ones — a deliberate tradeoff, not a bug either.
+
+**Re-layout branch**, near the layout buttons (and in the Ctrl+K palette),
+re-arranges just one part of the plan around your current selection, leaving
+everything else exactly where it was. The scope is the selection's
+**container-or-cone**: if you've selected a container, its members; otherwise
+the selected node plus everything it needs and everything that needs it
+(its full dependency cone). Elk lays out only that scope, then the whole
+result is shifted — never resized or rotated — so its center lands back on
+roughly where the scope's center was before, rather than jumping to some
+unrelated corner of the canvas — *when there's room*: if that placement
+would land the scope on top of anything outside it, the whole result slides
+further, clear of every other card and container frame, before landing.
+Centroid preservation is therefore best-effort, not a guarantee: the common
+case keeps the branch right where it was, and a crowded one moves it the
+short distance needed to stay collision-free instead. Like Auto and Lanes,
+this writes nothing to `view.yaml`.
+
+## Motion
+
+A position that changes because of something *other* than your own drag —
+another editor's change arriving over the live socket, an MCP edit, or one
+of the layout actions above — glides to its new spot over about 200ms
+instead of jumping there. Dragging itself stays instant, with no glide, so
+the card never lags behind your pointer. If your OS is set to reduce motion,
+every glide is skipped in favor of an immediate move.
 
 ## Dark mode
 
