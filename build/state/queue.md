@@ -189,3 +189,33 @@ linter exists to prevent. Extend to frontend/src/*.ts(x): @file header
 presence/path match, cap with comment/blank exclusion (JSDoc + //), @exempt
 grammar. Accept: seeded TS violation fails CI; current tree passes (after
 K23).
+
+## M8 — Shape (PLAN2.md §2.3-2.4, split 2026-08-24)
+
+### K25 — Containers: milestones as subflows with collapse
+status: todo
+needs: —
+PLAN2 §2.3 lens 1; risk 1's spike. RF parent/child containers for in-groups;
+collapse state in view.yaml; collapsed milestone = chip (n/m done) with
+edges re-routed to it; stored positions stay ABSOLUTE (sidecar format
+unchanged) — relative conversion only inside the RF layer. Fallback if
+subflows x elk won't stabilize: containers without elk-into-containers,
+documented. Accept: roadmap renders M7 as a container; collapsing it to a
+chip survives reload and echoes; no view.yaml format change.
+
+### K26 — The lens bar (Structure/Status/Flow/Risk)
+status: todo
+needs: [K25]
+PLAN2 §2.3. Lens switcher in the sidebar; Status draws the ready frontier
+(glow) and dims done; Flow bolds the critical path; Risk enlarges open
+decision/question/risk with descendant shading. Precedence with focus/halos
+documented. Accept: each lens visibly distinct on the roadmap; ready glow
+matches MCP ready() output exactly.
+
+### K27 — Lanes, partial re-layout, echo glides
+status: todo
+needs: [K25]
+PLAN2 §2.3-2.5. Depth-lanes layout option; re-layout selection only
+(through set_positions); payload echoes animate transforms (suppressed
+mid-drag). Accept: glides visible on an MCP-driven edit; partial re-layout
+leaves unselected positions untouched in view.yaml.
