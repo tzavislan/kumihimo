@@ -247,7 +247,7 @@ has a trigger and non-trigger test; a v0.1-style file with agents: loads
 with a warning, not corruption.
 
 ### K29 — Braid --for, Cast section, crew surface, JSONL export
-status: todo
+status: done (iteration 30)
 needs: [K28]
 PLAN2 §3.3, §3.6-3.7 (compile half). Task templates render *Assigned:* /
 *With:* / *Trains:* lines; consult-links (links rel=consult to reference

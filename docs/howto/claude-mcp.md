@@ -1,10 +1,12 @@
 # Claude over MCP
 
-`kumihimo mcp <plan>` serves one plan over MCP stdio: eleven tools, each a
+`kumihimo mcp <plan>` serves one plan over MCP stdio: twelve tools, each a
 thin twin of the same operations layer the CLI and editor use. Connect an
 agent and it can orient (`get_plan`, `get_node`), restructure (`add_node`,
 `update_node`, `remove_node`, `link`, `unlink`, `rename_node`), keep the plan
-honest (`check`), ask what's unblocked (`ready`), and compile (`braid`).
+honest (`check`), ask what's unblocked (`ready`, or `ready(for_agent=...)`
+for one agent's), see the roster (`crew`), and compile (`braid`, or
+`braid(for_agent=...)` for one agent's work orders).
 
 ## Claude Code
 

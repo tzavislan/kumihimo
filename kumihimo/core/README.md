@@ -4,6 +4,7 @@
 | file | purpose |
 |---|---|
 | `__init__.py` | The plan model and every operation on it: load, validate, order, mutate, save. Imports no CLI, server, MCP, or template code — that boundary is enforced by tes… |
+| `crew.py` | The crew roster: every agent/skill/reference node, sorted by kind then id, with its effective fields and how many other nodes mention it (agents:/skills:/train… |
 | `errors.py` | The exception vocabulary every layer shares: one base error for expected failures clients turn into messages, and the cycle error that carries its path. |
 | `graph.py` | Deterministic structure over the plan DAG: the one topological order the whole system trusts (Kahn with a sorted ready-heap, ties broken by priority then id), … |
 | `kinds.py` | The kind system: loads shipped packs, merges manifest overrides into resolved KindDefs, validates node fields against them, and applies defaults. This is where… |

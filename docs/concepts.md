@@ -71,11 +71,21 @@ canvas maintains, so arranging your graph never dirties a node file's diff.
    state structure in prose: every task carries an *After:* line naming its
    real prerequisites by number and title.
 4. **Weave** — the cord: preamble → Mermaid overview → a how-to-read rubric →
-   sections → epilogue. `linear` gives one numbered sequence; `grouped` (the
-   engineering default) turns each membership target into a titled section,
-   dependency-ordered, with ungrouped prerequisites leading.
+   optionally a Cast section → sections → epilogue. `linear` gives one
+   numbered sequence; `grouped` (the engineering default) turns each
+   membership target into a titled section, dependency-ordered, with
+   ungrouped prerequisites leading — and, when the selection carries `agent`/
+   `skill` nodes, briefs them in that Cast section instead of numbering them
+   among the work.
 
 A DAG usually has many valid orders, and the braid doesn't pretend otherwise:
 the chosen order is total, but the *After* lines carry the true constraints,
 adjacent-but-independent items are marked as such, and the embedded diagram
 lets the consuming agent parallelize deliberately.
+
+`braid --for <agent-id>` selects one agent's slice instead of the whole plan —
+every node that mentions it plus its own skills and referenced nodes — and
+opens with `*Ground with:*` when the agent carries a `retrieval` field. See
+[mentions and the crew surface](reference/formats.md#braid-rendering) for the
+full rendering rules, and `kumihimo crew` / the `crew` MCP tool for the
+roster view.

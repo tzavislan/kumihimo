@@ -15,8 +15,8 @@ agent can act on.
   prompt: topologically ordered, sectioned by milestone, every item stating
   its real prerequisites, with the graph's own diagram embedded.
 - **Let Claude drive it.** `kumihimo mcp` serves the whole plan over MCP —
-  eleven tools for reading, restructuring, validating, and braiding — so an
-  agent can maintain the plan it executes.
+  twelve tools for reading, restructuring, validating, braiding, and listing
+  the crew — so an agent can maintain the plan it executes.
 
 The files are the only source of truth. The editor, the CLI, and the MCP
 server are thin clients over one operations layer; everything lives in git and

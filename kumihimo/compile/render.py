@@ -3,13 +3,15 @@
 @purpose     Stage three of the braid: each node through its kind's Jinja2
              template, sandboxed. Resolves templates (manifest inline or file →
              pack file → built-in default), builds the per-node context (deps
-             with numbers, group, stub markers, independence notes), and turns
-             template errors into errors that name the kind.
+             with numbers, group, stub markers, independence notes, mentions,
+             consult-links), turns template errors into errors that name the
+             kind, and builds Cast-section entries for agent/skill nodes.
 @layer       compile
-@tags        braid, render, jinja, templates, context
+@tags        braid, render, jinja, templates, context, mentions, cast
 @related     kumihimo/packs/engineering/templates (the pack's kind templates),
-             kumihimo/compile/weave.py (assigns the numbers this renders)
-@design      PLAN.md §4.1 step 3
+             kumihimo/compile/weave.py (assigns the numbers this renders,
+             calls cast_entry for the Cast section)
+@design      PLAN.md §4.1 step 3, PLAN2.md §3.3
 """
 
 from __future__ import annotations
@@ -125,6 +127,58 @@ def _reference(plan: Plan, dep: str, numbers: dict[str, int], stubs: set[str]) -
     return title
 
 
+def _mentions(plan: Plan, ids: list[str]) -> str:
+    """A mention list (agents:/skills:/trains: targets) as 'Title (id)' pairs.
+
+    @purpose  Unlike a `needs` dependency, a mentioned agent or skill is not
+              guaranteed a number in this document — Cast pulls crew nodes out
+              of the numbered flow, and a --for slice may not select the
+              mentioned node at all. The id is the one handle that stays
+              correct regardless, so mentions cite by title *and* id (house
+              style judgment call, documented at K29 — see task.j2).
+    @tags     mentions, rendering
+    """
+    return ", ".join(
+        f"{plan.nodes[target].title} ({target})" for target in ids if target in plan.nodes
+    )
+
+
+def _split_links(plan: Plan, node: Node) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+    """Partition a node's links into consult-links (rel=consult, target kind
+    reference) and everything else.
+
+    @purpose  PLAN2 §3.7: a consult-link renders as its own *Consult:* line
+              with the reference's locator/retriever, not folded into the
+              generic See-also list; a rel=consult link to a non-reference
+              target is not a consult-link and renders exactly as before.
+    @tags     mentions, consult, links
+    """
+    consults: list[dict[str, str]] = []
+    others: list[dict[str, str]] = []
+    for link in node.links:
+        target = plan.nodes.get(link.to)
+        if target is None:
+            continue
+        if link.rel == "consult" and target.kind == "reference":
+            kind = plan.kinds.get(target.kind)
+            effective = kinds.effective_fields(target, kind) if kind else dict(target.fields)
+            retriever = str(effective.get("retriever") or "")
+            consults.append(
+                {
+                    "title": target.title,
+                    "locator": str(effective.get("locator") or ""),
+                    "retriever": retriever,
+                    # Pre-joined for the same reason cast_entry's detail_text
+                    # is: a trailing {% endif %} on this line would eat the
+                    # blank line before the body under trim_blocks.
+                    "via_text": f" (via {retriever})" if retriever else "",
+                }
+            )
+        else:
+            others.append({"to": link.to, "rel": link.rel, "title": target.title})
+    return consults, others
+
+
 def build_context(
     plan: Plan,
     node_id: str,
@@ -158,6 +212,7 @@ def build_context(
         for target in node.in_
         if target in plan.nodes and target != group_id
     ]
+    consults, other_links = _split_links(plan, node)
     return {
         "plan": {"name": plan.manifest.plan, "description": plan.manifest.description},
         "node": {
@@ -181,10 +236,41 @@ def build_context(
             {"id": group_id, "title": plan.nodes[group_id].title} if group_id is not None else None
         ),
         "in_others": in_others,
-        "links": [
-            {"to": link.to, "rel": link.rel, "title": plan.nodes[link.to].title}
-            for link in node.links
-            if link.to in plan.nodes
-        ],
+        "links": other_links,
+        "consults": consults,
+        "assigned": _mentions(plan, node.agents),
+        "with_skills": _mentions(plan, node.skills),
+        "trains": _mentions(plan, node.trains),
         "independent": independent,
+    }
+
+
+def cast_entry(plan: Plan, node_id: str) -> dict[str, Any]:
+    """One Cast-section row: title, kind, and its informative fields in order.
+
+    @purpose  Grouped's Cast section briefs the crew before the work (PLAN2
+              §3.3): agent shows runtime/model/entry, skill shows invocation/
+              source/cadence, both end with trained — present fields only, no
+              empty placeholders, and never through the node's own kind
+              template (that would give it a numbered card among the work).
+    @tags     cast, mentions, rendering
+    """
+    node = plan.nodes[node_id]
+    kind = plan.kinds.get(node.kind)
+    effective = kinds.effective_fields(node, kind) if kind else dict(node.fields)
+    field_order = {
+        "agent": ("runtime", "model", "entry", "trained"),
+        "skill": ("invocation", "source", "cadence", "trained"),
+    }.get(node.kind, ())
+    details = [f"{name}: {effective[name]}" for name in field_order if effective.get(name)]
+    # Pre-joined so cord.j2's Cast loop is one expression per row: a literal
+    # newline after a trailing {% endif %} would vanish under trim_blocks
+    # (the same gotcha DEFAULT_TEMPLATE's own comment documents).
+    detail_text = f" — {' · '.join(details)}" if details else ""
+    return {
+        "id": node.id,
+        "title": node.title,
+        "kind": node.kind,
+        "details": details,
+        "detail_text": detail_text,
     }

@@ -4,13 +4,15 @@
              bridge cut edges, the check-error gate holds, both strategies
              produce their promised sections, grouped falls back on group-level
              cycles with a warning, numbering is global, --dry summarizes, the
-             cord is overridable, and the whole braid is deterministic across
-             fresh loads.
+             cord is overridable, the whole braid is deterministic across
+             fresh loads, and `--for` selects one agent's working set (with
+             clean errors for a missing or wrong-kind id).
 @layer       tests
-@tags        braid, selection, strategies, weave, determinism
+@tags        braid, selection, strategies, weave, determinism, for-agent
 @related     kumihimo/compile/braid.py (the pipeline under test),
-             examples/apiguard (the fixture braided here)
-@design      PLAN.md §4, queue item K8
+             examples/apiguard (the fixture braided here),
+             tests/test_crew_golden.py (the Cast/mentions/Consult goldens)
+@design      PLAN.md §4, queue item K8; PLAN2.md §3.3, queue item K29
 """
 
 from pathlib import Path
@@ -22,6 +24,7 @@ from kumihimo.compile.select import select
 from tests.conftest import PlanFactory
 
 EXAMPLE = Path(__file__).resolve().parent.parent / "examples" / "apiguard"
+CREW_DEMO = Path(__file__).resolve().parent / "fixtures" / "crew-demo"
 
 
 def test_selection_filters_compose_and_stub_cut_edges() -> None:
@@ -160,6 +163,118 @@ def test_custom_cord_template_replaces_the_builtin(plan_dir: PlanFactory) -> Non
     assert braid(Plan.load(root)).text == "Corded CUSTOM 1\n"
 
 
+def test_for_agent_selects_mentions_and_mentioned_skills() -> None:
+    plan = Plan.load(CREW_DEMO)
+    selection = select(plan, for_agent="wright")
+    assert set(selection.ids) == {"wright", "build-guard", "retro", "iteration"}
+    assert selection.stubs == []  # retro's one need (build-guard) is selected too
+
+
+def test_for_agent_drops_own_edges_but_own_needs_still_stubs(plan_dir: PlanFactory) -> None:
+    root = plan_dir(
+        {
+            "context.md": "---\nkind: task\n---\nBackground reading, mentioned by nobody.\n",
+            "annotated.md": "---\nkind: task\n---\nSomething the agent merely links to.\n",
+            "wright.md": (
+                "---\nkind: agent\nneeds: [context]\n"
+                "links: [{to: annotated, rel: see-also}]\n---\nDoes the work.\n"
+            ),
+            "mine.md": "---\nkind: task\nagents: [wright]\n---\nAssigned to Wright.\n",
+        }
+    )
+    selection = select(Plan.load(root), for_agent="wright")
+    # The agent's own needs/links are not part of the selection (PLAN2 §3.3,
+    # read literally) — only nodes that mention the agent, its mentioned
+    # skills, and the agent itself are.
+    assert selection.ids == ["mine", "wright"]
+    # But a `needs` target still degrades through the ordinary stub
+    # mechanism, exactly like any other out-of-selection dependency —
+    # `links` targets get no such treatment and simply don't appear.
+    assert selection.stubs == ["context"]
+
+
+def test_for_agent_missing_id_errors() -> None:
+    plan = Plan.load(CREW_DEMO)
+    with pytest.raises(KumihimoError, match="--for: no node 'ghost'"):
+        select(plan, for_agent="ghost")
+
+
+def test_for_agent_wrong_kind_names_the_kind(plan_dir: PlanFactory) -> None:
+    root = plan_dir({"t.md": "---\nkind: task\n---\nBody.\n"})
+    with pytest.raises(KumihimoError, match="'t' is kind 'task', expected agent"):
+        braid(Plan.load(root), for_agent="t")
+
+
+def test_for_agent_composes_with_where(plan_dir: PlanFactory) -> None:
+    root = plan_dir(
+        {
+            "wright.md": "---\nkind: agent\n---\nDoes the work.\n",
+            "todo.md": "---\nkind: task\nagents: [wright]\n---\nOpen.\n",
+            "done.md": "---\nkind: task\nagents: [wright]\nstatus: done\n---\nShipped.\n",
+        }
+    )
+    only_todo = select(Plan.load(root), for_agent="wright", where={"status": "todo"})
+    assert "todo" in only_todo.ids
+    assert "done" not in only_todo.ids
+
+
+def test_grouped_cast_section_carries_agent_and_skill_fields() -> None:
+    plan = Plan.load(CREW_DEMO)
+    result = braid(plan, strategy="grouped")
+    assert "## Cast" in result.text
+    assert result.text.index("## Cast") < result.text.index("## Launch")
+    assert "**Wright** (agent) — runtime: claude-code" in result.text
+    # Cast members never get a numbered card of their own.
+    assert "wright" not in result.order
+    assert "iteration" not in result.order
+
+
+def test_linear_strategy_has_no_cast_section() -> None:
+    plan = Plan.load(CREW_DEMO)
+    result = braid(plan, strategy="linear")
+    assert "## Cast" not in result.text
+    assert "wright" in result.order  # renders as an ordinary item instead
+
+
+def test_cast_introduces_crew_that_where_drops_from_selection() -> None:
+    # Regression: wright/iteration carry no `status` field, so composing
+    # --for with --where status=todo used to drop both from the selection —
+    # and, since Cast was built purely from the selection, from Cast too —
+    # while build-guard/retro (which DO survive the filter) kept citing them
+    # by name in *Assigned:*/*With:*/*Trains:* lines. Cast must still
+    # introduce everyone the output cites.
+    plan = Plan.load(CREW_DEMO)
+    result = braid(plan, strategy="grouped", for_agent="wright", where={"status": "todo"})
+    assert "wright" not in result.selection.ids  # confirms the filter actually bit
+    assert "iteration" not in result.selection.ids
+    assert "## Cast" in result.text
+    assert "**Wright** (agent)" in result.text
+    assert "**Kumihimo Iteration** (skill)" in result.text
+    assert "*Assigned:* Wright (wright)" in result.text
+    assert "*With:* Kumihimo Iteration (iteration)" in result.text
+
+
+def test_plain_task_renders_no_mention_or_consult_lines(plan_dir: PlanFactory) -> None:
+    root = plan_dir({"t.md": "---\nkind: task\n---\nJust a task.\n"})
+    text = braid(Plan.load(root)).text
+    assert "*Assigned:*" not in text
+    assert "*With:*" not in text
+    assert "*Trains:*" not in text
+    assert "*Consult:*" not in text
+
+
+def test_consult_link_to_non_reference_is_unchanged_see_also(plan_dir: PlanFactory) -> None:
+    root = plan_dir(
+        {
+            "other.md": "---\nkind: task\n---\nSome other task.\n",
+            "t.md": "---\nkind: task\nlinks: [{to: other, rel: consult}]\n---\nBody.\n",
+        }
+    )
+    text = braid(Plan.load(root)).text
+    assert "*Consult:*" not in text
+    assert "See also: Other (consult)." in text
+
+
 def test_plan_braid_sugar_and_exports() -> None:
     plan = Plan.load(EXAMPLE)
     assert plan.braid(strategy="linear") == braid(plan, strategy="linear").text
@@ -171,3 +286,32 @@ def test_plan_braid_sugar_and_exports() -> None:
     dot_text = export.dot(plan)
     assert dot_text.startswith("digraph kumihimo {")
     assert "cluster_n_ship_guarded_api" in dot_text
+
+
+def test_jsonl_export_gates_on_check_errors_like_braid(plan_dir: PlanFactory) -> None:
+    root = plan_dir({"t.md": "---\nkind: task\nagents: [ghost]\n---\nDangling mention.\n"})
+    plan = Plan.load(root)
+    with pytest.raises(KumihimoError, match="check error"):
+        export.jsonl(plan)
+
+
+def test_mermaid_export_still_succeeds_on_a_broken_plan(plan_dir: PlanFactory) -> None:
+    # mermaid/dot are diagnostic pictures, not a machine feed — seeing a
+    # broken plan drawn is exactly when they're useful, so they stay ungated.
+    root = plan_dir({"t.md": "---\nkind: task\nagents: [ghost]\n---\nDangling mention.\n"})
+    plan = Plan.load(root)
+    assert Plan.load(root).check()  # confirms the plan really is broken
+    mermaid_text = export.mermaid(plan)
+    assert "n_t" in mermaid_text
+    dot_text = export.dot(plan)
+    assert "n_t" in dot_text
+
+
+def test_jsonl_export_fine_with_warnings_only(plan_dir: PlanFactory) -> None:
+    # An empty body is a warning, not an error — jsonl must not gate on it.
+    root = plan_dir({"t.md": "---\nkind: task\n---\n"})
+    plan = Plan.load(root)
+    findings = plan.check()
+    assert findings and all(f.level == "warning" for f in findings)
+    text = export.jsonl(plan)
+    assert '"id":"t"' in text

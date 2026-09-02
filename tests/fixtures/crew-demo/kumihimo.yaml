@@ -1,0 +1,7 @@
+format: 1
+plan: Crew Demo
+description: A small plan exercising agents, skills, references, and mentions.
+kinds:
+  from: engineering
+compile:
+  strategy: grouped

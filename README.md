@@ -16,13 +16,13 @@ well-ordered **prompt** an LLM or coding agent can act on.
 - **Braid it.** `kumihimo braid` compiles the graph into one deterministic
   prompt: topologically ordered, sectioned by milestone, every item stating
   its real prerequisites, the graph's own Mermaid diagram embedded.
-- **Let Claude drive it.** `kumihimo mcp` serves the plan over MCP — eleven
-  tools to read, restructure, validate, and braid — so an agent can maintain
-  the plan it executes. This repo's own roadmap is a Kumihimo plan
-  ([plans/roadmap](plans/roadmap)), its milestone prompts were braided, not
-  hand-written, and the canvas below is that roadmap the morning v0.1
-  finished — every thread done, the release node blocked on a human with a
-  tag:
+- **Let Claude drive it.** `kumihimo mcp` serves the plan over MCP — twelve
+  tools to read, restructure, validate, braid, and list the crew — so an
+  agent can maintain the plan it executes. This repo's own roadmap is a
+  Kumihimo plan ([plans/roadmap](plans/roadmap)), its milestone prompts were
+  braided, not hand-written, and the canvas below is that roadmap the
+  morning v0.1 finished — every thread done, the release node blocked on a
+  human with a tag:
 
   <img src="docs/assets/canvas-roadmap.png" alt="Kumihimo's own v0.1 roadmap on the canvas: milestones M3-M6 with every task done and the release node blocked" width="100%">
 

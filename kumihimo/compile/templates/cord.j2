@@ -1,4 +1,7 @@
 # Braid: {{ plan.name }}
+{% if ground_with %}
+*Ground with:* {{ ground_with }}
+{% endif %}
 {% if plan.description %}
 {{ plan.description }}
 
@@ -24,6 +27,14 @@ constraints, not suggestions. Open decisions and questions block whatever
 depends on them: resolve or escalate before proceeding past one.
 {% if stubs %}
 Already in place, outside this braid: {{ stubs }}.
+{% endif %}
+{% if cast %}
+
+## Cast
+
+{% for member in cast %}
+- **{{ member.title }}** ({{ member.kind }}){{ member.detail_text }}
+{% endfor %}
 {% endif %}
 {% for section in sections %}
 {% if section.title %}

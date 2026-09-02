@@ -3,12 +3,14 @@
 @purpose     Stage four of the braid: assign global numbers across the strategy's
              sections, render every intro and item, and wrap the whole in the
              cord template (built-in, or the plan's own via compile.cord) with
-             the Mermaid overview and stub acknowledgements.
+             the Mermaid overview, stub acknowledgements, the Cast section
+             (crew nodes the strategy carved out), and the --for grounding line.
 @layer       compile
-@tags        braid, weave, cord, numbering
+@tags        braid, weave, cord, numbering, cast, ground-with
 @related     kumihimo/compile/templates/cord.j2 (the built-in cord),
-             kumihimo/compile/render.py (renders what this numbers)
-@design      PLAN.md §4.1 step 4
+             kumihimo/compile/render.py (renders what this numbers, and
+             builds each Cast entry)
+@design      PLAN.md §4.1 step 4, PLAN2.md §3.3
 """
 
 from __future__ import annotations
@@ -21,7 +23,7 @@ from jinja2 import TemplateError
 from jinja2.sandbox import SandboxedEnvironment
 
 from kumihimo.compile import diagram as diagram_module
-from kumihimo.compile.render import Renderer, build_context
+from kumihimo.compile.render import Renderer, build_context, cast_entry
 from kumihimo.core.errors import KumihimoError
 
 if TYPE_CHECKING:
@@ -70,12 +72,19 @@ def weave(
     *,
     diagram: bool,
     warnings: list[str],
+    cast_ids: list[str] | None = None,
+    ground_with: str | None = None,
 ) -> str:
     """Render everything and assemble the cord.
 
     @purpose  The braid's final text: deterministic to the byte, tidy regardless
               of template whitespace, always ending in exactly one newline.
-    @tags     weave, cord
+              cast_ids (every crew member the rendered items cite, whether or
+              not that member is itself selected — braid.py's _cast_ids owns
+              the rule) and ground_with (a --for agent's retrieval field) are
+              additive: both default to nothing, so a plan with no crew
+              renders exactly as before K29.
+    @tags     weave, cord, cast, ground-with
     """
     renderer = Renderer(plan)
     numbers = assign_numbers(sections)
@@ -111,6 +120,7 @@ def weave(
 
     mermaid_text = diagram_module.mermaid(plan, selection) if diagram else ""
     stub_titles = ", ".join(plan.nodes[stub].title for stub in selection.stubs)
+    cast = [cast_entry(plan, node_id) for node_id in (cast_ids or [])]
     env = SandboxedEnvironment(trim_blocks=True, lstrip_blocks=True, keep_trailing_newline=True)
     try:
         cord = env.from_string(_cord_source(plan))
@@ -120,6 +130,8 @@ def weave(
             epilogue=plan.manifest.compile.epilogue.strip(),
             diagram=mermaid_text,
             stubs=stub_titles,
+            cast=cast,
+            ground_with=ground_with,
             sections=woven_sections,
             warnings=warnings,
         )

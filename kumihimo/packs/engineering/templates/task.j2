@@ -13,6 +13,18 @@
 {% if in_others %}
 *Also part of:* {{ in_others | join(", ") }}
 {% endif %}
+{% if assigned %}
+*Assigned:* {{ assigned }}
+{% endif %}
+{% if with_skills %}
+*With:* {{ with_skills }}
+{% endif %}
+{% if trains %}
+*Trains:* {{ trains }}
+{% endif %}
+{% for c in consults %}
+*Consult:* {{ c.title }} — {{ c.locator }}{{ c.via_text }}
+{% endfor %}
 
 {{ node.body }}
 {% if links %}

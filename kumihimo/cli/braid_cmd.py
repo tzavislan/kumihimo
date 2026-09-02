@@ -1,13 +1,13 @@
 """
 @file        kumihimo/cli/braid_cmd.py
 @purpose     `kumihimo braid` — pull the cord: compile a plan (or a slice via
-             --where/--from/--until/--in) to stdout or a file, with --dry for
-             the order alone. Output goes through plain stdout, never a styled
-             console, so pipes and redirects get exact bytes.
+             --where/--from/--until/--in/--for) to stdout or a file, with
+             --dry for the order alone. Output goes through plain stdout,
+             never a styled console, so pipes and redirects get exact bytes.
 @layer       cli
-@tags        cli, braid, slicing, dry-run
+@tags        cli, braid, slicing, dry-run, for-agent
 @related     kumihimo/compile/braid.py (the pipeline this fronts)
-@design      PLAN.md §4
+@design      PLAN.md §4, PLAN2.md §3.3
 """
 
 from __future__ import annotations
@@ -44,6 +44,9 @@ def braid(
     from_: str | None = typer.Option(None, "--from", help="This node and everything after it."),
     until: str | None = typer.Option(None, "--until", help="This node and everything it needs."),
     in_: str | None = typer.Option(None, "--in", help="Members of this group, plus the group."),
+    for_: str | None = typer.Option(
+        None, "--for", help="One agent's work orders: its mentions, its skills, its grounding."
+    ),
     diagram: bool | None = typer.Option(
         None, "--diagram/--no-diagram", help="Embed the Mermaid overview (default: manifest)."
     ),
@@ -63,6 +66,7 @@ def braid(
             from_=from_,
             until=until,
             in_=in_,
+            for_agent=for_,
             diagram=diagram,
             dry=dry,
         )

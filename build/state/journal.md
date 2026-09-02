@@ -846,3 +846,40 @@ in prose — fixed with backticks, the way a real author would.
 **Battery (mine, unpiped gates):** ruff format+check, mypy, pytest -q
 (162), tools/lint.py, mkdocs --strict — all green. 15 files touched, no
 frontend. Next: K29 (braid --for, Cast, crew CLI/MCP surface, JSONL).
+
+## 2026-09-01 — iteration 30 (K29: braid --for, Cast, crew surface, JSONL)
+
+**Built (Sonnet builder):** the compile half of crew. task.j2 renders
+*Assigned:*/*With:*/*Trains:* (Title (id) — the id is the one handle that
+always resolves) and *Consult:* title — locator (via retriever) for
+rel=consult links to reference nodes; grouped strategy gains a Cast
+section after the how-to-read rubric; braid --for AGENT selects mentioning
+nodes + mentioned skills + the agent, opens with *Ground with:* from the
+agent's retrieval field; kumihimo crew CLI + crew MCP tool share one
+core/crew.py roster (dates emitted verbatim, never compared — zero clock
+imports package-wide, checker-grepped); ready(for_agent=); export
+--format jsonl (sorted ids, pinned key order, ensure_ascii — the RAG
+feed). apiguard goldens byte-identical (additive-only proven); two new
+crew-demo goldens read end to end. Root-cause bonus: cli/common.py now
+reconfigures stdout/stderr UTF-8 at import (first non-ASCII rich output
+had mojibaked under cp1252).
+
+**Checker round (five findings, all live-reproduced, all fixed):**
+(1) --for composed with --where cited Wright five times, introduced him
+zero — Cast now introduces every crew member the output cites (selected ∪
+cited ∪ the --for agent); (2) jsonl exported a dangling mention with exit
+0 — jsonl now gates on check errors like braid, mermaid/dot stay ungated
+as diagnostic aids, the line documented; (3) agent-own-edges inclusion
+was scope creep past PLAN2 §3.3 and rendered an unexplained full item —
+removed, normal stub machinery covers it; (4) ready(for_agent=) silently
+returned [] on a typo — now validates via the same shared function as
+--for, byte-identical errors; (5) consult counts tallied non-reference
+targets — scoped to match the render rule. Folded #6: the pre-existing
+CRLF-on-redirect gap (docs promised exact bytes; Windows translated) —
+newline="" on both reconfigures, redirect now sha256-equal to the golden.
+Thomas started the CRLF chip session before the fold-in landed; that
+session will find it fixed.
+
+**Determinism held under attack:** six output streams hashed identical
+across PYTHONHASHSEED 0/1/42. Battery (mine, unpiped): ruff, mypy,
+pytest -q (191), lint, mkdocs strict — green. Next: K30 (crew canvas).

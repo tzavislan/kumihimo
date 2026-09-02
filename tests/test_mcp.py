@@ -2,13 +2,16 @@
 @file        tests/test_mcp.py
 @purpose     The MCP tools behave identically to their ops/CLI twins: reads
              carry the right shapes, mutations land on disk, errors keep their
-             KumihimoError messages, ready implements the satisfaction rule,
-             and the server registers all eleven tools.
+             KumihimoError messages, ready implements the satisfaction rule
+             (its for_agent filter validated exactly like braid's --for),
+             crew lists the roster (consult counts scoped to reference
+             targets only), braid's for_agent matches the CLI's --for, and
+             the server registers all twelve tools.
 @layer       tests
-@tags        mcp, tools, ready
+@tags        mcp, tools, ready, crew, for-agent
 @related     kumihimo/mcp/tools.py (under test),
              kumihimo/mcp/server.py (registration smoke)
-@design      PLAN.md §6.1, roadmap item mcp-tools
+@design      PLAN.md §6.1, PLAN2.md §3.3 §3.6, roadmap item mcp-tools
 """
 
 import asyncio
@@ -22,6 +25,7 @@ from kumihimo.mcp.server import build_server
 from tests.conftest import PlanFactory
 
 EXAMPLE = Path(__file__).resolve().parent.parent / "examples" / "apiguard"
+CREW_DEMO = Path(__file__).resolve().parent / "fixtures" / "crew-demo"
 
 
 def test_get_plan_elides_bodies_and_lists_everything() -> None:
@@ -91,6 +95,67 @@ def test_ready_applies_the_satisfaction_rule(plan_dir: PlanFactory) -> None:
     assert "done-dep" not in ready_ids  # already done
 
 
+def test_ready_for_agent_filters_by_agents_key_only(plan_dir: PlanFactory) -> None:
+    root = plan_dir(
+        {
+            "wright.md": "---\nkind: agent\n---\nDoes the work.\n",
+            "iter.md": "---\nkind: skill\n---\nRuns a pass.\n",
+            "mine.md": "---\nkind: task\nagents: [wright]\n---\nAssigned to Wright.\n",
+            "not-mine.md": "---\nkind: task\n---\nUnassigned.\n",
+            "via-skill.md": "---\nkind: task\nskills: [iter]\n---\nMentions the skill.\n",
+        }
+    )
+    ids = [node["id"] for node in tools.ready(root, for_agent="wright")]
+    assert ids == ["mine"]  # skills:/trains: mentions of wright don't count
+
+
+def test_ready_for_agent_missing_id_errors_like_braid_for() -> None:
+    with pytest.raises(KumihimoError, match="--for: no node 'ghost'"):
+        tools.ready(EXAMPLE, for_agent="ghost")
+
+
+def test_ready_for_agent_wrong_kind_names_the_kind(plan_dir: PlanFactory) -> None:
+    root = plan_dir({"t.md": "---\nkind: task\n---\nBody.\n"})
+    with pytest.raises(KumihimoError, match="'t' is kind 'task', expected agent"):
+        tools.ready(root, for_agent="t")
+
+
+def test_braid_for_agent_matches_the_library() -> None:
+    result = tools.braid(CREW_DEMO, strategy="grouped", for_agent="wright")
+    assert result["text"] == Plan.load(CREW_DEMO).braid(strategy="grouped", for_agent="wright")
+    assert result["text"].startswith("# Braid: Crew Demo\n*Ground with:*")
+
+
+def test_crew_lists_the_roster_sorted_by_kind_then_id() -> None:
+    entries = tools.crew(CREW_DEMO)
+    # Sorted by kind then id: "agent" < "reference" < "skill".
+    assert [e["id"] for e in entries] == ["wright", "ward-postmortem", "iteration"]
+    wright = entries[0]
+    assert wright["kind"] == "agent"
+    assert wright["fields"]["trained"] == "2026-08-24"  # a string, never a date
+    assert wright["mentions"] == {"agents": 1, "trains": 1}  # build-guard, retro
+    reference = entries[1]
+    assert reference["kind"] == "reference"
+    assert reference["consulted_by"] == 1  # build-guard's one consult-link
+
+
+def test_crew_consult_count_only_counts_reference_targets(plan_dir: PlanFactory) -> None:
+    root = plan_dir(
+        {
+            "wright.md": "---\nkind: agent\n---\nDoes the work.\n",
+            # rel=consult, but the target is kind agent, not reference — this
+            # is not a consult-link (render.py's *Consult:* rule agrees) and
+            # must not inflate anyone's consulted_by count.
+            "other.md": (
+                "---\nkind: agent\nlinks: [{to: wright, rel: consult}]\n---\nAlso an agent.\n"
+            ),
+        }
+    )
+    entries = tools.crew(root)
+    wright = next(e for e in entries if e["id"] == "wright")
+    assert wright["consulted_by"] == 0
+
+
 def test_roadmap_stays_structurally_clean() -> None:
     # The roadmap's statuses move as work completes (an earlier version of
     # this test pinned them and broke the moment dogfooding marked M3 done),
@@ -102,7 +167,7 @@ def test_roadmap_stays_structurally_clean() -> None:
         assert node["fields"].get("status", "todo") == "todo"
 
 
-def test_server_registers_all_eleven_tools() -> None:
+def test_server_registers_all_twelve_tools() -> None:
     server = build_server(EXAMPLE)
     listed = asyncio.run(server.list_tools())
     names = sorted(tool.name for tool in listed)
@@ -110,6 +175,7 @@ def test_server_registers_all_eleven_tools() -> None:
         "add_node",
         "braid",
         "check",
+        "crew",
         "get_node",
         "get_plan",
         "link",

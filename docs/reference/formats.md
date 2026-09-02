@@ -65,14 +65,101 @@ resolves — additionally checks that the target's *kind* matches the key: an
 error. A mention edge counts as a connection for the orphan rule, the same as
 any other edge.
 
-Braid rendering — an *Assigned:*/*With:*/*Trains:* line per task, a Cast
-section for crew nodes, `braid --for` — is not shipped yet; it arrives with
-the crew surface work.
+### Braid rendering
+
+A task with mentions gets *Assigned:* (agents), *With:*
+(skills), and *Trains:* (trains) lines, each rendering only when that key is
+non-empty — a plain task with no crew gets none of them. Each cites its
+targets as `Title (id)`: unlike a `needs` dependency, a mentioned agent or
+skill is not guaranteed a number in the document (the grouped strategy's Cast
+section, below, pulls agent/skill nodes out of the numbered flow entirely, and
+a `--for` slice may not select the mentioned node at all), so the id is the
+one handle that always resolves. See [the CLI reference](cli.md) for `braid
+--for` and `kumihimo crew`.
+
+### Consult-links
+
+A `links:` entry with `rel: consult` whose target is kind `reference` renders
+as its own line instead of folding into the generic See-also list:
+
+```
+*Consult:* Ward postmortem — docs/postmortems/ward.md (via recall query ward --corpus v1)
+```
+
+`(via <retriever>)` is omitted when the reference's `retriever` field is
+empty. A `rel: consult` link to a non-reference target is not a consult-link
+and renders exactly as any other link always has.
+
+### The Cast section
+
+The grouped strategy (only) gets its own **Cast** section, right after the
+"how to read this braid" rubric and before the first work section — briefing
+the crew before the work, the same reason a `preamble` goes before the plan.
+Cast introduces every crew member the braid's text actually *cites*: agent/
+skill nodes that are themselves selected, plus any agent/skill any selected
+node's `agents:`/`skills:`/`trains:` names even when that crew member isn't
+itself selected (a `--where` filter can drop an agent from the selection —
+agent kind carries no `status` field — while the tasks that name it stay
+selected and keep citing it by title), plus `--for`'s own agent always. Each
+entry lists its title and kind, then whichever of its informative fields are
+actually set — agent: `runtime`, `model`, `entry`, `trained`; skill:
+`invocation`, `source`, `cadence`, `trained` — no empty placeholders. Cast
+members are never numbered and never appear a second time among the ordinary
+items (only when they are themselves selected — a cited-but-unselected crew
+member was never going to be numbered either way); the linear strategy has no
+Cast section, so a plan compiled `--strategy linear` renders its agent/skill
+nodes as ordinary items instead.
+
+### `braid --for <agent-id>`
+
+Compiles one agent's work orders: every node whose `agents:`/`skills:`/
+`trains:` mentions that agent, the skill nodes those mentioned tasks in turn
+mention, and the agent's own node. Deliberately *not* whatever the agent
+node's own `needs:`/`in:`/`links:`/mentions point at — those are not part of
+the selection, and degrade through the usual stub mechanism (a `needs` target
+still outside the selection becomes a stub, same as for any other slice) or
+simply don't appear, exactly like an out-of-selection dependency anywhere
+else in the braid. `--where`/`--from`/`--until`/`--in` still narrow the
+result the same way they always compose. An id that exists but isn't kind
+`agent` is a `KumihimoError` naming the kind it actually is. When the agent
+node carries a `retrieval` field, the compiled text opens with it right after
+the top header:
+
+```
+# Braid: API Guard
+*Ground with:* grep the repo for the symbol first, then check docs/
+```
+
+silently omitted when the agent has no `retrieval`.
+
+### `kumihimo crew` / the `crew` MCP tool
+
+Lists every agent/skill/reference node, sorted by kind then id, with its
+informative fields, its `trained` date, and mention counts — how many nodes
+reference it via each of `agents:`/`skills:`/`trains:`, plus (for references)
+its consult-link count. Dates print exactly as written and are never compared
+to the clock: this library has none (PLAN2 §3.6). Deciding a skill is
+overdue for retraining is the reader's judgment on `crew`'s output, not
+something `check` enforces.
+
+### `kumihimo export --format jsonl`
+
+One JSON object per line, sorted by node id: `id`, `kind`, `title`, `body`,
+`effective` (the node's fields with kind defaults filled in), and `edges`
+(`needs`, `in`, `links: [{to, rel}]`, `agents`, `skills`, `trains`). Compact
+separators and `ensure_ascii` are pinned so the same plan exports the same
+bytes on every OS; the file ends with exactly one trailing newline. This is
+the RAG ingestion shape (PLAN2 §3.7): any indexer reads it offline, and the
+library itself never fetches or embeds anything. `jsonl` gates on check
+errors, the same refusal `braid` gives; `mermaid`/`dot` do not — see
+[the CLI reference](cli.md) for why.
 
 Shipped in the engineering pack alongside `task`/`milestone`/`decision`/
 `risk`/`question` are the three kinds mentions typically point at. No field on
 any of them is required — a bare `kind: agent` node still loads and checks
-clean.
+clean. `trained` is a `str` field: write it as `trained: "2026-08-24"`, quoted
+— an unquoted `2026-08-24` parses as a YAML date, and `check` correctly
+rejects it as a type error rather than silently coercing it.
 
 **`agent`**
 

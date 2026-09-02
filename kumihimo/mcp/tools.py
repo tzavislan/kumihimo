@@ -1,15 +1,16 @@
 """
 @file        kumihimo/mcp/tools.py
 @purpose     The MCP tools' actual behavior, as plain functions over a plan
-             root — thin twins of the ops layer plus the read/braid/ready
-             queries, returning JSON-shaped dicts. server.py wraps these for
-             transport; tests hit them directly, which is what keeps the
+             root — thin twins of the ops layer plus the read/braid/ready/
+             crew queries, returning JSON-shaped dicts. server.py wraps these
+             for transport; tests hit them directly, which is what keeps the
              CLI/MCP twins honest.
 @layer       mcp
-@tags        mcp, tools, ops-twins, ready
+@tags        mcp, tools, ops-twins, ready, crew, for-agent
 @related     kumihimo/core/ops.py (the mutations these front),
+             kumihimo/core/crew.py (the roster computation crew() renders),
              kumihimo/mcp/server.py (the FastMCP registration)
-@design      PLAN.md §6.1
+@design      PLAN.md §6.1, PLAN2.md §3.3, §3.6
 """
 
 from __future__ import annotations
@@ -18,6 +19,8 @@ from pathlib import Path
 from typing import Any
 
 from kumihimo.compile import braid as braid_pipeline
+from kumihimo.compile.select import validate_for_agent
+from kumihimo.core import crew as crew_module
 from kumihimo.core import kinds as kinds_module
 from kumihimo.core import ops
 from kumihimo.core.model import Node
@@ -194,13 +197,15 @@ def braid(
     from_: str | None = None,
     until: str | None = None,
     in_: str | None = None,
+    for_agent: str | None = None,
     diagram: bool | None = None,
     dry: bool = False,
 ) -> dict[str, Any]:
     """Compile the plan (or a slice) and return the prompt text.
 
-    @purpose  The braid over MCP, with the same slicing vocabulary as the CLI;
-              warnings ride along instead of going to a console.
+    @purpose  The braid over MCP, with the same slicing vocabulary as the CLI
+              (for_agent = --for); warnings ride along instead of going to a
+              console.
     """
     result = braid_pipeline(
         Plan.load(root),
@@ -209,21 +214,29 @@ def braid(
         from_=from_,
         until=until,
         in_=in_,
+        for_agent=for_agent,
         diagram=diagram,
         dry=dry,
     )
     return {"text": result.text, "order": result.order, "warnings": result.warnings}
 
 
-def ready(root: Path) -> list[dict[str, Any]]:
+def ready(root: Path, for_agent: str | None = None) -> list[dict[str, Any]]:
     """Nodes whose own status is todo and whose needs are all satisfied.
 
     @purpose  "What should I work on next?" as one call. A dependency is
               satisfied when it has no status field, or its effective status is
-              done, settled, or answered.
-    @tags     ready, next-work
+              done, settled, or answered. for_agent narrows the result to
+              nodes whose `agents:` key mentions that agent id specifically —
+              not `skills:`/`trains:`, which name a capability or a trainer
+              rather than "assigned to do this" (PLAN2 §3.3). Validated
+              exactly like `braid --for`: a missing or wrong-kind id raises,
+              naming it, rather than silently returning an empty list.
+    @tags     ready, next-work, for-agent
     """
     plan = Plan.load(root)
+    if for_agent is not None:
+        validate_for_agent(plan, for_agent)
 
     def status_of(node: Node) -> str | None:
         """Effective status of a node, or None when its kind has no status.
@@ -237,6 +250,8 @@ def ready(root: Path) -> list[dict[str, Any]]:
 
     result: list[dict[str, Any]] = []
     for _, node in sorted(plan.nodes.items()):
+        if for_agent is not None and for_agent not in node.agents:
+            continue
         if status_of(node) != "todo":
             continue
         satisfied = True
@@ -252,3 +267,26 @@ def ready(root: Path) -> list[dict[str, Any]]:
         if satisfied:
             result.append(_summary(node))
     return result
+
+
+def crew(root: Path) -> list[dict[str, Any]]:
+    """Every agent/skill/reference node: effective fields, trained date, and
+    mention counts.
+
+    @purpose  The roster `kumihimo crew` also prints, structured for a
+              caller to reason about. Dates travel verbatim, never compared to
+              a clock — staleness is the caller's judgment (PLAN2 §3.6).
+    @tags     crew, roster
+    """
+    plan = Plan.load(root)
+    return [
+        {
+            "id": entry.id,
+            "kind": entry.kind,
+            "title": entry.title,
+            "fields": entry.fields,
+            "mentions": entry.mentioned_by,
+            "consulted_by": entry.consulted_by,
+        }
+        for entry in crew_module.roster(plan)
+    ]
