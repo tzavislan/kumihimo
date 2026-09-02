@@ -20,11 +20,12 @@ well-ordered **prompt** an LLM or coding agent can act on.
   tools to read, restructure, validate, braid, and list the crew — so an
   agent can maintain the plan it executes. This repo's own roadmap is a
   Kumihimo plan ([plans/roadmap](plans/roadmap)), its milestone prompts were
-  braided, not hand-written, and the canvas below is that roadmap the
-  morning v0.1 finished — every thread done, the release node blocked on a
-  human with a tag:
+  braided, not hand-written, and the canvas below is that roadmap today —
+  v0.1's threads done, the v0.2 milestones landing, the crew (agents,
+  skills, the training log) on the canvas, the release node still blocked
+  on a human with a tag:
 
-  <img src="docs/assets/canvas-roadmap.png" alt="Kumihimo's own v0.1 roadmap on the canvas: milestones M3-M6 with every task done and the release node blocked" width="100%">
+  <img src="docs/assets/canvas-roadmap.png" alt="Kumihimo's own roadmap on the canvas: v0.1 and v0.2 milestones, crew nodes, and the blocked release node" width="100%">
 
 The files are the only source of truth — Markdown with YAML frontmatter, in
 git, diffing cleanly. The editor, CLI, and MCP server are thin clients over

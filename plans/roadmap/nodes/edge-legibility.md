@@ -7,5 +7,6 @@ effort: M
 acceptance:
   - Per-edge-kind ports (needs left/right, in top, links bottom); readable arrowheads; hover thickening + tooltip naming both ends and the relation; edge selection panel with jump buttons.
 status: done
+agents: [claude-fable-5]
 ---
 Per-edge-kind ports (needs left/right, in top, links bottom); readable arrowheads; hover thickening + tooltip naming both ends and the relation; edge selection panel with jump buttons.

@@ -7,5 +7,6 @@ effort: M
 acceptance:
   - 'Far: shapes+titles. Mid: upgraded card (status glyph, effort chip, member count). Near: body preview + acceptance summary. Finding halos are K21/finding-halos, not this item.'
 status: done
+agents: [claude-fable-5]
 ---
 Far: shapes+titles. Mid: upgraded card (status glyph, effort chip, member count, halo). Near: body preview, acceptance checkboxes, chips.

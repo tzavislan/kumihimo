@@ -232,6 +232,9 @@ a payload echo untouched.
   fades, so "who trains the crew" reads at a glance against everything else
   receding.
 
+![The Crew lens on Kumihimo's own roadmap: unassigned work outlined, the
+crew column's trains edges bold](../assets/lens-crew.png)
+
 **Precedence**, when more than one visual channel would apply to the same
 node: a finding halo always wins, and for the two lens treatments that dim a
 card (Status's done tinge, Risk's "everything else" dim) that's an

@@ -8,6 +8,8 @@ acceptance:
   - tag builds and publishes via trusted publishing
 title: Release v0.1 to PyPI
 status: blocked
+agents: [thomas]
+skills: [kumihimo-manage]
 ---
 Everything preparable is prepared: release.yml (tag -> frontend build ->
 sdist + wheel -> trusted publishing), docs.yml (Pages on every push to

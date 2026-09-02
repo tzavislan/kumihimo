@@ -70,6 +70,12 @@ training pass; (5) **push** — milestone-close pushes carry Thomas's standing
 say-so (2026-08-24); off-cycle pushes still ask him. If CI fails after the
 push, fixing it is immediately the top of the queue.
 
+The close report names any long-running process now running old code — the
+MCP server Thomas's Claude sessions use is a session-long process wired to
+this repo, and after a milestone lands it serves the previous milestone's
+tools until restarted (the M9 close found it pre-K28: no crew tool, no
+mention kwargs).
+
 ## Release (M6 and after)
 
 Prepare, never execute: version bump correctness, CHANGELOG section cut,
@@ -153,3 +159,17 @@ is alive, and a gap in it is itself a finding for the next retro.
   manage skill's close checklist gained step 0, roadmap statuses via the
   tool (the M7 miss made ready() lie until caught). Acceptance-authority
   paid again: the MCP ready rule beat the queue's own summary sentence.
+- 2026-09-01 — retro at M9 close (iterations 29-31): iteration skill
+  gained the CSS compound-modifier rule with its checker corollary —
+  "inert" claims verified by computed style, never selector-reading (the
+  tie the K30 checker called inert had Flow's critical bolding dead since
+  K26); the CSSOM-vs-pixels boundary refined on the playwright rule
+  (getComputedStyle from any driver is valid, pixel claims are
+  playwright-only); reviewers-leave-resumable-artifacts (K30's critic
+  transcript vanished, its scratchpad let the successor skip the rebuild);
+  the Git Bash leading-slash MSYS mangling note (M9 dogfood invocation
+  fields, caught by reading the demo); clock-before-authoring strengthens
+  the journal-dates rule (iteration 30's entry was dated from subagent UTC
+  timestamps with the clock output in the same command, amended). Manage
+  close checklist now names stale long-running processes in the close
+  report (the live MCP server predates K28). Nothing pruned.

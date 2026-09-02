@@ -7,5 +7,6 @@ effort: M
 acceptance:
   - Double-click tints ancestor/descendant cones with distance fade and dims the rest to 15%; Esc restores; alt-click a second node lights every path between them.
 status: done
+agents: [claude-fable-5]
 ---
 Double-click tints ancestor/descendant cones with distance fade and dims the rest to 15%; Esc restores; alt-click a second node lights every path between them.

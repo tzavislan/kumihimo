@@ -924,3 +924,68 @@ into a container can miss a DOM render cycle right after membership
 changes (transient, orthogonal to CSS). Both M10-feel candidates. Battery
 + frontend typecheck/build green under the orchestrator's hands. M9 items
 3/3 — next: roadmap crew dogfood, then the close ritual.
+
+## 2026-09-01 — retro at M9 close (iterations 29-31)
+
+Six lessons folded, all from this stretch's real incidents:
+1. CSS modifier classes compound with their base class (iteration skill) —
+   the K30 specificity tie muted trains edges AND had shipped Flow's
+   critical bolding dead since K26.
+2. Checker corollary: "this CSS path is inert" is verified by
+   getComputedStyle on a live render — the K30 checker's selector-reading
+   said inert, measurement said broken (iteration skill).
+3. The playwright rule gained its precise boundary: CSSOM reads from any
+   driver are valid; pixel claims are playwright-shot or not evidence
+   (iteration skill).
+4. Reviewers leave resumable artifacts in the scratchpad — the K30 critic's
+   transcript was unresumable; its surviving copy plan + shots let a fresh
+   agent re-verify without rebuild (iteration skill).
+5. Git Bash rewrites leading-slash argument values into Windows paths —
+   the M9 dogfood's invocation fields arrived mangled; PowerShell for such
+   commands; caught by reading the demo output (iteration skill).
+6. Clock-before-authoring strengthens the dates rule — iteration 30's
+   entry ran `date` and ignored it in the same command (iteration skill);
+   and the manage close report now names stale long-running processes (the
+   live MCP server predates K28 — no crew tool until Thomas restarts it).
+Nothing pruned. Training log appended; last_retro_iteration -> 31.
+
+## 2026-09-01 — M9 close: Crew
+
+**Dogfood (PLAN2 par.3.5, run through the tool's own surfaces):** the
+roadmap now carries its crew — agents claude-fable-5 (runtime claude-code,
+trained 2026-08-31, retrieval pointing at PLAN2/journal) and thomas
+(runtime human, the only hands on PyPI); skills kumihimo-iteration/-manage/
+-retro with invocation, source, cadence, and trained from the Training
+log; reference training-log; and a standing retro-cycle task that
+trains: all three skills and consults the log — the honest picture of how
+this project actually runs. Mentions placed only where journal-verifiable:
+agents:[claude-fable-5] on the eleven M7-M10 delegated-loop tasks,
+agents:[thomas]+skills:[kumihimo-manage] on pypi-release,
+skills:[kumihimo-iteration] on the M9 items and feel-work. 41 nodes, 50
+edges, 0 errors, 0 warnings. Adds via CLI; mentions via core.ops.link
+(the CLI still has no --agents flags — known gap); the invocation fields
+arrived MSYS-mangled from Git Bash and were re-set via PowerShell.
+
+**Demo, real prints:** braid --for claude-fable-5 opens "*Ground with:*
+grep the repo first; PLAN2.md is the design authority; journal.md is the
+memory", Cast lists all four crew with trained dates verbatim, tasks carry
+*Assigned:*/*With:* lines; kumihimo crew renders the six-member roster
+with mention counts (agents:12 on claude-fable-5); export jsonl = 41
+records, every line json.loads, ids sorted, retro-cycle's trains + consult
+edges in the feed; ready(for_agent=claude-fable-5) = [feel-work] — the
+same set as ready(), correctly, since the one unblocked task is his.
+
+**Docs gate:** formats/cli/mcp-tools/editor/shortcuts/concepts pages all
+shipped in their iterations' commits; screenshots re-shot including NEW
+lens-crew.png wired into editor.md and the shot tool; README's roadmap
+paragraph updated to match the re-shot canvas (it said "the morning v0.1
+finished" over an image now showing M9 and the crew); README commands
+unchanged since last push — no clean-checkout run owed; mkdocs strict
+green. Statuses: crew-model/crew-braid/crew-canvas done via kumihimo set
+(step 0). Changelog: M9 Added + the two Fixed entries (cascade tie, CRLF).
+
+**For Thomas:** the MCP server behind your Claude sessions has been
+running since before K28 — restart it to get the crew tool, braid
+--for/for_agent, and mention-aware link/unlink. M9 complete 3/3; M10
+"Feel" (feel-work) is the last v0.2 milestone. Pushing at close per
+standing say-so.

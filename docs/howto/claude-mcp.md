@@ -56,4 +56,4 @@ for building the tool are braided from it — the tool eats its own cooking.
 Here is that roadmap on the canvas the morning v0.1 finished, every thread
 done and the release node blocked on a human with a tag:
 
-![Kumihimo's own v0.1 roadmap: milestones M3-M6 done, the release node blocked](../assets/canvas-roadmap.png)
+![Kumihimo's own roadmap: milestones M3-M9 done, the release node blocked, the crew — agents, skills, the training log — on the canvas](../assets/canvas-roadmap.png)

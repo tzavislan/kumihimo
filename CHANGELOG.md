@@ -7,6 +7,29 @@ All notable changes to Kumihimo. Format follows
 ## [Unreleased]
 
 ### Added
+- M9, the crew: three reserved mention keys — `agents:`, `skills:`,
+  `trains:` — typed like `needs` (scalar-or-list), validated as errors when
+  dangling or wrong-kind, plus three engineering-pack kinds (`agent`,
+  `skill`, `reference`, none required-field) and read-only `@id` prose
+  mentions (one documented regex; dangling warns; bodies are never
+  rewritten). The braid renders *Assigned:*/*With:*/*Trains:* lines,
+  *Consult:* lines from `rel: consult` links to references, and a Cast
+  section introducing every crew member the output cites; `braid --for
+  AGENT` compiles that agent's slice opening with *Ground with:* from its
+  `retrieval` field; `kumihimo crew` (CLI) and a `crew` MCP tool list the
+  roster with trained dates emitted verbatim — the library never compares
+  them to a clock; `ready(for_agent=)` filters the frontier;
+  `kumihimo export --format jsonl` emits the deterministic RAG feed (gated
+  on check errors like braid; mermaid/dot stay ungated as diagnostics). On
+  the canvas: mention edges render thin, dotted, and labeled without ever
+  influencing layout; the Crew lens (key `5`) tints by first assigned agent
+  with per-tint WCAG-checked pill text, outlines unassigned work, bolds
+  `trains:` edges, and shows near-tier skill chips; the sidebar gains chip
+  editors with kind-filtered autocomplete for needs/agents/skills, each
+  chip gesture one immediate link/unlink op. The repo's own roadmap now
+  carries its real crew — this agent, Thomas, the three repo skills with
+  their training dates, and the training-log reference.
+
 - M8, the canvas gets its shape: milestones render as real containers —
   members nested inside, collapse to a chip carrying n/m done with edges
   rerouted, layout by true elk hierarchy proven pairwise non-overlapping;
@@ -81,3 +104,13 @@ All notable changes to Kumihimo. Format follows
   (`tools/lint.py`) enforcing the file cap, tag scheme, and README indexes,
   import-boundary tests, CI on ubuntu + windows, project skills and build
   state, and the full v0.1 design in PLAN.md.
+
+### Fixed
+- A CSS cascade tie (equal specificity, later source order) had been
+  silently overriding lens edge treatments — including Flow's critical-path
+  edge bolding, dead since it shipped in M8; lens modifiers now compound
+  with the base edge classes and every lens edge treatment measures to
+  spec.
+- CLI stdout on Windows no longer translates LF to CRLF on redirect —
+  `kumihimo braid > file` is byte-identical to the API output — and the
+  shared console is UTF-8 on every verb.

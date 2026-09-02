@@ -87,7 +87,22 @@ the orchestrator keeps the gates. Rules that made it work:
 - **Verification screenshots come from playwright's own chromium**, which
   composites offscreen. The Claude Browser pane cannot screenshot in this
   environment (hidden, no frames) — an agent told to use it will burn its
-  budget discovering that; brief the tool explicitly.
+  budget discovering that; brief the tool explicitly. The precise boundary
+  (drawn at K30): CSSOM/DOM reads (`getComputedStyle`, class lists) are
+  valid from any driver — no compositing involved — but any claim about
+  rendered pixels is playwright-shot or it isn't evidence.
+- **Lens/state modifier classes must COMPOUND with the base class they
+  override** (`.kumi-edge-mention.kumi-crew-trains-edge`), never rely on
+  specificity alone — equal-specificity rules tie and the later base rule
+  wins by source order. This exact tie shipped Flow's critical-edge bolding
+  dead for two milestones (K26-K30) and muted K30's trains edges. Corollary
+  for checkers: a claim that a CSS path is "inert" is verified by computed
+  style on a live render, never by reading selectors — the K30 checker's
+  code-reading hypothesis said inert; getComputedStyle said broken.
+- **Reviewers leave their setup resumable in the scratchpad** (copy plans,
+  shot dirs, scripts, stable names). A completed agent's transcript can be
+  unresumable (K30's critic was); the fresh re-verify critic rebuilt
+  nothing because the artifacts survived.
 - **Reviewer scripts operate on COPIES, and every reviewer's last line
   asserts the real tree unchanged.** The K27 critic's script pointed at the
   real plans/roadmap and left collapse state behind; the builder caught the
@@ -147,6 +162,12 @@ before builds and syncs. And when a test must spawn the server, spawn
 `.venv/Scripts/kumihimo.exe` directly — terminating a `uv run` wrapper
 orphans the real process, which then squats on the port.
 
+**A CLI argument value starting with `/` gets rewritten to a Windows path
+by Git Bash** (MSYS conversion: `--field invocation=/kumihimo-iteration`
+arrived on disk as `C:/Program Files/Git/kumihimo-iteration` during the M9
+dogfood — caught only because the demo output was read). Run such commands
+through PowerShell, which doesn't translate.
+
 **A skip guards exactly one precondition.** The smoke test's first draft
 wrapped its whole browser block in `except Error: skip` and laundered a real
 failure into a 37-second "skip" (iteration 15). Catch precisely the missing-
@@ -198,7 +219,10 @@ dead is the standing example.
 **Journal dates come from the clock, not the previous entry.** Six days of
 entries carried a stale date because sessions wrote what the last entry
 said; GitHub's timestamps caught it. `date` runs at claim time — use its
-answer.
+answer. And *read the clock before authoring the entry*, as its own step:
+iteration 30's entry was drafted in the same command as its `date` call,
+dated from subagent UTC timestamps instead, and had to be amended —
+running the clock and ignoring it is the same bug with better alibi.
 
 **Every number in a journal entry comes from an executed command.** Iteration
 8's first draft reported an edge count computed in the head; it was wrong.

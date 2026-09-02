@@ -112,6 +112,11 @@ def main() -> int:
             page.keyboard.press("2")
             page.wait_for_timeout(500)
             page.screenshot(path=str(ASSETS / "lens-status.png"))
+            # The Crew lens (key 5): agent hues, unassigned outlines, trains
+            # edges bold — M9's face, shot on the crewed roadmap itself.
+            page.keyboard.press("5")
+            page.wait_for_timeout(500)
+            page.screenshot(path=str(ASSETS / "lens-crew.png"))
             page.keyboard.press("1")
 
         browser.close()

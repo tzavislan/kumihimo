@@ -7,5 +7,6 @@ effort: S
 acceptance:
   - Error/warning halos on the offending nodes; sidebar finding rows click-to-jump-and-center.
 status: done
+agents: [claude-fable-5]
 ---
 Error/warning halos on the offending nodes; sidebar finding rows click-to-jump-and-center.
