@@ -3,14 +3,17 @@
 @purpose     The one mutation path (invariant 1): add, update, link, unlink,
              rename, remove — each loads fresh from disk, edits the record's
              live frontmatter map so comments survive, refuses structural
-             nonsense (dangling targets, cycles, id collisions) with clean
-             errors, saves atomically, and returns the reloaded result.
+             nonsense (dangling or wrong-kind targets, cycles, id collisions)
+             with clean errors, saves atomically, and returns the reloaded
+             result. link/unlink cover needs, in, links, and the three
+             mention keys (agents, skills, trains — PLAN2 §3.2); mentions
+             carry no ordering, so only needs gets the cycle guard.
 @layer       core
-@tags        ops, mutations, invariant-1, referrer-fixup
+@tags        ops, mutations, invariant-1, referrer-fixup, mentions
 @related     kumihimo/core/store.py (the records and saves),
              kumihimo/core/graph.py (the cycle guard on link),
              kumihimo/core/plan.py (Plan.load used before and after)
-@design      PLAN.md §7.1 invariant 1, queue item K5
+@design      PLAN.md §7.1 invariant 1, queue item K5; PLAN2.md §3.2
 """
 
 from __future__ import annotations
@@ -22,7 +25,7 @@ from ruamel.yaml.comments import CommentedSeq
 
 from kumihimo.core import graph, store
 from kumihimo.core.errors import KumihimoError
-from kumihimo.core.model import RESERVED_KEYS, SLUG_RE, Node
+from kumihimo.core.model import MENTION_KINDS, RESERVED_KEYS, SLUG_RE, Node
 from kumihimo.core.plan import Plan
 from kumihimo.core.store import NodeRecord
 
@@ -57,6 +60,38 @@ def _require_exists(plan: Plan, node_id: str, why: str) -> None:
     """
     if node_id not in plan.records:
         raise KumihimoError(f"{why} target '{node_id}' does not exist")
+
+
+def _require_mention_kind(plan: Plan, key: str, target: str) -> None:
+    """Refuse a mention edge whose target is the wrong kind, once its kind
+    resolves at all.
+
+    @purpose  Mirrors validate's mention-kind rule (PLAN2 §3.2) as a hard
+              error — ops is strict where hand-editing is free, the same
+              principle as _require_exists. A target whose own kind doesn't
+              resolve is that node's problem, not this edge's, so — like
+              validate — this stays quiet rather than being stricter than
+              `check` would be.
+    """
+    expected = MENTION_KINDS[key]
+    kind = plan.records[target].node.kind
+    if kind not in plan.kinds:
+        return
+    if kind not in expected:
+        wanted = " or ".join(expected)
+        raise KumihimoError(f"'{key}' target '{target}' is kind {kind}, expected {wanted}")
+
+
+def _mention_edge(agents: str | None, skills: str | None, trains: str | None) -> tuple[str, str]:
+    """The (key, target) pair among agents=/skills=/trains=, exactly one set.
+
+    @purpose  Shared by link/unlink's final branch; callers have already
+              confirmed exactly one mention kwarg was given.
+    """
+    for key, value in (("agents", agents), ("skills", skills), ("trains", trains)):
+        if value is not None:
+            return key, value
+    raise KumihimoError("give exactly one of agents=, skills=, or trains=")
 
 
 def _flow_seq(values: list[str]) -> CommentedSeq:
@@ -208,16 +243,22 @@ def link(
     in_: str | None = None,
     to: str | None = None,
     rel: str = "see-also",
+    agents: str | None = None,
+    skills: str | None = None,
+    trains: str | None = None,
 ) -> Node:
-    """Draw one edge from src: a dependency, a membership, or an annotation.
+    """Draw one edge from src: a dependency, a membership, an annotation, or a
+    mention (agents=/skills=/trains=).
 
-    @purpose  Exactly one edge per call; needs-edges are refused (with the path)
-              when they would close a cycle, so no tool can write one.
-    @tags     ops, link, cycle-guard
+    @purpose  Exactly one edge per call; needs-edges are refused (with the
+              path) when they would close a cycle, so no tool can write one.
+              Mentions carry no ordering — no cycle guard applies to them —
+              but are refused when the target is the wrong kind.
+    @tags     ops, link, cycle-guard, mentions
     """
-    chosen = [value for value in (needs, in_, to) if value is not None]
+    chosen = [value for value in (needs, in_, to, agents, skills, trains) if value is not None]
     if len(chosen) != 1:
-        raise KumihimoError("give exactly one of needs=, in_=, or to=")
+        raise KumihimoError("give exactly one of needs=, in_=, to=, agents=, skills=, or trains=")
     plan = Plan.load(root)
     record = _record(plan, src)
     target = chosen[0]
@@ -237,7 +278,7 @@ def link(
         if target in record.node.in_:
             raise KumihimoError(f"'{src}' is already in '{target}'")
         _list_add(record, "in", target)
-    else:
+    elif to is not None:
         entries = record.fm.get("links")
         if not isinstance(entries, list):
             entries = CommentedSeq()
@@ -246,6 +287,12 @@ def link(
             entries.append(target)
         else:
             entries.append({"to": target, "rel": rel})
+    else:
+        key, _ = _mention_edge(agents, skills, trains)
+        _require_mention_kind(plan, key, target)
+        if target in getattr(record.node, key):
+            raise KumihimoError(f"'{src}' already has '{target}' under {key}")
+        _list_add(record, key, target)
     return _save_and_reload(root, record).node(src)
 
 
@@ -256,23 +303,26 @@ def unlink(
     needs: str | None = None,
     in_: str | None = None,
     to: str | None = None,
+    agents: str | None = None,
+    skills: str | None = None,
+    trains: str | None = None,
 ) -> Node:
     """Remove one edge from src.
 
     @purpose  The inverse of link; removing an absent edge is an error, not a
               shrug, so tools notice their own stale state.
-    @tags     ops, unlink
+    @tags     ops, unlink, mentions
     """
-    chosen = [value for value in (needs, in_, to) if value is not None]
+    chosen = [value for value in (needs, in_, to, agents, skills, trains) if value is not None]
     if len(chosen) != 1:
-        raise KumihimoError("give exactly one of needs=, in_=, or to=")
+        raise KumihimoError("give exactly one of needs=, in_=, to=, agents=, skills=, or trains=")
     plan = Plan.load(root)
     record = _record(plan, src)
     if needs is not None:
         _list_remove(record, "needs", needs)
     elif in_ is not None:
         _list_remove(record, "in", in_)
-    else:
+    elif to is not None:
         entries = record.fm.get("links")
         found = None
         if isinstance(entries, list):
@@ -285,17 +335,21 @@ def unlink(
         entries.remove(found)
         if len(entries) == 0:
             del record.fm["links"]
+    else:
+        key, value = _mention_edge(agents, skills, trains)
+        _list_remove(record, key, value)
     return _save_and_reload(root, record).node(src)
 
 
 def _rewrite_reference(record: NodeRecord, old: str, new: str) -> bool:
     """Replace old with new anywhere this record references it.
 
-    @purpose  Rename's referrer fixup: needs, in, and links entries, whatever
-              their spelling (scalar, list item, or {to, rel} mapping).
+    @purpose  Rename's referrer fixup: needs, in, links, and the three mention
+              keys, whatever their spelling (scalar, list item, or {to, rel}
+              mapping).
     """
     changed = False
-    for key in ("needs", "in"):
+    for key in ("needs", "in", "agents", "skills", "trains"):
         value = record.fm.get(key)
         if isinstance(value, str) and value == old:
             record.fm[key] = new
@@ -323,7 +377,7 @@ def rename_node(root: Path, old: str, new: str) -> Node:
     @purpose  Renames are safe or they don't happen: the renamed file's bytes
               never change (the id is the filename), and no reference is left
               pointing at the old name.
-    @tags     ops, rename, referrer-fixup
+    @tags     ops, rename, referrer-fixup, mentions
     """
     plan = Plan.load(root)
     _record(plan, old)
@@ -358,7 +412,7 @@ def remove_node(root: Path, node_id: str, *, force: bool = False) -> list[str]:
     @purpose  A referenced node refuses to die quietly — the error names the
               referrers, and force removes the edges in the same operation so
               the plan is never left dangling.
-    @tags     ops, remove
+    @tags     ops, remove, mentions
     """
     plan = Plan.load(root)
     record = _record(plan, node_id)
@@ -370,6 +424,9 @@ def remove_node(root: Path, node_id: str, *, force: bool = False) -> list[str]:
             node_id in other.needs
             or node_id in other.in_
             or any(link_.to == node_id for link_ in other.links)
+            or node_id in other.agents
+            or node_id in other.skills
+            or node_id in other.trains
         )
     ]
     if referrers and not force:
@@ -378,7 +435,7 @@ def remove_node(root: Path, node_id: str, *, force: bool = False) -> list[str]:
     changed: list[NodeRecord] = []
     for referrer in referrers:
         other = plan.records[referrer]
-        for key in ("needs", "in"):
+        for key in ("needs", "in", "agents", "skills", "trains"):
             value = other.fm.get(key)
             if isinstance(value, str) and value == node_id:
                 del other.fm[key]

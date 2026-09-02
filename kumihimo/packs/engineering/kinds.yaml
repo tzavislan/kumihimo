@@ -42,3 +42,42 @@ question:
       default: open
     answer:
       type: str
+
+# Crew kinds (PLAN2 §3.1, §3.7): who does the work, what capability it uses,
+# and what knowledge it consults. No field here is required — a bare
+# `kind: agent` node still loads and checks clean; mentions (agents:/skills:/
+# trains:) are what point at these, validated in core/validate.py.
+
+agent:
+  fields:
+    runtime:
+      type: choice
+      options: [claude-code, cloud, human, other]
+    model:
+      type: str
+    entry:
+      type: str
+    scope:
+      type: list
+    retrieval:
+      type: str
+    trained:
+      type: str
+
+skill:
+  fields:
+    invocation:
+      type: str
+    source:
+      type: str
+    cadence:
+      type: str
+    trained:
+      type: str
+
+reference:
+  fields:
+    locator:
+      type: str
+    retriever:
+      type: str

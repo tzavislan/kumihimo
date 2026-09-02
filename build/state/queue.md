@@ -229,7 +229,7 @@ leaves unselected positions untouched in view.yaml.
 ## M9 — Crew (PLAN2.md §3, split 2026-09-01)
 
 ### K28 — Crew model: three mention keys, three kinds, prose mentions
-status: todo
+status: done (iteration 29)
 needs: —
 PLAN2 §3.1-3.2, §3.6-3.7 (model half). RESERVED_KEYS grows agents/skills/
 trains (scalar-or-list, like needs/in); Node carries them; validation:

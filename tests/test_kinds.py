@@ -28,9 +28,27 @@ def node(**kwargs: object) -> Node:
 
 def test_engineering_pack_loads_with_expected_kinds() -> None:
     kinds = load_pack("engineering")
-    assert set(kinds) == {"task", "milestone", "decision", "risk", "question"}
+    assert set(kinds) == {
+        "task",
+        "milestone",
+        "decision",
+        "risk",
+        "question",
+        "agent",
+        "skill",
+        "reference",
+    }
     assert kinds["task"].fields["status"].default == "todo"
     assert kinds["task"].fields["effort"].options == ["S", "M", "L"]
+    assert kinds["agent"].fields["runtime"].options == ["claude-code", "cloud", "human", "other"]
+
+
+def test_crew_kinds_have_no_required_fields() -> None:
+    # PLAN2 §3.1: agent/skill/reference stay finding-based, never crash-on-load —
+    # a bare `kind: agent` node must still be a valid, loadable node.
+    kinds = load_pack("engineering")
+    for name in ("agent", "skill", "reference"):
+        assert not any(spec.required for spec in kinds[name].fields.values()), name
 
 
 def test_unknown_pack_raises_and_names_available() -> None:

@@ -1,13 +1,15 @@
 """
 @file        kumihimo/core/model.py
-@purpose     The pure data model: nodes with their two semantic edge kinds and
-             annotation links, findings, field specs, kind definitions, and the
+@purpose     The pure data model: nodes with their two semantic edge kinds,
+             annotation links, three mention edges (agents, skills, trains —
+             PLAN2 §3.2), findings, field specs, kind definitions, and the
              manifest. No IO, no behaviour beyond validation and defaults.
 @layer       core
-@tags        model, node, edges, kinds, manifest, findings
+@tags        model, node, edges, kinds, manifest, findings, mentions
 @related     kumihimo/core/store.py (reads/writes these from disk),
-             kumihimo/core/kinds.py (resolves and validates kind fields)
-@design      PLAN.md §3.1-3.2
+             kumihimo/core/kinds.py (resolves and validates kind fields),
+             kumihimo/core/validate.py (checks mention targets and kinds)
+@design      PLAN.md §3.1-3.2, PLAN2.md §3.1-3.2, §3.6
 """
 
 from __future__ import annotations
@@ -20,7 +22,15 @@ from pydantic import BaseModel, ConfigDict, Field
 SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]*(/[a-z0-9][a-z0-9-]*)*$")
 
 # Frontmatter keys the core owns; everything else is a kind-defined field.
-RESERVED_KEYS = ("kind", "title", "needs", "in", "links", "priority")
+RESERVED_KEYS = ("kind", "title", "needs", "in", "links", "agents", "skills", "trains", "priority")
+
+# Expected target kind(s) for each mention key — the one rule validate.check
+# and ops.link both enforce, kept in one place so they cannot drift apart.
+MENTION_KINDS: dict[str, tuple[str, ...]] = {
+    "agents": ("agent",),
+    "skills": ("skill",),
+    "trains": ("agent", "skill"),
+}
 
 FORMAT_VERSION = 1
 
@@ -39,11 +49,12 @@ class Link(BaseModel):
 
 
 class Node(BaseModel):
-    """One thread of the braid: identity, prose, order, membership, annotation.
+    """One thread of the braid: identity, prose, order, membership, annotation,
+    and mention (who's assigned, what skill, who trains it).
 
-    @purpose  The five things core understands about a node; everything else lives
+    @purpose  The six things core understands about a node; everything else lives
               in the kind-validated `fields` bag.
-    @tags     node, needs, membership
+    @tags     node, needs, membership, mentions
     """
 
     model_config = ConfigDict(populate_by_name=True)
@@ -54,6 +65,9 @@ class Node(BaseModel):
     needs: list[str] = Field(default_factory=list)
     in_: list[str] = Field(default_factory=list, alias="in")
     links: list[Link] = Field(default_factory=list)
+    agents: list[str] = Field(default_factory=list)
+    skills: list[str] = Field(default_factory=list)
+    trains: list[str] = Field(default_factory=list)
     priority: int = 0
     fields: dict[str, Any] = Field(default_factory=dict)
     body: str = ""

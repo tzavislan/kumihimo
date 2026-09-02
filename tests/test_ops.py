@@ -1,13 +1,16 @@
 """
 @file        tests/test_ops.py
 @purpose     The ops layer behaves: canonical files from add, comment-preserving
-             updates, cycle-refusing links, tidy unlinks, renames that fix every
-             referrer and the view layout without touching the renamed file's
-             bytes, and removes that refuse or strip references.
+             updates, cycle-refusing links, tidy unlinks, mention edges
+             (agents/skills/trains — existence and kind enforced, no cycle
+             guard), renames that fix every referrer and the view layout
+             without touching the renamed file's bytes, and removes that
+             refuse or strip references.
 @layer       tests
-@tags        ops, mutations, referrer-fixup, cycle-guard
+@tags        ops, mutations, referrer-fixup, cycle-guard, mentions
 @related     kumihimo/core/ops.py (under test)
-@design      PLAN.md §7.1 invariant 1, queue item K5
+@design      PLAN.md §7.1 invariant 1, queue item K5; PLAN2.md §3.2, queue
+             item K28
 """
 
 import pytest
@@ -118,6 +121,63 @@ def test_link_membership_and_annotation(plan_dir: PlanFactory) -> None:
     assert ("m", "see-also") in [(entry.to, entry.rel) for entry in plain.links]
 
 
+def test_link_mentions_append_and_refuse_duplicates(plan_dir: PlanFactory) -> None:
+    root = plan_dir(
+        {
+            "wright.md": "---\nkind: agent\n---\nDoes the work.\n",
+            "iter.md": "---\nkind: skill\n---\nRuns a pass.\n",
+            "t.md": BODIED,
+        }
+    )
+    assert ops.link(root, "t", agents="wright").agents == ["wright"]
+    assert ops.link(root, "t", skills="iter").skills == ["iter"]
+    assert ops.link(root, "t", trains="wright").trains == ["wright"]
+    assert ops.link(root, "t", trains="iter").trains == ["wright", "iter"]
+    text = (root / "nodes" / "t.md").read_text(encoding="utf-8")
+    assert "agents: [wright]" in text
+    assert "skills: [iter]" in text
+    assert "trains: [wright, iter]" in text
+    with pytest.raises(KumihimoError, match="already has"):
+        ops.link(root, "t", agents="wright")
+
+
+def test_link_mentions_refuse_wrong_kind(plan_dir: PlanFactory) -> None:
+    root = plan_dir({"t.md": BODIED, "other.md": BODIED})
+    with pytest.raises(KumihimoError, match="is kind task, expected agent"):
+        ops.link(root, "t", agents="other")
+    with pytest.raises(KumihimoError, match="is kind task, expected skill"):
+        ops.link(root, "t", skills="other")
+    with pytest.raises(KumihimoError, match="expected agent or skill"):
+        ops.link(root, "t", trains="other")
+
+
+def test_link_give_exactly_one_edge_covers_mentions(plan_dir: PlanFactory) -> None:
+    root = plan_dir({"wright.md": "---\nkind: agent\n---\nDoes the work.\n", "t.md": BODIED})
+    with pytest.raises(KumihimoError, match="exactly one of"):
+        ops.link(root, "t", agents="wright", skills="wright")
+
+
+def test_unlink_mentions_drop_key_when_last_edge_goes(plan_dir: PlanFactory) -> None:
+    root = plan_dir(
+        {
+            "wright.md": "---\nkind: agent\n---\nDoes the work.\n",
+            "iter.md": "---\nkind: skill\n---\nRuns a pass.\n",
+            "t.md": "---\nkind: task\nagents: [wright]\nskills: [iter]\ntrains: [wright]\n"
+            "---\nBody.\n",
+        }
+    )
+    assert ops.unlink(root, "t", agents="wright").agents == []
+    assert ops.unlink(root, "t", skills="iter").skills == []
+    node = ops.unlink(root, "t", trains="wright")
+    assert node.trains == []
+    text = (root / "nodes" / "t.md").read_text(encoding="utf-8")
+    assert "agents" not in text
+    assert "skills" not in text
+    assert "trains" not in text
+    with pytest.raises(KumihimoError, match="no agents entry"):
+        ops.unlink(root, "t", agents="wright")
+
+
 def test_unlink_drops_key_when_last_edge_goes(plan_dir: PlanFactory) -> None:
     root = plan_dir({"a.md": BODIED, "b.md": "---\nkind: task\nneeds: [a]\n---\nBody.\n"})
     node = ops.unlink(root, "b", needs="a")
@@ -152,6 +212,43 @@ def test_rename_fixes_referrers_and_view_without_touching_renamed_bytes(
     assert plan.check() == []
 
 
+def test_rename_fixes_mention_referrers(plan_dir: PlanFactory) -> None:
+    root = plan_dir(
+        {
+            "old-name.md": BODIED,
+            "assigned.md": "---\nkind: task\nagents: [old-name]\n---\nBody.\n",
+            "skilled.md": "---\nkind: task\nskills: [old-name]\n---\nBody.\n",
+            "trained.md": "---\nkind: task\ntrains: old-name\n---\nBody.\n",
+        }
+    )
+    ops.rename_node(root, "old-name", "new-name")
+    plan = Plan.load(root)
+    assert plan.nodes["assigned"].agents == ["new-name"]
+    assert plan.nodes["skilled"].skills == ["new-name"]
+    assert plan.nodes["trained"].trains == ["new-name"]
+
+
+def test_rename_target_keeps_scalar_mention_shape_and_comment_byte_exact(
+    plan_dir: PlanFactory,
+) -> None:
+    # A scalar mention (not a list) plus a trailing comment: renaming the
+    # TARGET must rewrite only the value, in place, as a scalar — comment and
+    # body untouched. Byte-exact, not just re-parsed, so a stray reflow or a
+    # scalar-to-list promotion would fail this test even if the graph still
+    # read correctly afterward.
+    trainer = (
+        "---\n"
+        "kind: task\n"
+        "trains: old-target  # keep this reviewer honest\n"
+        "---\n"
+        "Retro every milestone.\n"
+    )
+    root = plan_dir({"old-target.md": BODIED, "trainer.md": trainer})
+    ops.rename_node(root, "old-target", "new-target")
+    expected = trainer.replace("trains: old-target", "trains: new-target")
+    assert (root / "nodes" / "trainer.md").read_bytes() == expected.encode("utf-8")
+
+
 def test_rename_into_namespace_and_collision_refusal(plan_dir: PlanFactory) -> None:
     root = plan_dir({"a.md": BODIED, "b.md": BODIED})
     node = ops.rename_node(root, "a", "auth/login")
@@ -180,6 +277,23 @@ def test_remove_refuses_when_referenced_then_strips_with_force(
     assert plan.nodes["dep"].needs == []
     assert plan.nodes["annot"].links == []
     assert "target" not in (root / "view.yaml").read_text(encoding="utf-8")
+
+
+def test_remove_force_strips_mention_referrers(plan_dir: PlanFactory) -> None:
+    root = plan_dir(
+        {
+            "wright.md": "---\nkind: agent\n---\nDoes the work.\n",
+            "assigned.md": "---\nkind: task\nagents: [wright]\n---\nBody.\n",
+            "trained.md": "---\nkind: task\ntrains: wright\n---\nBody.\n",
+        }
+    )
+    with pytest.raises(KumihimoError, match="assigned"):
+        ops.remove_node(root, "wright")
+    referrers = ops.remove_node(root, "wright", force=True)
+    assert referrers == ["assigned", "trained"]
+    plan = Plan.load(root)
+    assert plan.nodes["assigned"].agents == []
+    assert plan.nodes["trained"].trains == []
 
 
 def test_remove_unreferenced_is_quiet(plan_dir: PlanFactory) -> None:

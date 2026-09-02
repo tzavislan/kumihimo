@@ -32,12 +32,93 @@ Middleware on every authenticated route. Fail *open* on Redis errors.
 ```
 
 Reserved keys: `kind`, `title` (optional — defaults from the id), `needs`,
-`in`, `links` (strings or `{to, rel}` maps), `priority` (int, breaks ordering
-ties). Every other key is a field for the kind to validate. Scalars coerce
-where obvious (`needs: api` means `[api]`).
+`in`, `links` (strings or `{to, rel}` maps), `agents`, `skills`, `trains`
+(mention edges — see below), `priority` (int, breaks ordering ties). Every
+other key is a field for the kind to validate. Scalars coerce where obvious
+(`needs: api` means `[api]`).
 
 Ids come from filenames: lowercase `[a-z0-9-]`, `/` for namespaces — enforced
 so plans survive case-insensitive filesystems.
+
+## Mentions: agents, skills, trains
+
+Three more reserved keys, parsed exactly like `needs`/`in` (scalar-or-list,
+salvaged to empty on the wrong type). They are *mention edges* — recorded and
+kind-checked, but never consulted by the topological sort or the cycle guard:
+
+```yaml
+---
+kind: task
+title: Rate-limit middleware
+needs: [api-endpoints]
+agents: [claude-fable-5]      # each target must be kind: agent
+skills: [kumihimo-iteration]  # each target must be kind: skill
+trains: [kumihimo-retro]      # each target must be kind: agent or skill
+---
+```
+
+`check` treats a dangling mention target as an error, the same as a dangling
+`needs`/`in`/`links` target, and — once the target exists and its own kind
+resolves — additionally checks that the target's *kind* matches the key: an
+`agents:` target that isn't kind `agent`, a `skills:` target that isn't kind
+`skill`, or a `trains:` target that's neither `agent` nor `skill`, is also an
+error. A mention edge counts as a connection for the orphan rule, the same as
+any other edge.
+
+Braid rendering — an *Assigned:*/*With:*/*Trains:* line per task, a Cast
+section for crew nodes, `braid --for` — is not shipped yet; it arrives with
+the crew surface work.
+
+Shipped in the engineering pack alongside `task`/`milestone`/`decision`/
+`risk`/`question` are the three kinds mentions typically point at. No field on
+any of them is required — a bare `kind: agent` node still loads and checks
+clean.
+
+**`agent`**
+
+| Field | Type | Notes |
+|---|---|---|
+| `runtime` | choice | `claude-code`, `cloud`, `human`, `other` |
+| `model` | str | e.g. `claude-fable-5` |
+| `entry` | str | how it's invoked |
+| `scope` | list | what it may touch |
+| `retrieval` | str | its standing grounding command |
+| `trained` | str | date it was last trained or tuned |
+
+**`skill`**
+
+| Field | Type | Notes |
+|---|---|---|
+| `invocation` | str | e.g. `/kumihimo-iteration` |
+| `source` | str | path or URL to its definition |
+| `cadence` | str | prose, e.g. "milestone close or 10 iterations" |
+| `trained` | str | date it was last retrained |
+
+**`reference`**
+
+| Field | Type | Notes |
+|---|---|---|
+| `locator` | str | path, URL, or corpus name |
+| `retriever` | str | the command that fetches it |
+
+### `@id` prose mentions — read-only
+
+A body may write `@id` to mention a node in prose ("hand this to
+@claude-fable-5, who runs @kumihimo-iteration"). `check` scans for these and
+warns when one dangles: `body mentions '@x' but no node 'x' exists`. That is
+the entire effect — **bodies are never rewritten**; the scanner only reads
+them. A prose mention is not itself a graph edge: it doesn't rescue an
+otherwise-orphaned node the way `agents:`/`skills:`/`trains:` do — prose is
+analysis-read, not structure.
+
+The scanner is one documented regex: `@` followed by an id-shaped token
+(`[a-z0-9][a-z0-9-]*(?:/[a-z0-9-]+)*`), matched only where it opens a line or
+follows a whitespace character. That boundary keeps a mid-word `@` — an email
+address typed into prose — from matching, but it is not a Markdown parser: an
+`@token` that happens to open a line inside a fenced code sample (a Python
+decorator, say) is indistinguishable from a real mention and will still be
+scanned. That imprecision is accepted and documented, not fixed — see
+`MENTION_RE` in `kumihimo/core/validate.py`.
 
 ## `kumihimo.yaml`
 

@@ -134,6 +134,17 @@ def split_frontmatter(text: str) -> tuple[str, str] | None:
     return None
 
 
+def _flow_seq(values: list[str]) -> CommentedSeq:
+    """A one-line [a, b] sequence for scalar-or-list edge keys.
+
+    @purpose  Matches the documented format so new_record's edge lists write as
+              tidy one-line diffs, needs/in and the three mention keys alike.
+    """
+    seq = CommentedSeq(values)
+    seq.fa.set_flow_style()
+    return seq
+
+
 def _as_str_list(value: Any) -> list[str] | None:
     """Coerce a frontmatter scalar-or-list into a list of strings.
 
@@ -185,7 +196,7 @@ def _node_from_fm(node_id: str, fm: CommentedMap, body: str, findings: list[Find
         findings.append(Finding(level="error", where=node_id, message="'title' must be text"))
         title = ""
     edges: dict[str, list[str]] = {}
-    for key in ("needs", "in"):
+    for key in ("needs", "in", "agents", "skills", "trains"):
         raw = data.pop(key, [])
         listed = _as_str_list(raw) if raw != [] else []
         if listed is None:
@@ -208,6 +219,9 @@ def _node_from_fm(node_id: str, fm: CommentedMap, body: str, findings: list[Find
         needs=edges["needs"],
         in_=edges["in"],
         links=links,
+        agents=edges["agents"],
+        skills=edges["skills"],
+        trains=edges["trains"],
         priority=priority,
         fields=data,
         body=body,
@@ -430,8 +444,8 @@ def new_record(root: Path, node: Node) -> NodeRecord:
     """Build a record (and canonical frontmatter) for a node that has no file yet.
 
     @purpose  New files get the canonical key order — kind, title, needs, in,
-              links, priority, then fields — with flow-style edge lists to match
-              the documented format.
+              links, agents, skills, trains, priority, then fields — with
+              flow-style edge lists to match the documented format.
     """
     fm = CommentedMap()
     fm["kind"] = node.kind
@@ -439,11 +453,12 @@ def new_record(root: Path, node: Node) -> NodeRecord:
         fm["title"] = node.title
     for key, values in (("needs", node.needs), ("in", node.in_)):
         if values:
-            seq = CommentedSeq(values)
-            seq.fa.set_flow_style()
-            fm[key] = seq
+            fm[key] = _flow_seq(values)
     if node.links:
         fm["links"] = [{"to": link.to, "rel": link.rel} for link in node.links]
+    for key, values in (("agents", node.agents), ("skills", node.skills), ("trains", node.trains)):
+        if values:
+            fm[key] = _flow_seq(values)
     if node.priority:
         fm["priority"] = node.priority
     for name, value in node.fields.items():

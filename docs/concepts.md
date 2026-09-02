@@ -3,7 +3,7 @@
 ## The graph model
 
 A plan is a directory. Each node is one Markdown file: YAML frontmatter for
-structure, prose body for meaning. The core understands exactly five things
+structure, prose body for meaning. The core understands exactly six things
 about a node:
 
 | Thing | Where | What it does |
@@ -13,11 +13,19 @@ about a node:
 | **order** | `needs: [a, b]` | the only edge the compiler sequences by |
 | **membership** | `in: [milestone]` | the only edge the grouped strategy sections by |
 | **annotation** | `links: [{to: x, rel: informs}]` | drawn and cross-referenced, zero compiler semantics |
+| **mention** | `agents:` / `skills:` / `trains:` | who's assigned, what skill, who trains — checked to exist and be the right kind, never ordered |
 
 Everything else on a node — `status`, `effort`, `confidence`, whatever your
 domain needs — is a **field**, validated by the node's *kind* but invisible to
 the core. That line is deliberate: the compiler always has structure to grip
 (order and membership are core), while node *meaning* stays entirely yours.
+
+Mentions carry no ordering — `check` confirms the target exists and is the
+right kind (an `agents:` target must itself be a node of kind `agent`, and so
+on), but the topological sort never looks at them. A body may also mention a
+node in prose (`@id`); that's scanned read-only for dangling references and
+the body is never rewritten, and — unlike the frontmatter mentions — a prose
+mention alone doesn't rescue a node from the orphan rule.
 
 Cycles are validation errors, named with their path. There is no execution
 engine, no scheduler, and no LLM call anywhere in the library.

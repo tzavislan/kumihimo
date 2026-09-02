@@ -29,7 +29,16 @@ def test_get_plan_elides_bodies_and_lists_everything() -> None:
     assert result["plan"] == "API Guard"
     assert len(result["nodes"]) == 7
     assert all("body" not in node for node in result["nodes"])
-    assert result["kinds"] == ["decision", "milestone", "question", "risk", "task"]
+    assert result["kinds"] == [
+        "agent",
+        "decision",
+        "milestone",
+        "question",
+        "reference",
+        "risk",
+        "skill",
+        "task",
+    ]
 
 
 def test_get_node_carries_body_and_effective_fields() -> None:

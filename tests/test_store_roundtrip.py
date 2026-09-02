@@ -37,6 +37,21 @@ NASTY = (
 
 SIMPLE = "---\nkind: task\n---\nplain body\n"
 
+NASTY_CREW = (
+    "---\n"
+    "# who's on this one\n"
+    "kind: task  # inline comment\n"
+    'title: "Assigned: middleware"\n'
+    "needs:\n"
+    "  - api-endpoints\n"
+    "agents: [claude-fable-5]  # primary\n"
+    "skills:\n"
+    "  - kumihimo-iteration\n"
+    "trains: kumihimo-retro\n"
+    "---\n"
+    "Body — @claude-fable-5 picks this up with @kumihimo-iteration 組紐.\n"
+)
+
 
 def make_plan(tmp_path: Path, files: dict[str, str]) -> Path:
     root = tmp_path / "plan"
@@ -112,6 +127,52 @@ def test_scalar_needs_coerces_and_bad_needs_is_finding(tmp_path: Path) -> None:
     plan = Plan.load(root)
     assert plan.nodes["good"].needs == ["api"]
     assert any("'needs'" in f.message and f.where == "bad" for f in plan.load_findings)
+
+
+def test_scalar_crew_keys_coerce_and_bad_type_is_finding(tmp_path: Path) -> None:
+    good = (
+        "---\nkind: task\nagents: claude-fable-5\nskills: kumihimo-iteration\n"
+        "trains: kumihimo-retro\n---\n"
+    )
+    bad = "---\nkind: task\nagents: 5\nskills: {x: 1}\ntrains: [1, 2]\n---\n"
+    root = make_plan(tmp_path, {"good.md": good, "bad.md": bad})
+    plan = Plan.load(root)
+    assert plan.nodes["good"].agents == ["claude-fable-5"]
+    assert plan.nodes["good"].skills == ["kumihimo-iteration"]
+    assert plan.nodes["good"].trains == ["kumihimo-retro"]
+    assert plan.nodes["bad"].agents == []
+    assert plan.nodes["bad"].skills == []
+    assert plan.nodes["bad"].trains == []
+    bad_messages = [f.message for f in plan.load_findings if f.where == "bad"]
+    assert any("'agents'" in m for m in bad_messages)
+    assert any("'skills'" in m for m in bad_messages)
+    assert any("'trains'" in m for m in bad_messages)
+
+
+def test_untouched_crew_keys_plan_saves_nothing_and_bytes_survive(tmp_path: Path) -> None:
+    root = make_plan(tmp_path, {"nasty.md": NASTY_CREW, "api-endpoints.md": SIMPLE})
+    plan = Plan.load(root)
+    assert plan.nodes["nasty"].agents == ["claude-fable-5"]
+    assert plan.nodes["nasty"].skills == ["kumihimo-iteration"]
+    assert plan.nodes["nasty"].trains == ["kumihimo-retro"]
+    assert plan.save() == []
+    assert (root / "nodes" / "nasty.md").read_bytes() == NASTY_CREW.encode("utf-8")
+
+
+def test_crew_keys_field_edit_keeps_comments_and_other_keys(tmp_path: Path) -> None:
+    root = make_plan(tmp_path, {"nasty.md": NASTY_CREW, "api-endpoints.md": SIMPLE})
+    plan = Plan.load(root)
+    record = plan.records["nasty"]
+    record.fm["priority"] = 1
+    record.dirty = True
+    assert plan.save() == ["nodes/nasty.md"]
+    text = (root / "nodes" / "nasty.md").read_text(encoding="utf-8")
+    assert "# who's on this one" in text
+    assert "agents: [claude-fable-5]  # primary" in text
+    assert "skills:\n  - kumihimo-iteration" in text
+    assert "trains: kumihimo-retro" in text
+    assert "priority: 1" in text
+    assert (root / "nodes" / "api-endpoints.md").read_bytes() == SIMPLE.encode("utf-8")
 
 
 def test_unterminated_frontmatter_is_finding_and_body_preserved(tmp_path: Path) -> None:

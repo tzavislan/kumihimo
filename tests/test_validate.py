@@ -1,13 +1,15 @@
 """
 @file        tests/test_validate.py
 @purpose     Every check rule triggers on the file that breaks it and stays quiet
-             on one that doesn't: kinds, fields, dangling edges, the cycle path,
-             orphans, open dependencies, empty bodies, and the deterministic
-             errors-first ordering.
+             on one that doesn't: kinds, fields, dangling edges (including the
+             three mention keys and their kind checks), dangling @id prose
+             mentions, the cycle path, orphans (mention edges count, prose
+             mentions don't), open dependencies, empty bodies, and the
+             deterministic errors-first ordering.
 @layer       tests
-@tags        validation, findings, check
+@tags        validation, findings, check, mentions
 @related     kumihimo/core/validate.py (under test)
-@design      PLAN.md §3.4, queue item K4
+@design      PLAN.md §3.4, queue item K4; PLAN2.md §3.1-3.2, queue item K28
 """
 
 from pathlib import Path
@@ -59,6 +61,97 @@ def test_dangling_targets_name_edge_kind_and_target(plan_dir: PlanFactory) -> No
     assert any("'needs' target 'ghost'" in m for m in found)
     assert any("'in' target 'nowhere'" in m for m in found)
     assert any("'links' target 'void'" in m for m in found)
+
+
+def test_mention_targets_dangling_name_edge_kind_and_target(plan_dir: PlanFactory) -> None:
+    text = "---\nkind: task\nagents: [nobody]\nskills: [nothing]\ntrains: [noone]\n---\nBody.\n"
+    root = plan_dir({"t.md": text})
+    found = messages(root)
+    assert any("'agents' target 'nobody'" in m for m in found)
+    assert any("'skills' target 'nothing'" in m for m in found)
+    assert any("'trains' target 'noone'" in m for m in found)
+
+
+def test_mention_target_right_kind_is_quiet(plan_dir: PlanFactory) -> None:
+    root = plan_dir(
+        {
+            "wright.md": "---\nkind: agent\nruntime: human\n---\nDoes the work.\n",
+            "iter.md": "---\nkind: skill\n---\nRuns a pass.\n",
+            "t.md": "---\nkind: task\nagents: [wright]\nskills: [iter]\ntrains: [wright, iter]\n"
+            "---\nBody.\n",
+        }
+    )
+    found = messages(root)
+    assert not any("expected" in m for m in found)
+
+
+def test_mention_target_wrong_kind_is_error(plan_dir: PlanFactory) -> None:
+    root = plan_dir(
+        {
+            "notacrew.md": "---\nkind: task\n---\nJust a task.\n",
+            "t.md": "---\nkind: task\nagents: [notacrew]\nskills: [notacrew]\ntrains: [notacrew]\n"
+            "---\nBody.\n",
+        }
+    )
+    found = messages(root)
+    assert any("'agents' target 'notacrew' is kind task, expected agent" in m for m in found)
+    assert any("'skills' target 'notacrew' is kind task, expected skill" in m for m in found)
+    assert any(
+        "'trains' target 'notacrew' is kind task, expected agent or skill" in m for m in found
+    )
+
+
+def test_mention_edges_count_for_orphan_connectivity(plan_dir: PlanFactory) -> None:
+    root = plan_dir(
+        {
+            "wright.md": "---\nkind: agent\n---\nDoes the work.\n",
+            "t.md": "---\nkind: task\nagents: [wright]\n---\nBody.\n",
+        }
+    )
+    found = messages(root)
+    assert not any("wright: orphan" in m for m in found)
+    assert not any("t: orphan" in m for m in found)
+
+
+def test_dangling_prose_mention_warns(plan_dir: PlanFactory) -> None:
+    root = plan_dir({"t.md": "---\nkind: task\n---\nHand this to @wright.\n"})
+    found = messages(root)
+    assert any("body mentions '@wright' but no node 'wright' exists" in m for m in found)
+
+
+def test_existing_prose_mention_is_quiet(plan_dir: PlanFactory) -> None:
+    root = plan_dir(
+        {
+            "wright.md": "---\nkind: agent\n---\nDoes the work.\n",
+            "t.md": "---\nkind: task\n---\nHand this to @wright.\n",
+        }
+    )
+    found = messages(root)
+    assert not any("body mentions" in m for m in found)
+
+
+def test_prose_mention_does_not_rescue_orphan(plan_dir: PlanFactory) -> None:
+    root = plan_dir(
+        {
+            "wright.md": "---\nkind: agent\n---\nDoes the work.\n",
+            "t.md": "---\nkind: task\n---\nHand this to @wright.\n",
+        }
+    )
+    found = messages(root)
+    assert any("wright: orphan" in m for m in found)
+
+
+def test_kindless_agents_mention_loads_with_findings_not_crash(plan_dir: PlanFactory) -> None:
+    # PLAN2 §3.2's tolerance claim, tested directly: a node combining a
+    # missing kind with the new mention keys still loads and checks — findings,
+    # never an exception.
+    root = plan_dir({"weird.md": "---\nagents: [nobody]\n---\nBody.\n"})
+    plan = Plan.load(root)
+    assert "weird" in plan.nodes
+    assert plan.nodes["weird"].agents == ["nobody"]
+    found = [f.render() for f in plan.check()]
+    assert any("no kind" in m for m in found)
+    assert any("'agents' target 'nobody' does not exist" in m for m in found)
 
 
 def test_cycle_is_one_error_naming_the_path(plan_dir: PlanFactory) -> None:

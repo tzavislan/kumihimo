@@ -813,3 +813,36 @@ passed after the M7 close (~2026-08-25). Today's entries above are
 corrected to 2026-08-31; entries for iterations 22-23 and the M7 close were
 written around 2026-08-25 and are left as-dated with this note as the
 correction of record. Lesson folded: journal dates come from the clock.
+
+## 2026-09-01 — iteration 29 (K28: crew model)
+
+**Built (Sonnet builder, one checker fix-round):** the three mention keys
+land in core. RESERVED_KEYS grows agents/skills/trains; store parses them
+scalar-or-list exactly like needs/in and writes flow-style seqs in new
+files; engineering pack gains agent (runtime choice/model/entry/scope/
+retrieval/trained), skill (invocation/source/cadence/trained), reference
+(locator/retriever) — none required, bare crew nodes load clean. validate:
+dangling mention targets and wrong-kind targets are errors ("'trains'
+target 'x' is kind task, expected agent or skill"); mention edges count
+for orphan connectivity. Prose @id mentions: one documented regex
+(start-of-line-or-whitespace boundary), scanned READ-ONLY — dangling @id
+warns, bodies never rewritten, and prose mentions deliberately do not
+rescue orphans. ops.link/unlink take agents=/skills=/trains= (exactly-one-
+of grows, no cycle guard on mentions); rename/remove fix referrers, byte-
+exact scalar shape proven by test. Format stays 1.
+
+**Checker (Sonnet, adversarial, all live-reproduced):** held under attack —
+scalar rename keeps scalar+comments byte-for-byte; regex matches its doc
+claims exactly (emails never, uppercase never, trailing punctuation
+excluded, fenced-code hits accepted-and-documented); roadmap + both
+examples sweep 0 findings with the scanner live; HTTP LinkOp rejects
+mention kwargs with a clean 422 (surfaces are K29/K30, absence correct).
+One blocking find: formats.md described braid rendering as shipped —
+that's K29. Reworded to present truth + explicit "not shipped yet" line.
+The checker's tightening (byte-level rename test) also folded in. Dogfood
+catch: crew-model.md's own body tripped the new scanner on a literal @id
+in prose — fixed with backticks, the way a real author would.
+
+**Battery (mine, unpiped gates):** ruff format+check, mypy, pytest -q
+(162), tools/lint.py, mkdocs --strict — all green. 15 files touched, no
+frontend. Next: K29 (braid --for, Cast, crew CLI/MCP surface, JSONL).
