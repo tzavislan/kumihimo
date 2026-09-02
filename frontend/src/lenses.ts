@@ -1,21 +1,27 @@
 /**
  * @file        frontend/src/lenses.ts
- * @purpose     The lens bar's math (PLAN2.md §2.3): pure functions computing
- *              which visual treatment each node/edge gets under Status, Flow,
- *              or Risk — Structure is the baseline (today's rendering, zero
- *              extra computation). Status's ready frontier mirrors kumihimo/
- *              mcp/tools.py's ready() EXACTLY (same own-status-must-be-todo
- *              rule, same DONE_VALUES, same dangling-dependency-blocks
- *              semantics) so the canvas never disagrees with the MCP tool.
- *              Flow and Risk both walk the needs graph with collapsed
- *              containers substituted for their hidden members — the same
- *              substitution containers.ts's resolveEndpoint and layout.ts's
- *              elk graph already use, imported rather than re-derived so all
- *              three can never drift apart. No React, no DOM.
+ * @purpose     The lens bar's math (PLAN2.md §2.3, §3): pure functions
+ *              computing which visual treatment each node/edge gets under
+ *              Status, Flow, Risk, or Crew — Structure is the baseline
+ *              (today's rendering, zero extra computation). Status's ready
+ *              frontier mirrors kumihimo/mcp/tools.py's ready() EXACTLY (same
+ *              own-status-must-be-todo rule, same DONE_VALUES, same
+ *              dangling-dependency-blocks semantics) so the canvas never
+ *              disagrees with the MCP tool. Flow and Risk both walk the needs
+ *              graph with collapsed containers substituted for their hidden
+ *              members — the same substitution containers.ts's
+ *              resolveEndpoint and layout.ts's elk graph already use,
+ *              imported rather than re-derived so all three can never drift
+ *              apart. Crew (K30) needs no such substitution — its tint is a
+ *              node's own `agents`/kind, read directly regardless of whether
+ *              it's currently hidden inside a collapsed container — so it
+ *              takes the flat node list only. No React, no DOM.
  * @layer       frontend
- * @tags        lenses, status, ready, flow, critical-path, risk, topo-sort
+ * @tags        lenses, status, ready, flow, critical-path, risk, topo-sort,
+ *              crew, mentions
  * @related     frontend/src/canvasBuild.ts (calls lensNodeClasses/
- *              flowEdgeClassName while building the RF nodes/edges arrays),
+ *              flowEdgeClassName/crewEdgeClassName while building the RF
+ *              nodes/edges arrays),
  *              frontend/src/App.tsx (lens state, computeLensContext once per
  *              payload/render, gates all of it behind !focus && !trace —
  *              PLAN2.md §2.3's documented "focus/trace suspends lens
@@ -25,24 +31,28 @@
  *              container substitution Flow/Risk both reuse),
  *              frontend/src/cones.ts (descendantsOf — Risk's blast radius is
  *              this same BFS, unioned across every seed then substituted),
- *              frontend/src/useGraphKeyboard.ts (keys 1-4 call onLensChange),
+ *              frontend/src/edges.ts (kumi-edge-mention-trains — the class
+ *              crewEdgeClassName keys its emphasis off of),
+ *              frontend/src/useGraphKeyboard.ts (keys 1-5 call onLensChange,
+ *              positionally off LENS_ORDER — nothing there names "crew"),
  *              kumihimo/mcp/tools.py (ready() — the rule readyFrontier mirrors
  *              byte-for-byte; read it before touching readyFrontier)
- * @design      PLAN2.md §2.3
+ * @design      PLAN2.md §2.3, §3
  */
 import { resolveEndpoint } from "./containers";
 import { descendantsOf } from "./cones";
 import type { PlanNode } from "./types";
 
-export type Lens = "structure" | "status" | "flow" | "risk";
+export type Lens = "structure" | "status" | "flow" | "risk" | "crew";
 
-export const LENS_ORDER: Lens[] = ["structure", "status", "flow", "risk"];
+export const LENS_ORDER: Lens[] = ["structure", "status", "flow", "risk", "crew"];
 
 export const LENS_LABELS: Record<Lens, string> = {
   structure: "Structure",
   status: "Status",
   flow: "Flow",
   risk: "Risk",
+  crew: "Crew",
 };
 
 // ------------------------------------------------------------------------
@@ -339,6 +349,157 @@ function riskClassName(id: string, risk: RiskResult): string | undefined {
 }
 
 // ------------------------------------------------------------------------
+// Crew (K30, PLAN2.md §3)
+// ------------------------------------------------------------------------
+
+export interface CrewTint {
+  // Resolved CSS color for the Crew lens's node tint (border-left stripe,
+  // far-tier chip fill, container frame) — a resolved color string, not a
+  // --kumi-* token, by the same "data-derived, not a token" exception
+  // KumiNode.tsx's far-tier chip and derive.ts's colorFor already carve
+  // out — there's no finite palette to name in CSS when the hue depends on
+  // how many agent nodes a given plan happens to have.
+  color: string;
+  // Readable text color (#ffffff or #000000) for anything rendered directly
+  // ON `color` rather than beside it — today just the kind pill's
+  // background, which the tokens-only .kumi-pill rule (fixed white) can't
+  // answer for an arbitrary runtime hue (fix round: hue ~90-165 at this
+  // tint's own saturation/lightness measured under 3:1 against white). Never
+  // applied outside a crew-tinted pill — the --kumi-pill-text token itself
+  // is untouched for every other node/lens.
+  text: string;
+}
+
+export interface CrewResult {
+  // Node id -> its tint (color + readable text): an agent node's own hue
+  // (strong), or its first assigned agent's hue (softer) for anything that
+  // mentions one.
+  tint: Map<string, CrewTint>;
+  // task-kind nodes with an empty `agents` list — unassigned work, the "who
+  // does this" gap PLAN2.md §3's crew objects exist to close made visible.
+  unassigned: Set<string>;
+}
+
+// Golden-angle hue step: spreads any number of agents evenly around the
+// wheel (no fixed-size palette to run out of, unlike KIND_COLORS), with
+// adjacent sorted indices never landing on visually close hues.
+const GOLDEN_ANGLE = 137.508;
+
+/** sRGB (0-255) -> WCAG relative luminance: linearize each channel, then the
+ * standard 0.2126/0.7152/0.0722 weighted sum. The one transform both
+ * crewTextColor's contrast comparison and the simpler ~0.179 threshold the
+ * spec documents are built on. */
+function relativeLuminance(r: number, g: number, b: number): number {
+  const linear = (channel: number): number => {
+    const s = channel / 255;
+    return s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  };
+  return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b);
+}
+
+/** WCAG contrast ratio between two relative luminances (each 0-1), always
+ * >= 1 regardless of argument order. */
+function contrastRatio(luminanceA: number, luminanceB: number): number {
+  const lighter = Math.max(luminanceA, luminanceB);
+  const darker = Math.min(luminanceA, luminanceB);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+/** hsl(h, s, l) -> [r, g, b] in 0-255 — the one conversion crewTextColor
+ * needs, since every tint crewLens hands out is built from hue/saturation/
+ * lightness numbers, never a hex string, and there's no reason to round-trip
+ * through a CSS string just to parse it back apart. Standard six-sector
+ * formula; h in degrees, s/l in 0-1. */
+function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const hp = h / 60;
+  const x = c * (1 - Math.abs((hp % 2) - 1));
+  const [r1, g1, b1] =
+    hp < 1 ? [c, x, 0] : hp < 2 ? [x, c, 0] : hp < 3 ? [0, c, x] : hp < 4 ? [0, x, c] : hp < 5 ? [x, 0, c] : [c, 0, x];
+  const m = l - c / 2;
+  return [Math.round((r1 + m) * 255), Math.round((g1 + m) * 255), Math.round((b1 + m) * 255)];
+}
+
+/**
+ * The readable text color (#ffffff or #000000) for one hsl(hue, sat%,
+ * light%) crew tint: WCAG contrast ratio against both candidates, the
+ * higher wins (fix round, critic-caught — hue ~90-165 tints failed white
+ * text at 1.9-2.3:1, well under even the 3:1 large-text floor). Exported and
+ * pure so it's independently checkable outside a browser: feed it any hue/
+ * saturation/lightness triple and get back whichever of the two candidates
+ * actually reads, never a third color and never a --kumi-* token — pill
+ * text stays var(--kumi-pill-text) everywhere this isn't applied.
+ *
+ * @purpose  This is the real contrast-ratio comparison, not the cheaper
+ *           "background relative luminance > ~0.179 -> black else white"
+ *           threshold approximation the same WCAG math also supports; the
+ *           two agree almost everywhere; a full ratio comparison is used
+ *           here since it's no more code and never needs re-deriving the
+ *           crossover constant if the two candidate colors ever change from
+ *           pure black/white.
+ */
+export function crewTextColor(hue: number, saturationPct: number, lightnessPct: number): string {
+  const [r, g, b] = hslToRgb(hue, saturationPct / 100, lightnessPct / 100);
+  const bgLuminance = relativeLuminance(r, g, b);
+  const whiteContrast = contrastRatio(bgLuminance, 1);
+  const blackContrast = contrastRatio(bgLuminance, 0);
+  return whiteContrast >= blackContrast ? "#ffffff" : "#000000";
+}
+
+/** One resolved CrewTint for a given hue at a given saturation/lightness —
+ * shared by both the agent-self and mentioned-by branches below so the
+ * color and its text never go computed two different ways. */
+function crewTint(hue: number, saturationPct: number, lightnessPct: number): CrewTint {
+  return {
+    color: `hsl(${hue}, ${saturationPct}%, ${lightnessPct}%)`,
+    text: crewTextColor(hue, saturationPct, lightnessPct),
+  };
+}
+
+/**
+ * Every node's Crew-lens tint and the unassigned-work set, in one pass.
+ * Agent ids are sorted first so the same plan always assigns the same hues
+ * run to run (view-state determinism, the same reasoning as Flow's sorted
+ * Kahn seed) — the accepted tradeoff is that adding or removing an agent can
+ * reshuffle every other agent's hue, since the rule is "sorted ids -> hue
+ * rotation" by index, not a hash stable against set changes; the queue text
+ * asks for the simple sorted-index scheme, not the hash-stable one.
+ */
+export function crewLens(nodes: PlanNode[]): CrewResult {
+  const agentIds = nodes
+    .filter((node) => node.kind === "agent")
+    .map((node) => node.id)
+    .sort();
+  const hueOf = new Map<string, number>(agentIds.map((id, index) => [id, (index * GOLDEN_ANGLE) % 360]));
+  const tint = new Map<string, CrewTint>();
+  const unassigned = new Set<string>();
+  for (const node of nodes) {
+    if (node.kind === "agent") {
+      // An agent node's own hue, strongly (higher saturation, lower
+      // lightness) than the softer tint anything merely mentioning it gets
+      // below — the source of a color on the canvas reads as the strongest
+      // instance of it.
+      const hue = hueOf.get(node.id);
+      if (hue !== undefined) tint.set(node.id, crewTint(hue, 70, 45));
+      continue;
+    }
+    if (node.kind === "task" && node.agents.length === 0) unassigned.add(node.id);
+    const first = node.agents[0];
+    const hue = first !== undefined ? hueOf.get(first) : undefined;
+    if (hue !== undefined) tint.set(node.id, crewTint(hue, 55, 60));
+  }
+  return { tint, unassigned };
+}
+
+/** The Crew lens's per-edge class: trains edges (edges.ts's own
+ * kumi-edge-mention-trains class) pop, every other kind recedes — the same
+ * bold/faint split Flow uses, but by a stateless className check rather than
+ * a graph walk, since "is this a trains edge" needs no traversal to answer. */
+export function crewEdgeClassName(className: string): string {
+  return className.includes("kumi-edge-mention-trains") ? "kumi-crew-trains-edge" : "kumi-crew-faint-edge";
+}
+
+// ------------------------------------------------------------------------
 // Combined per-node classes (used by canvasBuild.ts)
 // ------------------------------------------------------------------------
 
@@ -347,12 +508,13 @@ export interface LensContext {
   readyIds: Set<string> | null;
   flow: FlowResult | null;
   risk: RiskResult | null;
+  crew: CrewResult | null;
 }
 
-/** readyIds/flow/risk populated only for the currently-active lens, and only
- * while focus/trace aren't suspending lens emphasis (PLAN2.md §2.3) — the
- * other two always stay null, so lensNodeClasses below is a no-op for them
- * without needing to re-check `lens` itself at every call site. */
+/** readyIds/flow/risk/crew populated only for the currently-active lens, and
+ * only while focus/trace aren't suspending lens emphasis (PLAN2.md §2.3) —
+ * the other three always stay null, so lensNodeClasses below is a no-op for
+ * them without needing to re-check `lens` itself at every call site. */
 export function computeLensContext(
   nodes: PlanNode[],
   lens: Lens,
@@ -365,6 +527,7 @@ export function computeLensContext(
     readyIds: active && lens === "status" ? visibleReadyIds(nodes, assignments, collapsed) : null,
     flow: active && lens === "flow" ? criticalPath(nodes, assignments, collapsed) : null,
     risk: active && lens === "risk" ? riskLens(nodes, assignments, collapsed) : null,
+    crew: active && lens === "crew" ? crewLens(nodes) : null,
   };
 }
 
@@ -417,6 +580,11 @@ export function lensNodeClasses(
   } else if (ctx.risk) {
     const riskClass = riskClassName(id, ctx.risk);
     if (riskClass && !(halo && riskClass === "kumi-risk-dim")) parts.push(riskClass);
+  } else if (ctx.crew) {
+    // Outline channel, like flow-critical/focus-self above — never excluded
+    // by a halo (only the opacity-based classes need that, per this
+    // function's own precedence note).
+    if (ctx.crew.unassigned.has(id)) parts.push("kumi-crew-unassigned");
   }
   return parts.length > 0 ? parts.join(" ") : undefined;
 }

@@ -26,8 +26,8 @@
  *              outside the node's up/downstream cone — a container unions
  *              its members' cones, Inherited fix C) and trace (alt-click a
  *              second node lights the needs-paths between them), plus the
- *              lens bar itself (LensBar.tsx; Structure/Status/Flow/Risk,
- *              keys 1-4 via useGraphKeyboard.ts) — entering focus/trace
+ *              lens bar itself (LensBar.tsx; Structure/Status/Flow/Risk/
+ *              Crew, keys 1-5 via useGraphKeyboard.ts) — entering focus/trace
  *              suspends lens emphasis (PLAN2.md §2.3), all four pure view
  *              state, never posted as an op, recomputed whenever a payload
  *              echo arrives. Also tracks the semantic-zoom tier off React
@@ -77,16 +77,17 @@
  *              frontend/src/LensBar.tsx (the sidebar segmented control this
  *              mounts),
  *              frontend/src/useGraphKeyboard.ts (the graph-directional
- *              keyboard hook this mounts, keys 1-4 included),
+ *              keyboard hook this mounts, keys 1-5 included),
  *              frontend/src/theme.ts (the useTheme hook this mounts),
  *              frontend/src/cones.ts (focus/trace graph math, containerCones
  *              for Inherited fix C),
  *              frontend/src/KumiNode.tsx (zoomTier thresholds + tier render),
- *              frontend/src/NodeForm.tsx (the selected node's form),
+ *              frontend/src/NodeForm.tsx (the selected node's form; its own
+ *              chip editors post link/unlink for needs/agents/skills, K30),
  *              frontend/src/Palette.tsx (the Ctrl+K overlay this mounts),
  *              frontend/src/styles.css (the tokens data-theme switches),
  *              kumihimo/server/ops_api.py (where every gesture lands)
- * @design      PLAN.md §5.1-5.3, PLAN2.md §2.1-2.5
+ * @design      PLAN.md §5.1-5.3, PLAN2.md §2.1-2.5, §3
  */
 import {
   Background,
@@ -397,7 +398,7 @@ export default function App() {
   // never has to choose between the two itself).
   const edges = useMemo(() => {
     if (!payload) return [];
-    return buildCanvasEdges({ payload, grouping, collapsedSet, focus, trace, flow: lensCtx.flow });
+    return buildCanvasEdges({ payload, grouping, collapsedSet, focus, trace, flow: lensCtx.flow, crew: lensCtx.crew });
   }, [payload, focus, trace, grouping, collapsedSet, lensCtx]);
 
   // A live payload update can remove the hovered edge with the cursor still
@@ -804,7 +805,7 @@ export default function App() {
           })}
         </ul>
         {selected ? (
-          <NodeForm node={selected} kinds={payload.kinds} onApply={(env) => void applyOp(env)} />
+          <NodeForm node={selected} kinds={payload.kinds} nodes={payload.nodes} onApply={(env) => void applyOp(env)} />
         ) : (
           <p className="kumi-hint">Click a node to edit it; drag between handles to draw an edge.</p>
         )}

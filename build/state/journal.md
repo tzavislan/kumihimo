@@ -883,3 +883,44 @@ session will find it fixed.
 **Determinism held under attack:** six output streams hashed identical
 across PYTHONHASHSEED 0/1/42. Battery (mine, unpiped): ruff, mypy,
 pytest -q (191), lint, mkdocs strict — green. Next: K30 (crew canvas).
+
+## 2026-09-01 — iteration 31 (K30: crew lens, mention edges, chip editors)
+
+**Built (Sonnet builder):** the canvas half. NodePayload + LinkOp/UnlinkOp
+carry the three mention keys (400s echo core's exact messages; extra=forbid
+holds); mention edges render thin/dotted/labeled bottom-to-top like links
+and never reach elk (by omission — layout builds only from needs, same as
+links); Crew lens is the fifth (key 5): golden-angle hue per sorted agent
+id, strong self-tint, soft same-hue on assigned tasks, dashed outline on
+unassigned work, trains edges emphasized, near-tier skill chips; sidebar
+ChipEditor rows for needs/agents/skills — every chip gesture is one
+immediate link/unlink op with fresh digest, datalist autocomplete
+kind-filtered, trains deliberately file-only. App.tsx net zero (593/600).
+The editor-smoke test caught a real a11y regression mid-build ("Add"
+button name collision → per-field aria-labels).
+
+**Checker (behavioral): APPROVE.** Link+unlink sha256-round-trips the file
+byte-exact; envelope matrix (wrong-kind/dangling/exactly-one-of/extra/
+stale-digest) all correct; payload deterministic. Coverage note: smoke
+test exercises no K30 surface — candidate for M10.
+
+**Critic (playwright on a crewed roadmap COPY): FIX-NEEDED → SHIP.** Three
+findings, all live-measured: (1) trains edges never popped — the lens
+modifier tied (0,2,0) with the later .kumi-edge-mention base rule and lost
+by source order; fixed by compounding selectors. Verifying the "latent"
+Flow tie proved it NOT inert: the same tie had silently killed Flow's
+critical-path edge bolding SINCE K26 (node highlighting masked it) and
+in-edge fading — same fix, all lenses now measure exactly spec (needs
+0.15/2, mentions 0.15/1.5, trains 1.0/3; Flow critical 3px orange).
+(2) White pill text on green agent hue 2.34:1 — now luminance-picked per
+tint in TS (green→black 8.99:1, red keeps white 5.88:1; critic reproduced
+the WCAG math independently). (3) Skill chip invisible in light mode —
+1px border-strong + 10px. Re-verify SHIP on all five claims, zero
+regressions, zero console errors.
+
+**Noted, not fixed (pre-existing, out of scope):** task-blue kind pill
+white text measures 3.68:1 (below AA, predates K30); a secondary in-edge
+into a container can miss a DOM render cycle right after membership
+changes (transient, orthogonal to CSS). Both M10-feel candidates. Battery
++ frontend typecheck/build green under the orchestrator's hands. M9 items
+3/3 — next: roadmap crew dogfood, then the close ritual.

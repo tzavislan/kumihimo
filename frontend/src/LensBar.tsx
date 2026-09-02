@@ -1,17 +1,18 @@
 /**
  * @file        frontend/src/LensBar.tsx
- * @purpose     The sidebar's lens switcher (PLAN2.md §2.3): a four-way
- *              segmented control — Structure (default), Status, Flow, Risk —
- *              sitting right below the sidebar header. Purely presentational;
- *              App.tsx owns the `lens` state itself, and keys 1-4
- *              (useGraphKeyboard.ts) drive the same onChange from the canvas.
+ * @purpose     The sidebar's lens switcher (PLAN2.md §2.3, §3): a five-way
+ *              segmented control — Structure (default), Status, Flow, Risk,
+ *              Crew (K30) — sitting right below the sidebar header. Purely
+ *              presentational; App.tsx owns the `lens` state itself, and
+ *              keys 1-5 (useGraphKeyboard.ts) drive the same onChange from
+ *              the canvas.
  * @layer       frontend
- * @tags        lenses, sidebar, segmented-control
+ * @tags        lenses, sidebar, segmented-control, crew
  * @related     frontend/src/App.tsx (owns lens state, mounts this),
  *              frontend/src/lenses.ts (LENS_ORDER/LENS_LABELS, the Lens type),
- *              frontend/src/useGraphKeyboard.ts (keys 1-4, same onChange),
+ *              frontend/src/useGraphKeyboard.ts (keys 1-5, same onChange),
  *              frontend/src/styles.css (.kumi-lens-* rules)
- * @design      PLAN2.md §2.3
+ * @design      PLAN2.md §2.3, §3
  */
 import { LENS_ORDER, LENS_LABELS, type Lens } from "./lenses";
 

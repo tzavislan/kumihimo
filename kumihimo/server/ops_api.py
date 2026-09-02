@@ -7,7 +7,8 @@
              both are view state that goes straight to view.yaml, never a
              node file).
 @layer       server
-@tags        ops-envelope, digests, single-writer, view-layout, containers
+@tags        ops-envelope, digests, single-writer, view-layout, containers,
+             mentions
 @related     kumihimo/core/ops.py (every mutation lands there),
              kumihimo/server/app.py (mounts apply() at POST /api/ops),
              kumihimo/server/payload.py (file_digest, the concurrency token;
@@ -97,7 +98,11 @@ class RemoveNodeOp(_Op):
 class LinkOp(_Op):
     """Envelope for ops.link.
 
-    @purpose  The drawn-edge gesture; digest gates the source file.
+    @purpose  The drawn-edge gesture (needs/in/links) and the sidebar's chip-
+              editor gesture (agents/skills/trains mentions, K30); digest
+              gates the source file. Six optional targets, mirroring core
+              ops.link's own exactly-one-of contract — this envelope just
+              carries all of them through and lets core enforce it.
     """
 
     op: Literal["link"]
@@ -106,12 +111,16 @@ class LinkOp(_Op):
     in_: str | None = Field(default=None, alias="in")
     to: str | None = None
     rel: str = "see-also"
+    agents: str | None = None
+    skills: str | None = None
+    trains: str | None = None
 
 
 class UnlinkOp(_Op):
     """Envelope for ops.unlink.
 
-    @purpose  Edge deletion; digest gates the source file.
+    @purpose  Edge deletion, mentions included (K30); digest gates the
+              source file.
     """
 
     op: Literal["unlink"]
@@ -119,6 +128,9 @@ class UnlinkOp(_Op):
     needs: str | None = None
     in_: str | None = Field(default=None, alias="in")
     to: str | None = None
+    agents: str | None = None
+    skills: str | None = None
+    trains: str | None = None
 
 
 class RenameNodeOp(_Op):
@@ -288,10 +300,22 @@ def apply(root: Path, request: OpRequest) -> None:
                 in_=request.in_,
                 to=request.to,
                 rel=request.rel,
+                agents=request.agents,
+                skills=request.skills,
+                trains=request.trains,
             )
         elif isinstance(request, UnlinkOp):
             _check_digest(root, request.src, request.base_digest)
-            ops.unlink(root, request.src, needs=request.needs, in_=request.in_, to=request.to)
+            ops.unlink(
+                root,
+                request.src,
+                needs=request.needs,
+                in_=request.in_,
+                to=request.to,
+                agents=request.agents,
+                skills=request.skills,
+                trains=request.trains,
+            )
         elif isinstance(request, RenameNodeOp):
             _check_digest(root, request.old, request.base_digest)
             ops.rename_node(root, request.old, request.new)

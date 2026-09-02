@@ -21,6 +21,11 @@ export interface PlanNode {
   needs: string[];
   in: string[];
   links: LinkRef[];
+  // Mention edges (PLAN2.md §3.2, K30): who's assigned, what skill, who
+  // trains it — no ordering semantics, never consulted by any layout.
+  agents: string[];
+  skills: string[];
+  trains: string[];
   priority: number;
   fields: Record<string, unknown>;
   effective: Record<string, unknown>;

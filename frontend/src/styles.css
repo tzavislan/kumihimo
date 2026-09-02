@@ -4,13 +4,15 @@
  *              [data-theme="dark"]) and the canvas chrome they dress:
  *              sidebar + flow grid, node card styling, kind pills, finding
  *              colors and canvas halos, focus/trace cone tints, semantic-zoom
- *              tiers, containers, the lens bar and Status/Flow/Risk lens
- *              classes (K26), React Flow chrome, and payload-echo motion
- *              (.kumi-glide, K27). Deliberately small and system-font.
+ *              tiers, containers, the lens bar and Status/Flow/Risk/Crew lens
+ *              classes (K26; Crew is K30), mention edges (K30), the
+ *              sidebar's chip editors (K30), React Flow chrome, and
+ *              payload-echo motion (.kumi-glide, K27). Deliberately small
+ *              and system-font.
  * @layer       frontend
  * @tags        css, chrome, design-tokens, dark-mode, focus, trace,
  *              semantic-zoom, findings, palette, containers, lenses, motion,
- *              glide, reduced-motion
+ *              glide, reduced-motion, crew, mentions, chips
  * @related     frontend/src/theme.ts (sets data-theme on <html>),
  *              frontend/src/App.tsx (the per-node focus/trace/halo classes
  *              this file styles, the sidebar finding rows this file's
@@ -19,17 +21,21 @@
  *              frontend/src/canvasBuild.ts (composes derive.ts's and
  *              lenses.ts's class names into the className this file styles),
  *              frontend/src/derive.ts (coneClassName/haloClassName),
- *              frontend/src/lenses.ts (lensNodeClasses/flowEdgeClassName —
- *              the kumi-status, kumi-flow, and kumi-risk classes here),
+ *              frontend/src/lenses.ts (lensNodeClasses/flowEdgeClassName/
+ *              crewEdgeClassName — the kumi-status, kumi-flow, kumi-risk,
+ *              and kumi-crew classes here),
  *              frontend/src/LensBar.tsx (renders the kumi-lens-* markup),
  *              frontend/src/edges.ts (kumi-edge-* classes on edges,
- *              STATIC_HANDLES),
+ *              including kumi-edge-mention-*, STATIC_HANDLES),
+ *              frontend/src/ChipEditor.tsx (renders the kumi-chip-* markup;
+ *              NodeForm.tsx mounts three),
  *              KumiNode.tsx (KIND_COLORS accents laid over the surface/text
- *              tokens here; picks the kumi-tier-* class this file styles),
+ *              tokens here; picks the kumi-tier and kumi-crew-chip classes
+ *              this file styles),
  *              frontend/src/KumiGroupNode.tsx (.kumi-group-* markup; shares
  *              .kumi-node with KumiNode.tsx on purpose),
  *              frontend/src/Palette.tsx (renders the kumi-palette-* markup)
- * @design      PLAN.md §5.3, PLAN2.md §2.1-2.3, §2.5
+ * @design      PLAN.md §5.3, PLAN2.md §2.1-2.3, §2.5, §3
  */
 
 /* Tokens. :root is the light theme (the default with no attribute present);
@@ -96,6 +102,13 @@
   --kumi-edge: #475569;
   --kumi-edge-in: #8b5cf6;
   --kumi-edge-link: #6b7280;
+  /* Mentions (PLAN2.md §3.2, K30): agents:/skills:/trains: share this one
+   * hue — a fourth edge family, distinct from needs/in/link above — since
+   * only `trains` ever needs a visually different treatment, and that's the
+   * Crew lens's job (kumi-crew-trains-edge below reuses this same token at
+   * higher weight, not a second color) rather than three more edge hues
+   * competing with needs/in/link under every other lens. */
+  --kumi-edge-mention: #db2777;
 
   /* Focus mode cones (PLAN2.md §2.1): upstream (ancestors, what the focus
    * node needs) vs. downstream (descendants, what needs it), one hue apiece
@@ -129,6 +142,13 @@
    * KIND_COLOR, the cone tints, and --kumi-ready — "on the critical path"
    * must never read as any of those other signals. */
   --kumi-flow-critical: #ea580c;
+
+  /* Crew lens unassigned-work outline (K30): its own hue too, cyan — cool
+   * against Risk's warm reds and Flow's orange, "needs an owner" rather than
+   * "something's wrong" (halos/Risk) or "on the critical path" (Flow). Node
+   * TINT under Crew (an agent's own hue, or its first assignee's) is
+   * data-derived per agent id, not a token — see lenses.ts's crewLens. */
+  --kumi-crew-unassigned: #0891b2;
 
   /* React Flow minimap's mask over the area outside the current viewport */
   --kumi-minimap-mask: rgba(240, 240, 240, 0.6);
@@ -200,12 +220,14 @@
   --kumi-edge: #94a3b8;
   --kumi-edge-in: #a78bfa;
   --kumi-edge-link: #94a3b8;
+  --kumi-edge-mention: #f472b6;
 
   --kumi-cone-up: #e879f9;
   --kumi-cone-down: #a3e635;
 
   --kumi-ready: #34d399;
   --kumi-flow-critical: #fb923c;
+  --kumi-crew-unassigned: #22d3ee;
 
   --kumi-minimap-mask: rgba(2, 6, 23, 0.6);
 
@@ -311,6 +333,38 @@ body {
 .kumi-actions button { white-space: nowrap; }
 .kumi-primary { background: var(--kumi-accent) !important; color: var(--kumi-accent-contrast) !important; border-color: var(--kumi-accent) !important; }
 .kumi-add { display: grid; gap: var(--kumi-space-6); }
+/* Chip editors (PLAN2.md §3.2, K30; NodeForm.tsx mounts three via
+ * ChipEditor.tsx — needs/agents/skills). .kumi-chip-pill is deliberately
+ * NOT named .kumi-chip: that class already belongs to KumiNode.tsx's
+ * far-tier canvas card (below, in this file) and this is a different,
+ * removable, sidebar-only element. */
+.kumi-chip-field { margin: 8px 0; }
+.kumi-chip-list {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
+  padding: 4px; border: 1px solid var(--kumi-border-strong); border-radius: var(--kumi-radius-sm);
+  background: var(--kumi-surface);
+}
+.kumi-chip-pill {
+  display: inline-flex; align-items: center; gap: 2px;
+  font-size: var(--kumi-text-xs); padding: 1px 2px 1px 8px;
+  border-radius: var(--kumi-radius-pill);
+  background: var(--kumi-surface-muted); color: var(--kumi-text);
+  white-space: nowrap;
+}
+.kumi-chip-remove {
+  border: none; background: transparent; color: var(--kumi-text-faint);
+  cursor: pointer; font: inherit; font-size: var(--kumi-text-sm); line-height: 1;
+  padding: 0 4px; border-radius: var(--kumi-radius-pill);
+}
+.kumi-chip-remove:hover { color: var(--kumi-error); background: var(--kumi-surface-hover); }
+/* Equal specificity to ".kumi-side input" (one class + one type each) but
+ * declared later, so this wins the cascade and the input sits flush inside
+ * the bordered .kumi-chip-list instead of drawing a second nested border. */
+.kumi-chip-list input {
+  flex: 1; min-width: 80px; width: auto;
+  border: none; padding: 2px 4px; background: transparent;
+}
+.kumi-chip-list input:focus { outline: none; }
 .kumi-notice {
   font-size: var(--kumi-text-sm); background: var(--kumi-notice-bg); border: 1px solid var(--kumi-notice-border);
   border-radius: var(--kumi-radius-sm); padding: var(--kumi-space-6) var(--kumi-space-8);
@@ -579,6 +633,27 @@ body {
 .kumi-flow-critical-edge .react-flow__edge-path { stroke: var(--kumi-flow-critical); stroke-width: 3; }
 .kumi-flow-faint-edge .react-flow__edge-path { opacity: 0.25; }
 
+/* Crew (PLAN2.md §3, K30). Node tint is inline style (canvasBuild.ts's
+ * crewColor — see the "data-derived color, not a token" precedent this file
+ * already carries for KIND_COLORS/colorFor), so only the unassigned-work
+ * outline and the edge emphasis need rules here. Outline channel, same
+ * grammar as focus-self/trace-node/flow-critical above — never excluded by a
+ * halo (lenses.ts's lensNodeClasses precedence note: only opacity-based
+ * classes need that exclusion, and outline doesn't composite-dim anything). */
+.react-flow__node.kumi-crew-unassigned .kumi-node {
+  outline: 2px dashed var(--kumi-crew-unassigned);
+  outline-offset: 2px;
+}
+/* Trains edges pop, everything else recedes — the same bold/faint split
+ * Flow uses above, applied by lenses.ts's crewEdgeClassName on top of
+ * whichever kumi-edge-* kind class an edge already carries. */
+.kumi-crew-trains-edge .react-flow__edge-path {
+  stroke: var(--kumi-edge-mention);
+  stroke-width: 3;
+  opacity: 1;
+}
+.kumi-crew-faint-edge .react-flow__edge-path { opacity: 0.15; }
+
 /* Risk: a source (an open decision/question, or any risk-kind node) enlarges
  * and gets a stronger border in the same red findings and the risk kind
  * already use for "attention" elsewhere in this file. Its downstream shadow
@@ -704,6 +779,41 @@ body {
   flex: 0 0 auto;
   color: var(--kumi-text-faint);
 }
+/* Crew lens skill chips (PLAN2.md §3, K30): read-only badges naming a
+ * node's own `skills` mentions, near tier only — distinct from the sidebar's
+ * removable .kumi-chip-pill (below) and from the far-tier .kumi-chip (this
+ * file, KumiNode.tsx's compact silhouette card); all three happen to be
+ * "chips" but never share a selector. */
+.kumi-crew-chips {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 3px;
+  margin-top: 2px;
+  overflow: hidden;
+}
+.kumi-crew-chip {
+  flex: 0 0 auto;
+  /* Fix round, critic-caught: every OTHER near-tier meta item (.kumi-pill,
+   * .kumi-status, .kumi-effort-chip, .kumi-member-badge, .kumi-id) is
+   * deliberately squeezed to a literal 8px by the ".kumi-tier-near .kumi-X"
+   * rule below (this file's own near-tier comment explains why that's still
+   * readable at this tier's real screen scale) — .kumi-crew-chip was never
+   * added to that squeeze list, but had inherited the same 8px anyway, and
+   * at that size with only var(--kumi-surface-muted) (~4% off the card
+   * surface) behind it and no border, it under-read as a chip rather than
+   * stray text. Raised to the --kumi-text-xs floor (10px, what a chip
+   * OUTSIDE near tier already uses — .kumi-effort-chip, .kumi-chip-pill —
+   * before that squeeze rule touches it) plus a 1px border, deliberately
+   * NOT added to the squeeze list this time. */
+  font-size: var(--kumi-text-xs);
+  line-height: 1.2;
+  padding: 0 4px;
+  border: 1px solid var(--kumi-border-strong);
+  border-radius: var(--kumi-radius-pill);
+  background: var(--kumi-surface-muted);
+  color: var(--kumi-text-subtle);
+  white-space: nowrap;
+}
 
 /* Containers (PLAN2.md §2.3 lens 1, KumiGroupNode.tsx). .kumi-group shares
  * .kumi-node's card chrome (border, radius, shadow) plus every focus/trace/
@@ -821,8 +931,68 @@ body {
   stroke-width: 2;
   stroke-dasharray: 2 4;
 }
+/* Mentions (PLAN2.md §3.2, K30): thin, dotted (visually distinct from
+ * link's 2-4 dash at a glance), no ordering ports — bottom->top like link,
+ * edges.ts's own comment on why. edges.ts sets a class per key
+ * (kumi-edge-mention-agents/-skills/-trains) alongside this shared base —
+ * agents/skills carry no rule of their own here (the label already says
+ * which one an edge is), but kumi-edge-mention-trains is a real selector
+ * downstream: lenses.ts's crewEdgeClassName matches it by substring to
+ * decide which edges the Crew lens emphasizes (further down this file).
+ *
+ * SPECIFICITY WARNING (fix round, critic-caught): every plain rule in this
+ * "Edge kind strokes" block (.kumi-edge-needs/-in/-link/-mention, all just
+ * ONE class + .react-flow__edge-path) ties in specificity (0,2,0) with the
+ * lens-modifier rules further UP this file (.kumi-flow-critical-edge/
+ * -faint-edge, .kumi-crew-trains-edge/-faint-edge — also 0,2,0 each). CSS
+ * breaks a tie by source order, and this block sits LATER, so for any
+ * property both a base rule and a lens modifier set, the base rule wins —
+ * the lens treatment silently never renders, regardless of which class
+ * React actually applied last. Live-caught via getComputedStyle: a
+ * critical-path `needs` edge computed the plain 2px slate stroke, not
+ * Flow's 3px orange (.kumi-edge-needs beats .kumi-flow-critical-edge on
+ * both stroke and stroke-width); .kumi-edge-in (opacity 0.55) and
+ * .kumi-edge-mention (opacity 0.6) both beat .kumi-flow-faint-edge/
+ * .kumi-crew-faint-edge (0.25/0.15) the same way. A base rule with NO
+ * competing property never ties, so it was never a problem there — needs
+ * and link set no opacity, so their `*-faint-edge` treatment already
+ * applied cleanly, and .kumi-crew-trains-edge/kumi-flow-critical-edge only
+ * ever co-occur with kumi-edge-mention/kumi-edge-needs respectively (no
+ * other kind can carry those lens classes), so only those specific pairs
+ * needed a fix. The fix below is a COMPOUND selector (.kumi-edge-X.kumi-
+ * lens-modifier — no space, both classes on the one <g>): three classes
+ * outright beats two on specificity, so source order stops mattering and no
+ * !important is needed. Adding a new base rule or a new lens modifier
+ * later: check whether it shares a property with an existing one on the
+ * other side before assuming the plain rule is enough — it silently isn't,
+ * the way this one silently wasn't. */
+.kumi-edge-needs.kumi-flow-critical-edge .react-flow__edge-path {
+  stroke: var(--kumi-flow-critical);
+  stroke-width: 3;
+}
+.kumi-edge-in.kumi-flow-faint-edge .react-flow__edge-path { opacity: 0.25; }
+.kumi-edge-mention.kumi-flow-faint-edge .react-flow__edge-path { opacity: 0.25; }
+.kumi-edge-in.kumi-crew-faint-edge .react-flow__edge-path { opacity: 0.15; }
+.kumi-edge-mention.kumi-crew-faint-edge .react-flow__edge-path { opacity: 0.15; }
+.kumi-edge-mention.kumi-crew-trains-edge .react-flow__edge-path {
+  stroke-width: 3;
+  opacity: 1;
+}
+.kumi-edge-mention .react-flow__edge-path {
+  stroke: var(--kumi-edge-mention);
+  stroke-width: 1.5;
+  stroke-dasharray: 1 3;
+  opacity: 0.6;
+}
+.kumi-edge-mention:hover .react-flow__edge-path { opacity: 1; }
 /* Hover thickens and brightens every kind; "in" edges additionally lose
- * their resting 0.55 dim so the brighten reads even on that faint kind. */
+ * their resting 0.55 dim so the brighten reads even on that faint kind.
+ * (0,3,0) specificity, same as the two compound rules above whose opacity
+ * it can override — declared LATER than both, so hovering a faint or
+ * trains-emphasized mention edge still brightens/thickens exactly as it
+ * does under every other lens; this is the one place in this file source
+ * order is still load-bearing, by design, not another instance of the trap
+ * described above (a deliberate, intact tie, not an accidental one). */
 .react-flow__edge:hover .react-flow__edge-path {
   stroke-width: 3;
   filter: brightness(1.3);

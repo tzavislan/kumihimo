@@ -1,8 +1,9 @@
 /**
  * @file        frontend/src/useGraphKeyboard.ts
  * @purpose     Graph-directional keyboard (PLAN2.md §2.5): with the palette
- *              closed and focus outside any form field, digits 1-4 switch
- *              the lens bar (K26) regardless of selection; with a node also
+ *              closed and focus outside any form field, digits 1-5 switch
+ *              the lens bar (K26; 5 is Crew, K30) regardless of selection;
+ *              with a node also
  *              selected, Left/Right walk the first needs dependency/
  *              dependent, Up/Down cycle the selection's sibling ring (other
  *              nodes sharing its first `in` group, or other ungrouped
@@ -71,7 +72,7 @@ export interface UseGraphKeyboardParams {
   onLensChange: (lens: Lens) => void;
 }
 
-// "1".."4" -> LENS_ORDER's positional entries, so this file never hand-lists
+// "1".."5" -> LENS_ORDER's positional entries, so this file never hand-lists
 // lens names and can't drift from lenses.ts/LensBar.tsx's own ordering.
 const LENS_KEYS: Record<string, Lens> = Object.fromEntries(
   LENS_ORDER.map((lens, index) => [String(index + 1), lens]),

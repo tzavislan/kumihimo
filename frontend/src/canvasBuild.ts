@@ -10,13 +10,22 @@
  *              lenses.ts, and syncs React Flow's native `selected` to the
  *              app's own selectedId (Inherited fix A, K26 — it must never
  *              drift, which is exactly what let the sidebar detach from the
- *              canvas after a keyboard/palette jump before this).
+ *              canvas after a keyboard/palette jump before this). Its `color`
+ *              (container and leaf alike) is crewColor below, the Crew lens's
+ *              tint when active, else the ordinary kind color (K30) — the
+ *              same channel far-tier chips and container fills already read,
+ *              so the tint reaches every render of a node for free. Leaf
+ *              nodes also carry `crewSkills` (K30): the node's own `skills`
+ *              mentions, only while the Crew lens is active — KumiNode.tsx
+ *              renders them as chips, but only at the near zoom tier.
  *              buildCanvasEdges reroutes/dedupes via containers.ts, then
  *              dims by focus/trace (judging each edge by its ORIGINAL
- *              endpoints when containers.ts rerouted it — Inherited fix B) or
- *              bolds/faints by the Flow lens's critical path.
+ *              endpoints when containers.ts rerouted it — Inherited fix B),
+ *              bolds/faints by the Flow lens's critical path, or (K30) pops
+ *              trains-mention edges and fades every other kind under Crew.
  * @layer       frontend
- * @tags        react-flow, nodes, edges, containers, lenses, halos, selection
+ * @tags        react-flow, nodes, edges, containers, lenses, halos, selection,
+ *              crew, mentions
  * @related     frontend/src/App.tsx (the sole caller, once each inside its
  *              nodes-rebuild effect and edges memo),
  *              frontend/src/containers.ts (buildContainerNode, Grouping,
@@ -24,8 +33,8 @@
  *              frontend/src/derive.ts (coneClassName, haloClassName, colorFor,
  *              acceptanceList, findingHalos, FocusState/TraceState),
  *              frontend/src/lenses.ts (lensNodeClasses, flowEdgeClassName,
- *              LensContext, FlowResult)
- * @design      PLAN2.md §2.1-2.3, Inherited fixes A and B (K26)
+ *              crewEdgeClassName, LensContext, FlowResult, CrewResult)
+ * @design      PLAN2.md §2.1-2.3, §3, Inherited fixes A and B (K26)
  */
 import type { Edge, Node } from "@xyflow/react";
 import {
@@ -48,8 +57,30 @@ import {
 import { STATIC_HANDLES } from "./edges";
 import type { KumiNodeData, ZoomTier } from "./KumiNode";
 import { NODE_HEIGHT, NODE_WIDTH, type ContainerSize } from "./layout";
-import { flowEdgeClassName, lensNodeClasses, type FlowResult, type LensContext } from "./lenses";
-import type { Payload, Position } from "./types";
+import {
+  crewEdgeClassName,
+  flowEdgeClassName,
+  lensNodeClasses,
+  type CrewResult,
+  type FlowResult,
+  type LensContext,
+} from "./lenses";
+import type { Payload, PlanNode, Position } from "./types";
+
+/** Crew lens tint (K30) when active, else the ordinary kind color — see the
+ * file header's note on `color` being the one channel both read. `pillText`
+ * (fix round) rides alongside: undefined outside a crew tint, so the kind
+ * pill's CSS token (var(--kumi-pill-text)) applies untouched everywhere
+ * else; only a crew-tinted pill gets its own computed, contrast-checked
+ * color instead. */
+function crewColor(
+  payload: Payload,
+  node: PlanNode,
+  crew: CrewResult | null,
+): { color: string; pillText: string | undefined } {
+  const tint = crew?.tint.get(node.id);
+  return { color: tint?.color ?? colorFor(payload, node), pillText: tint?.text };
+}
 
 export interface BuildCanvasNodesParams {
   payload: Payload;
@@ -107,10 +138,12 @@ export function buildCanvasNodes(params: BuildCanvasNodesParams): Node[] {
       ]
         .filter(Boolean)
         .join(" ") || undefined;
+    const containerTint = crewColor(payload, containerNode, lensCtx.crew);
     built.push({
       ...buildContainerNode({
         node: containerNode,
-        color: colorFor(payload, containerNode),
+        color: containerTint.color,
+        pillText: containerTint.pillText,
         collapsed,
         memberIds,
         byId,
@@ -132,12 +165,18 @@ export function buildCanvasNodes(params: BuildCanvasNodesParams): Node[] {
     const hidden = parentId ? collapsedSet.has(parentId) : false;
     const parentPos = parentId ? containerPosition.get(parentId) : undefined;
     const absolute = positions[node.id] ?? { x: 0, y: 0 };
+    const leafTint = crewColor(payload, node, lensCtx.crew);
     const data: KumiNodeData = {
       node,
-      color: colorFor(payload, node),
+      color: leafTint.color,
+      pillText: leafTint.pillText,
       tier,
       memberCount: grouping.counts.get(node.id) ?? 0,
       acceptance: acceptanceList(node),
+      // Skill chips at near tier (K30), Crew lens only — agents already read
+      // via the tint above, so this is the one mention key with no other
+      // visual channel of its own.
+      crewSkills: lensCtx.lens === "crew" ? node.skills : null,
     };
     const halo = haloClassName(node.id, halos);
     built.push({
@@ -172,6 +211,7 @@ export interface BuildCanvasEdgesParams {
   focus: FocusState | null;
   trace: TraceState | null;
   flow: FlowResult | null;
+  crew: CrewResult | null;
 }
 
 /**
@@ -179,12 +219,14 @@ export interface BuildCanvasEdgesParams {
  * then EITHER focus/trace dimming (full strength only when both of an
  * edge's ORIGINAL endpoints — Inherited fix B — are in the highlighted set)
  * OR, when the Flow lens is active and neither lens is suspended, its
- * critical-path bold/faint split. Never both at once: focus/trace suspends
- * lens emphasis (PLAN2.md §2.3), so `flow` is already null whenever
- * `focus`/`trace` is non-null (App.tsx's computeLensContext call site).
+ * critical-path bold/faint split, OR (K30) the Crew lens's trains-pop/
+ * everything-else-recedes split. Never more than one at once: focus/trace
+ * suspends lens emphasis (PLAN2.md §2.3), so `flow`/`crew` are already null
+ * whenever `focus`/`trace` is non-null, and only one lens is ever active at
+ * a time (both from App.tsx's computeLensContext call site).
  */
 export function buildCanvasEdges(params: BuildCanvasEdgesParams): Edge[] {
-  const { payload, grouping, collapsedSet, focus, trace, flow } = params;
+  const { payload, grouping, collapsedSet, focus, trace, flow, crew } = params;
   const built = containerEdges(payload, grouping.assignments, collapsedSet);
   const highlighted = focus
     ? new Set([focus.id, ...focus.ancestors.keys(), ...focus.descendants.keys(), ...(focus.members ?? [])])
@@ -203,6 +245,9 @@ export function buildCanvasEdges(params: BuildCanvasEdgesParams): Edge[] {
       const isNeeds = className.includes("kumi-edge-needs");
       const flowClass = flowEdgeClassName(edge.source, edge.target, isNeeds, flow);
       return { ...edge, className: `${className} ${flowClass}`.trim() };
+    }
+    if (crew) {
+      return { ...edge, className: `${className} ${crewEdgeClassName(className)}`.trim() };
     }
     return edge;
   });

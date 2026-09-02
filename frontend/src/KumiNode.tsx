@@ -3,18 +3,24 @@
  * @purpose     The leaf React Flow node: kind-colored edge stripe, title,
  *              id, and a kind pill. Renders one of three semantic-zoom tiers
  *              (far/mid/near), chosen upstream in App.tsx from viewport.zoom
- *              and handed down through node data. A node whose kind gathers
- *              members (memberCounts>0) renders as KumiGroupNode.tsx's
- *              container instead — this file only ever draws a leaf/member.
+ *              and handed down through node data. `color` (the stripe, the
+ *              far-tier chip fill) is whatever canvasBuild.ts resolved it to
+ *              — the ordinary kind color, or the Crew lens's tint (K30) —
+ *              this component never branches on which. A node whose kind
+ *              gathers members (memberCounts>0) renders as KumiGroupNode.
+ *              tsx's container instead — this file only ever draws a leaf/
+ *              member.
  * @layer       frontend
- * @tags        react-flow, node, kind-colors, semantic-zoom, findings
+ * @tags        react-flow, node, kind-colors, semantic-zoom, findings, crew
  * @related     frontend/src/App.tsx (registers this as node type "kumi",
  *              tracks the active tier and passes it through node data; also
  *              sets the wrapper's kumi-halo-error/warning class this file's
  *              .kumi-node div is the box-shadow target for — styles.css),
+ *              frontend/src/canvasBuild.ts (resolves `color`/`crewSkills`
+ *              per node before this component ever sees them),
  *              frontend/src/KumiGroupNode.tsx (the container node; reuses
  *              this file's exported EdgeHandles for the same four ports)
- * @design      PLAN.md §5.3, PLAN2.md §2.2, §2.4
+ * @design      PLAN.md §5.3, PLAN2.md §2.2, §2.4, §3
  */
 import { Handle, Position as FlowPosition, type NodeProps } from "@xyflow/react";
 import type { PlanNode } from "./types";
@@ -51,6 +57,12 @@ const STATUS_GLYPH: Record<string, string> = {
 export interface KumiNodeData extends Record<string, unknown> {
   node: PlanNode;
   color: string;
+  // Readable text color for the kind pill's background, when `color` is a
+  // Crew-lens tint whose luminance would fail contrast against the pill's
+  // usual fixed white token (fix round, critic-caught) — undefined outside
+  // a crew tint, so the CSS token applies untouched (canvasBuild.ts's
+  // crewColor computes this alongside `color`, never independently).
+  pillText: string | undefined;
   tier: ZoomTier;
   // How many payload nodes name this node in their `in` — App.tsx computes
   // this once per payload over every node rather than here, since this
@@ -62,6 +74,11 @@ export interface KumiNodeData extends Record<string, unknown> {
   // (kinds.yaml's "list" field type) — App.tsx checks the shape once so this
   // component never has to re-validate it on every render.
   acceptance: string[] | null;
+  // The node's own `skills` mentions, only while the Crew lens is active
+  // (canvasBuild.ts) — rendered as chips below, but only at the near tier;
+  // null the rest of the time so this component never has to check the lens
+  // itself.
+  crewSkills: string[] | null;
 }
 
 /** The four ports, one per edge kind (PLAN2.md §2.4): needs runs left/right,
@@ -94,7 +111,7 @@ export function EdgeHandles() {
 
 /** Render one plan node on the canvas, at the tier App.tsx has picked. */
 export function KumiNode(props: NodeProps) {
-  const { node, color, tier, memberCount, acceptance } = props.data as KumiNodeData;
+  const { node, color, pillText, tier, memberCount, acceptance, crewSkills } = props.data as KumiNodeData;
   const isMilestone = node.kind === "milestone";
   const status = typeof node.effective.status === "string" ? node.effective.status : null;
   const effort = typeof node.effective.effort === "string" ? node.effective.effort : null;
@@ -134,7 +151,10 @@ export function KumiNode(props: NodeProps) {
       <EdgeHandles />
       <div className="kumi-title">{node.title}</div>
       <div className="kumi-meta">
-        <span className="kumi-pill" style={{ background: color }}>
+        {/* pillText is undefined outside a Crew-lens tint, so `color`
+            (React ignores an undefined style value) falls through to the
+            CSS token, unchanged from before the fix round. */}
+        <span className="kumi-pill" style={{ background: color, color: pillText }}>
           {node.kind || "?"}
         </span>
         {/* Additive, not a replacement (PLAN2.md §2.2 mid tier): the glyph
@@ -170,6 +190,19 @@ export function KumiNode(props: NodeProps) {
               {acceptance.length > 1 ? (
                 <span className="kumi-acceptance-more">+{acceptance.length - 1} more</span>
               ) : null}
+            </div>
+          ) : null}
+          {/* Crew lens skill chips (PLAN2.md §3, K30): raw skill ids, not
+              titles — this component only ever sees one node, and a title
+              lookup needs the full payload; the near-tier acceptance preview
+              above sets the same "raw strings, no cross-node lookup" bar. */}
+          {crewSkills && crewSkills.length > 0 ? (
+            <div className="kumi-crew-chips">
+              {crewSkills.map((id) => (
+                <span key={id} className="kumi-crew-chip">
+                  {id}
+                </span>
+              ))}
             </div>
           ) : null}
         </>

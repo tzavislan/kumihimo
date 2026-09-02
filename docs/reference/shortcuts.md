@@ -14,8 +14,8 @@ explanation of what each gesture means and shows.
 | Alt-click a second node (one already selected) | Enter trace mode: every node on a dependency path between the two keeps full strength, everything else dims |
 | Click empty canvas | Exit focus or trace |
 | Drag a node | Move it; the position lands in `view.yaml`, never in the node file |
-| Drag handle to handle | Draw an edge — `needs`, `in`, or an annotation `link`, chosen by the selector above the canvas; a `needs` edge that would close a cycle is refused with the cycle's path |
-| Click an edge | Open the edge panel in the sidebar: relation sentence, a jump button per endpoint, Remove edge |
+| Drag handle to handle | Draw an edge — `needs`, `in`, or an annotation `link`, chosen by the selector above the canvas; a `needs` edge that would close a cycle is refused with the cycle's path. Mentions (`agents`/`skills`/`trains`) can't be drawn this way — use the sidebar's chip editors instead |
+| Click an edge | Open the edge panel in the sidebar: relation sentence, a jump button per endpoint, Remove edge — works on mention edges too |
 | Hover an edge | Thicken and brighten its stroke; show a tooltip naming it in words ("A needs B") |
 | Click a clickable finding row | Select and center the node it names (a row naming a file, like `kumihimo.yaml`, isn't clickable) |
 
@@ -26,13 +26,13 @@ nothing auto-expands.
 
 ## Lens bar
 
-A four-way segmented control at the top of the sidebar, right below the
+A five-way segmented control at the top of the sidebar, right below the
 plan name. See [The editor](../howto/editor.md#lenses) for what each one
 actually shows.
 
 | Gesture | Does |
 |---|---|
-| Click a tab, or press `1`-`4` (canvas focused, no form field active) | Switch to Structure / Status / Flow / Risk |
+| Click a tab, or press `1`-`5` (canvas focused, no form field active) | Switch to Structure / Status / Flow / Risk / Crew |
 
 ## Ctrl+K palette
 
@@ -61,7 +61,7 @@ text field; the arrow/F/Delete rows below additionally need a node selected.
 
 | Key | Does |
 |---|---|
-| 1 / 2 / 3 / 4 | Switch to the Structure / Status / Flow / Risk lens — works with or without a selection |
+| 1 / 2 / 3 / 4 / 5 | Switch to the Structure / Status / Flow / Risk / Crew lens — works with or without a selection |
 | ← | Select the node's first dependency (`needs[0]`) |
 | → | Select its first dependent (the first other node whose `needs` names it) |
 | ↑ / ↓ | Cycle among siblings: other nodes sharing this one's first `in` group, or, if it belongs to no group, other likewise-ungrouped nodes — both rings in id order |
@@ -76,6 +76,17 @@ right handle to dependent's left handle) already committed the canvas to
 that axis, and arrows that point the way the edges actually run beat arrows
 matching prose written before the ports existed. Up/Down were free as a
 result, so they cycle siblings rather than sitting unused.
+
+## Chip editors
+
+The selected node's form (**Needs** / **Agents** / **Skills** rows). See
+[The editor](../howto/editor.md#chip-editors) for the suggestion-filtering
+rules and why there's no **Trains** row.
+
+| Gesture | Does |
+|---|---|
+| Type an id, press Enter or click Add | Post a `link` op immediately for that field — no Save needed |
+| Click a chip's × | Post an `unlink` op immediately for that chip |
 
 ## Elsewhere in the sidebar
 

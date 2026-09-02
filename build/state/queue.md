@@ -264,7 +264,7 @@ Accept: --for output opens with the grounding line; crew lists the roster;
 jsonl round-trips through json.loads line by line; check gate still holds.
 
 ### K30 — Crew lens, mention edges, chip editors
-status: todo
+status: done (iteration 31)
 needs: [K28]
 PLAN2 §3 (canvas half). Payload + ops envelopes carry the three mention
 keys; mention edges render distinctly (thin, labeled, own class/tokens; no

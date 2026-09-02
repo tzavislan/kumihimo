@@ -192,6 +192,61 @@ def test_dirty_endpoint_reports_untracked_gracefully(plan_dir: PlanFactory, tmp_
     assert isinstance(body["dirty"], list)
 
 
+def test_link_and_unlink_mention_edges(plan_dir: PlanFactory, tmp_path: Path) -> None:
+    # Trigger: agents=/skills=/trains= round-trip through link then unlink,
+    # same as needs=/in_=/to= already do above.
+    root = plan_dir(
+        {
+            "wright.md": "---\nkind: agent\n---\nWright.\n",
+            "iteration.md": "---\nkind: skill\n---\nIteration.\n",
+            "a.md": BODIED,
+        }
+    )
+    client = client_for(root, tmp_path)
+    for key, target in (("agents", "wright"), ("skills", "iteration"), ("trains", "wright")):
+        response = client.post("/api/ops", json={"op": "link", "src": "a", key: target})
+        assert response.status_code == 200
+    plan = Plan.load(root)
+    assert plan.nodes["a"].agents == ["wright"]
+    assert plan.nodes["a"].skills == ["iteration"]
+    assert plan.nodes["a"].trains == ["wright"]
+
+    assert (
+        client.post("/api/ops", json={"op": "unlink", "src": "a", "agents": "wright"}).status_code
+        == 200
+    )
+    assert Plan.load(root).nodes["a"].agents == []
+
+
+def test_link_mention_wrong_kind_is_400(plan_dir: PlanFactory, tmp_path: Path) -> None:
+    # Non-trigger for the kind rule: "b" exists but isn't kind agent.
+    root = plan_dir({"a.md": BODIED, "b.md": BODIED.replace("Body", "B")})
+    client = client_for(root, tmp_path)
+    response = client.post("/api/ops", json={"op": "link", "src": "a", "agents": "b"})
+    assert response.status_code == 400
+    assert "'agents' target 'b' is kind task, expected agent" in response.json()["detail"]
+
+
+def test_link_mention_dangling_target_is_400(plan_dir: PlanFactory, tmp_path: Path) -> None:
+    root = plan_dir({"a.md": BODIED})
+    client = client_for(root, tmp_path)
+    response = client.post("/api/ops", json={"op": "link", "src": "a", "skills": "ghost"})
+    assert response.status_code == 400
+    assert "edge target 'ghost' does not exist" in response.json()["detail"]
+
+
+def test_link_two_mention_kwargs_is_400(plan_dir: PlanFactory, tmp_path: Path) -> None:
+    # The envelope carries all six optionally; core.ops still enforces
+    # exactly one of them.
+    root = plan_dir({"a.md": BODIED, "wright.md": "---\nkind: agent\n---\nW.\n"})
+    client = client_for(root, tmp_path)
+    response = client.post(
+        "/api/ops", json={"op": "link", "src": "a", "agents": "wright", "trains": "wright"}
+    )
+    assert response.status_code == 400
+    assert "exactly one of" in response.json()["detail"]
+
+
 def test_set_collapsed_persists_and_drops_the_key_when_empty(
     plan_dir: PlanFactory, tmp_path: Path
 ) -> None:

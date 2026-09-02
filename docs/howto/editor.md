@@ -5,9 +5,11 @@ kumihimo edit myplan          # serves 127.0.0.1:8720 and opens the browser
 ```
 
 The canvas renders the plan live: kind-colored nodes, solid arrows for
-`needs`, dashed edges for membership, dotted labeled edges for annotations.
-The sidebar carries the live `check` findings, an add-node form, the braid
-button, and — when the plan lives in git — a dirty-vs-HEAD indicator.
+`needs`, dashed edges for membership, dotted labeled edges for annotations,
+and thin dotted labeled edges for mentions (who's assigned, what skill, who
+trains it). The sidebar carries the live `check` findings, an add-node form,
+the braid button, and — when the plan lives in git — a dirty-vs-HEAD
+indicator.
 
 Everything you do writes through the same operations layer as the CLI:
 
@@ -15,9 +17,11 @@ Everything you do writes through the same operations layer as the CLI:
 - **Drag handle to handle** — draws an edge; the selector above the canvas
   chooses whether new edges mean `needs`, `in`, or an annotation `link` (with
   a relation label). An edge that would close a dependency cycle is refused
-  with the cycle's path.
+  with the cycle's path. Mentions (`agents:`/`skills:`/`trains:`) are never
+  drawn this way — see "Chip editors" below.
 - **Click a node** — edit title, kind, fields (inputs generated from the
-  kind's schema), and body; **Save** writes the file, preserving any hand-
+  kind's schema), chip rows for `needs`/`agents`/`skills` (see "Chip
+  editors"), and body; **Save** writes the file, preserving any hand-
   written comments in its frontmatter. Rename fixes every referrer; Delete
   refuses while referenced, naming the referrers.
 - **Click an edge** — opens the edge panel in the sidebar (see "Reading
@@ -29,18 +33,48 @@ Everything you do writes through the same operations layer as the CLI:
 
 Each edge kind keeps its own ports, so membership stops fighting dependency
 arrows for the same two pixels: `needs` edges run left→right, from the
-dependency's right handle to the dependent's left handle. `in` (membership)
-and `link` (annotation) edges both run bottom→top — member or link source at
-the bottom, group or link target at the top — distinguished from each other
-by dash pattern and color, not by port. `needs` and `in` edges carry a closed
-arrowhead pointing at the dependent/group; `link` edges carry none, since an
-annotation is already a labeled, not directional, relation.
+dependency's right handle to the dependent's left handle. `in` (membership),
+`link` (annotation), and mention (`agents:`/`skills:`/`trains:`) edges all
+run bottom→top — member, link source, or mentioning node at the bottom,
+group/link target/mentioned crew member at the top — distinguished from each
+other by dash pattern, color, and label, not by port. `needs` and `in` edges
+carry a closed arrowhead pointing at the dependent/group; `link` and mention
+edges carry none, since neither is a directional dependency — an annotation
+is a labeled relation, and a mention carries no ordering at all (the topo
+sort never looks at it).
+
+Mentions render thinner and more sparingly-styled than the other three kinds
+— they're meant to recede until you go looking for them, or switch to the
+[Crew lens](#lenses) below, which is built for exactly that. Each carries a
+small label naming which key it is: "agents", "skills", or "trains".
 
 Hovering an edge thickens and brightens its stroke and shows a small tooltip
 naming it in words — "rate-limit-core needs pick-algorithm" — using titles,
 never ids. Clicking an edge opens a panel with that same sentence, a jump
 button per endpoint (selects the node and centers the canvas on it, zoom
-unchanged), and the Remove edge button.
+unchanged), and the Remove edge button — mention edges included, described
+as "A mentions B (agents)" and so on.
+
+## Chip editors
+
+The sidebar's node form carries three chip rows — **Needs**, **Agents**,
+**Skills** — each showing the node's current targets as removable pills
+(titles, not ids) plus an add input. Typing an id and pressing **Enter**, or
+clicking **Add**, posts a `link` op immediately; clicking a chip's **×**
+posts `unlink` — neither is staged behind the form's Save button, the same
+"the gesture is the op" model drawing or removing a canvas edge already
+uses. The add input suggests ids from a plan-wide list, filtered per field:
+**Needs** suggests every non-crew node (not itself an `agent` or `skill`),
+**Agents** suggests only `agent`-kind nodes, **Skills** only `skill`-kind
+ones — but the suggestion list is a convenience, not a gate: typing an id
+outside it still submits, and `check`'s own rules (dangling target, wrong
+kind) are what actually enforce it, surfacing as the same conflict/error
+notice any other op uses.
+
+There is no **Trains** chip row. `trains:` targets stay file-edited on
+purpose — it is the retro's edge, set rarely and deliberately (typically once
+per recurring training task), not a relationship you build up node by node
+the way needs/agents/skills are.
 
 ## Containers
 
@@ -157,12 +191,12 @@ means cards never grow into their neighbors as you zoom in.
 ![The Status lens: ready frontier glowing, done work dimmed](../assets/lens-status.png)
 
 
-A four-way switch at the top of the sidebar — **Structure** (the default,
-everything described above), **Status**, **Flow**, **Risk** — changes what
-the canvas emphasizes without changing what it contains. Click a tab, or
-press `1`-`4` with the canvas focused and no form field active. A lens
-choice is pure view state: nothing is written to disk, and it survives a
-payload echo untouched.
+A five-way switch at the top of the sidebar — **Structure** (the default,
+everything described above), **Status**, **Flow**, **Risk**, **Crew** —
+changes what the canvas emphasizes without changing what it contains. Click
+a tab, or press `1`-`5` with the canvas focused and no form field active. A
+lens choice is pure view state: nothing is written to disk, and it survives
+a payload echo untouched.
 
 - **Status** tints each node by its effective status: doing picks up the
   accent color, blocked the error color, done dims and desaturates by about
@@ -183,6 +217,20 @@ payload echo untouched.
   downstream of them (through `needs`, containers substituted the same way
   as Flow) — the blast radius of what's currently unresolved. Everything
   else dims slightly.
+- **Crew** tints every node by its first `agents:` entry — a stable color per
+  agent, assigned by sorting every `agent`-kind node's id and stepping a hue
+  wheel evenly across them, so the same plan always assigns the same colors.
+  An `agent` node gets its own hue at full strength; anything that merely
+  mentions one gets a softer tint of that same hue, so a source and its
+  mentioners visibly share a color family without being confused for each
+  other. A `task`-kind node with no `agents:` at all — unassigned work — gets
+  a dashed cyan outline instead of a tint. `skill:` mentions get no color of
+  their own (there's no "first skill" the way there's a first agent); at the
+  near zoom tier they instead render as small read-only chips on the card
+  naming each one. Edges invert Flow's emphasis: `trains:` mentions bold and
+  pop, every other edge — needs, in, links, and the other two mention keys —
+  fades, so "who trains the crew" reads at a glance against everything else
+  receding.
 
 **Precedence**, when more than one visual channel would apply to the same
 node: a finding halo always wins, and for the two lens treatments that dim a
@@ -194,7 +242,10 @@ it (opacity dims a box-shadow too; a done node with an error halo used to
 show no discernible ring until this was enforced). The Status lens's
 ready-glow uses the same box-shadow channel as a halo and loses to it the
 same way. Risk's enlarge-and-border (a source) and shaded wash (its blast
-radius) don't dim anything, so they still show alongside a halo. Focus and
+radius), and Crew's unassigned-work outline, don't dim anything, so they
+still show alongside a halo — Crew's node tint doesn't compete with a halo
+either, since it colors the same border-left stripe the kind color always
+occupies rather than adding a second ring. Focus and
 trace suspend lens emphasis entirely while active: the lens stays selected,
 but its tints, bolding, and shading pause until Esc, since both already use
 the same border/opacity channels a lens does and showing both at once would
@@ -206,7 +257,7 @@ just be noise. Semantic zoom tiers are unaffected by any of this.
 title, and body, plus six quick commands (Add node, Braid, Toggle theme,
 Toggle auto-layout, Lanes layout, Re-layout branch). With the palette closed
 and focus outside any form
-field, `1`-`4` switch the lens bar above from anywhere on the canvas; with a
+field, `1`-`5` switch the lens bar above from anywhere on the canvas; with a
 node also selected, arrow keys walk the graph itself rather than the screen,
 F focuses, and Delete or Backspace removes with a confirmation. The full
 gesture-by-gesture table — this and everything above — lives in the

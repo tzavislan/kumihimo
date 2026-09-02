@@ -37,6 +37,31 @@ def test_payload_carries_the_canvas_contract() -> None:
     assert payload["collapsed"] == []  # no view.yaml `collapsed` key in this fixture
 
 
+def test_payload_carries_mention_edges(plan_dir: PlanFactory) -> None:
+    # Trigger: a node with all three mention keys populated. Non-trigger:
+    # the agent node itself, which mentions nothing, gets the empty-list
+    # default rather than a missing key.
+    root = plan_dir(
+        {
+            "wright.md": "---\nkind: agent\n---\nWright.\n",
+            "iteration.md": "---\nkind: skill\n---\nIteration.\n",
+            "build.md": (
+                "---\nkind: task\nagents: [wright]\nskills: [iteration]\n"
+                "trains: [wright, iteration]\n---\nBuild.\n"
+            ),
+        }
+    )
+    payload = plan_payload(root)
+    node = next(n for n in payload["nodes"] if n["id"] == "build")
+    assert node["agents"] == ["wright"]
+    assert node["skills"] == ["iteration"]
+    assert node["trains"] == ["wright", "iteration"]
+    agent = next(n for n in payload["nodes"] if n["id"] == "wright")
+    assert agent["agents"] == []
+    assert agent["skills"] == []
+    assert agent["trains"] == []
+
+
 def test_payload_filters_collapsed_against_live_node_ids(plan_dir: PlanFactory) -> None:
     # A view.yaml older than ops_api.py's set_collapsed validation (or hand-
     # edited) can still name a container that's since been renamed or

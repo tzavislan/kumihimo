@@ -262,6 +262,10 @@ export function containerEdges(
 export interface ContainerNodeParams {
   node: PlanNode;
   color: string;
+  // Readable text color for the kind pill's background when `color` is a
+  // Crew-lens tint (fix round) — undefined otherwise, so KumiGroupNode.tsx's
+  // pill falls back to its usual --kumi-pill-text token unchanged.
+  pillText: string | undefined;
   collapsed: boolean;
   memberIds: string[];
   byId: Map<string, PlanNode>;
@@ -287,8 +291,19 @@ export interface ContainerNodeParams {
  * here rather than inlined in App.tsx's rebuild effect so that effect stays
  * about orchestration, not container layout. */
 export function buildContainerNode(params: ContainerNodeParams): Node {
-  const { node, color, collapsed, memberIds, byId, positions, autoSize, onToggle, className, measured } =
-    params;
+  const {
+    node,
+    color,
+    pillText,
+    collapsed,
+    memberIds,
+    byId,
+    positions,
+    autoSize,
+    onToggle,
+    className,
+    measured,
+  } = params;
   const { done, total } = doneCount(byId, memberIds);
   let position = positions[node.id] ?? { x: 0, y: 0 };
   let width = NODE_WIDTH;
@@ -309,7 +324,7 @@ export function buildContainerNode(params: ContainerNodeParams): Node {
       }
     }
   }
-  const data: KumiGroupNodeData = { node, color, collapsed, done, total, onToggle };
+  const data: KumiGroupNodeData = { node, color, pillText, collapsed, done, total, onToggle };
   return {
     id: node.id,
     type: "kumiGroup",

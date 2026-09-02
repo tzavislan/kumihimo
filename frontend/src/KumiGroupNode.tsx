@@ -10,7 +10,11 @@
  *              normal-card-sized chip carrying the n/m done count and member
  *              total that would otherwise vanish along with the members.
  *              Both mount the toggle button and the shared four-port handles
- *              so the container is a real edge endpoint either way.
+ *              so the container is a real edge endpoint either way. Its two
+ *              kind-pill spans take `pillText` alongside `color` (K30 fix
+ *              round): undefined outside a Crew-lens tint, so the pill's
+ *              usual --kumi-pill-text token applies unchanged; only a
+ *              tinted pill gets its own contrast-checked override.
  * @layer       frontend
  * @tags        react-flow, node, containers, collapse, semantic-zoom
  * @related     frontend/src/containers.ts (builds this node's data via
@@ -30,6 +34,11 @@ import type { PlanNode } from "./types";
 export interface KumiGroupNodeData extends Record<string, unknown> {
   node: PlanNode;
   color: string;
+  // Readable text color for the kind pill's background when `color` is a
+  // Crew-lens tint (fix round, containers.ts's buildContainerNode) —
+  // undefined otherwise, so the pill falls back to its usual
+  // --kumi-pill-text token unchanged.
+  pillText: string | undefined;
   collapsed: boolean;
   done: number;
   total: number;
@@ -41,7 +50,7 @@ export interface KumiGroupNodeData extends Record<string, unknown> {
 /** Render one container, expanded (a frame around its members) or collapsed
  * (a chip standing in for all of them). */
 export function KumiGroupNode(props: NodeProps) {
-  const { node, color, collapsed, done, total, onToggle } = props.data as KumiGroupNodeData;
+  const { node, color, pillText, collapsed, done, total, onToggle } = props.data as KumiGroupNodeData;
   const kind = node.kind || "?";
   const progress = `${done}/${total} done`;
 
@@ -61,7 +70,9 @@ export function KumiGroupNode(props: NodeProps) {
       <span className="kumi-title">{node.title}</span>
       {collapsed ? null : (
         <>
-          <span className="kumi-pill" style={{ background: color }}>
+          {/* pillText undefined outside a Crew-lens tint -> falls through
+              to the CSS token, same as KumiNode.tsx's leaf pill. */}
+          <span className="kumi-pill" style={{ background: color, color: pillText }}>
             {kind}
           </span>
           <span className="kumi-group-progress">{progress}</span>
@@ -76,7 +87,7 @@ export function KumiGroupNode(props: NodeProps) {
         <EdgeHandles />
         {header}
         <div className="kumi-meta">
-          <span className="kumi-pill" style={{ background: color }}>
+          <span className="kumi-pill" style={{ background: color, color: pillText }}>
             {kind}
           </span>
           <span className="kumi-group-progress">{progress}</span>
