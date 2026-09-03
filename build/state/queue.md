@@ -274,3 +274,93 @@ kind, no agents:) outlined, trains edges emphasized; sidebar gains chip
 editors with id autocomplete for needs/agents/skills (add/remove chips ->
 link/unlink ops). Accept: roadmap-with-crew renders legibly under the Crew
 lens; chip edit round-trips through ops; lens count stays capped at five.
+
+## M10 — Feel (PLAN2.md §2.5 + §4 M10, split 2026-09-03)
+
+### K31 — Attribution toasts + change pulses
+status: todo
+needs: —
+PLAN2 §2.5 Motion & attribution. Ops layer appends one JSON line per
+mutation to `<plan>/.kumihimo/events.jsonl` — {ts, actor, op, targets} —
+actor set explicitly by each thin client (CLI "cli", MCP "mcp", HTTP ops
+API from the editor "editor"); the dir is created on demand, gitignored by
+scaffold (and .gitignore gains it for existing plans), log truncated to the
+last 200 events on write; the LIBRARY never reads the clock for semantics —
+ts is data for the editor, never compared in check/braid. Editor: the
+watcher-driven payload refresh diffs node digests old→new; changed/added/
+removed nodes raise ONE toast naming the source when known ("via MCP:
+crew-model updated"; unattributed = "outside edit") and pulse the changed
+nodes (CSS animation ~1s, none under prefers-reduced-motion); the editor's
+own ops (actor "editor") raise no toast — the payload echo is already its
+acknowledgment. Toast stack: top-right, newest on top, max 4 visible,
+auto-dismiss ~6s, dismiss-on-click, both themes via tokens.
+Accept: an MCP/CLI mutation while the editor is open produces exactly one
+attributed toast + pulse on the right nodes (proven in a real browser);
+editor self-ops produce zero toasts; events.jsonl never enters git status
+on a fresh scaffold; check/braid outputs are byte-identical with and
+without the log present.
+
+### K32 — Inverse-op undo trail
+status: todo
+needs: —
+PLAN2 §2.5 Undo trail, §5 risk 4. ops_api op responses gain an `inverse`
+envelope computed from before-state: add↔remove, set-field↔set-prior (or
+unset), link↔unlink, rename↔reverse rename, set_positions/set_collapsed↔
+prior values; remove_node returns inverse: null (honestly not undoable in
+v0.2 — git is; the trail says so). Each inverse carries the digest(s) it
+preconditions on. Frontend: a session-scoped Undo panel listing applied
+ops newest-first (this session only, in-memory); each entry enabled while
+its precondition digests match the current payload, else grayed with why
+("crew-model changed since"); click posts the inverse through the normal
+ops door (it then appears on the trail itself); Ctrl+Z fires the topmost
+enabled entry; keyboard docs updated.
+Accept: add→undo removes; set→undo restores the prior value byte-for-byte
+in the file; rename→undo renames back with referrers re-fixed; a later
+external edit grays the stale entry with the reason; undo of undo works;
+all through POST /api/ops with zero new write paths.
+
+### K33 — Styled braid preview
+status: todo
+needs: —
+PLAN2 §4 M10. The braid modal renders the compiled Markdown styled
+(headings, lists, code, tables, blockquotes) with the existing tokens in
+both themes; keeps Copy, gains Download (.md, the exact bytes — no
+re-serialization); a Raw/Rendered switch; and a toggle collapsing the
+plan-shape mermaid block (rendering mermaid itself stays OUT — ~1MB
+against K34's budget; the toggle folds the fenced block, documented).
+The Markdown renderer is a small dependency lazy-loaded with the modal
+(chunk never in the initial bundle).
+Accept: preview of plans/roadmap reads as a document in light and dark
+(critic-judged on real shots); Download bytes == braid API bytes
+(sha256); initial bundle size unchanged (renderer chunk loads on first
+modal open, proven in the network log).
+
+### K34 — Elk lazy-load + both-theme screenshots
+status: todo
+needs: —
+PLAN2 §4 M10. elkjs moves to dynamic import (layout awaits it on first
+use; a loading state if perceptible); vite manualChunks splits vendor
+weight so the INITIAL JS payload lands under ~700KB (measure before/after,
+record numbers in the journal; the >500kB chunk warning gone or justified
+in writing). tools/screenshots.py shoots dark-theme variants (suffix
+-dark) of canvas-roadmap, lens-status, lens-crew by toggling the editor
+theme control; docs embed light+dark pairs where mkdocs-material supports
+it (#only-light/#only-dark image classes) for the README hero and editor
+page.
+Accept: cold-load network log shows elk fetched only when a layout runs;
+bundle numbers in the journal; dark shots in docs/assets wired into at
+least the editor page; editor-smoke CI still green.
+
+### K35 — v0.2 release prep
+status: todo
+needs: [K31, K32, K33, K34]
+PLAN2 §4 M10 + RELEASING.md. Prepare, never execute: pyproject version →
+0.2.0 proposal (commit only if Thomas says cut), CHANGELOG Unreleased →
+0.2.0 section drafted with date placeholder, RELEASING.md steps re-walked
+against current reality (uv build --wheel carries static/ — verify on this
+tree), the README ten-minute story re-run on a clean checkout with times
+noted, docs build strict. Ask Thomas in the close report: v0.1.0 (K15,
+still needs-thomas) first, or straight to v0.2.0?
+Accept: a "cut v0.2.0" checklist in the close report Thomas can execute
+in under ten minutes; every command in it verified run on this machine;
+nothing tagged, nothing published.
