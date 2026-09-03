@@ -1,5 +1,9 @@
 # Kumihimo
 
+[![CI](https://github.com/tzavislan/kumihimo/actions/workflows/ci.yml/badge.svg)](https://github.com/tzavislan/kumihimo/actions/workflows/ci.yml)
+[![Docs](https://github.com/tzavislan/kumihimo/actions/workflows/docs.yml/badge.svg)](https://tzavislan.github.io/kumihimo/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 **組紐 — many threads in, one cord out.**
 
 Kumihimo is the Japanese craft of braiding many separate threads into a single

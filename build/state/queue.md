@@ -397,7 +397,7 @@ that doesn't track it; non-trigger: plans/roadmap keeps its indicator.
 ## M11 — Refine (the what-next chart, groomed 2026-09-03)
 
 ### K38 — Repo presentation pass
-status: todo
+status: done (iteration 38 — orchestrator-direct; CI proof rides the push)
 needs: —
 README badges (CI, docs, license — PyPI badge waits for the release), gh
 repo edit --description + topics (mcp, claude, planning,

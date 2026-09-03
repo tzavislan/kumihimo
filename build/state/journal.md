@@ -1282,3 +1282,19 @@ real roadmap read-only; stderr suppression proven structurally
 (monkeypatched a permission-denied warning through the real helper —
 zero leakage). 242 tests. The audit's queue is clear; K15/pypi-release
 remains the one needs-thomas item.
+
+## 2026-09-03 — iteration 38 (K38: repo presentation pass)
+
+Orchestrator-direct (config + prose): CI/docs/license badges in the
+README (the PyPI badge waits for a release that exists); repo
+description + topics set via gh (mcp, claude, planning,
+prompt-engineering, react-flow, knowledge-graph, llm-tools, markdown —
+merged with the pre-existing dag/llm/python); dependabot.yml watching
+actions + pip + npm weekly; every workflow action bumped to its current
+major straight from releases/latest (checkout v4→v7, setup-node v4→v7,
+setup-uv v5→v10, upload-pages-artifact v3→v5, deploy-pages v4→v5) —
+the Node-20 deprecation annotations should vanish on the next run, CI
+green is the acceptance and rides the push; SECURITY.md (advisories
+path, honest "nothing released yet", the sanitizer named in scope);
+bug/feature issue templates + a PR template pointing at CONVENTIONS.md
+and the battery. Python battery green locally.
