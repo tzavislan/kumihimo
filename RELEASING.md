@@ -15,10 +15,17 @@ Releases are Thomas's act; automation does the labor after the tag.
 1. Queue drained for the milestone; battery green; `/kumihimo-retro` run.
 2. Time the ten-minute story on a clean environment; fix what overruns it.
 3. Set the version in `kumihimo/__init__.py` (drop the `.dev0`); cut the
-   `## [Unreleased]` section of CHANGELOG.md into `## [x.y.z] - date`.
+   `## [Unreleased]` section of CHANGELOG.md into `## [x.y.z] - date`, then
+   add a fresh, empty `## [Unreleased]` above it for the next milestone.
 4. Commit, push, wait for CI — all four jobs.
 5. `git tag vx.y.z && git push origin vx.y.z` — release.yml builds the
    frontend, the sdist (source-only by design; installing from it serves the
    API plus an honest fallback page), and the wheel (which carries the built
-   canvas), then publishes via trusted publishing.
+   canvas) as two separate explicit-flag invocations — `uv build --sdist`
+   then `uv build --wheel` — then publishes via trusted publishing. If you
+   ever sanity-check the wheel locally, run those two commands, never bare
+   `uv build`: with no flags it builds the wheel *from* the sdist rather
+   than the tree, and since the sdist never carries the gitignored
+   `kumihimo/server/static`, that wheel silently ships without the canvas —
+   no error, just a ~6x smaller wheel (verified K35).
 6. Bump `__init__.py` to the next `.dev0` and commit.

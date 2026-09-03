@@ -353,7 +353,7 @@ bundle numbers in the journal; dark shots in docs/assets wired into at
 least the editor page; editor-smoke CI still green.
 
 ### K35 — v0.2 release prep
-status: todo
+status: done (iteration 36)
 needs: [K31, K32, K33, K34]
 PLAN2 §4 M10 + RELEASING.md. Prepare, never execute: pyproject version →
 0.2.0 proposal (commit only if Thomas says cut), CHANGELOG Unreleased →

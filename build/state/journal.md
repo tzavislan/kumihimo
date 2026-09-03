@@ -1137,3 +1137,32 @@ worktree you'll force-remove) goes to the M10 retro.
 
 **Battery (mine, unpiped):** green end to end (235 tests). Next: K35
 (v0.2 release prep — the last M10 item).
+
+## 2026-09-03 — iteration 36 (K35: v0.2 release prep)
+
+**Built+verified (one Sonnet agent, prep never execute):** the wheel
+carries all seven static files including K34's new lazy chunks (hook
+needed zero changes — exactly what it exists for); the bare `uv build`
+footgun confirmed REAL (default builds wheel FROM the sdist, which has
+no static — 63 files, silent) and now warned against in RELEASING.md;
+release.yml is safe (explicit --sdist/--wheel). Genuine find: locally-
+built sdists were 65% OTHER SESSIONS' WORKTREES — .claude/worktrees/ is
+hidden only by .git/info/exclude, which hatchling's sdist walk doesn't
+consult; fixed with a scoped [tool.hatch.build.targets.sdist] exclude
+(skills stay in), orchestrator-reverified: 243 entries, 0 leaks, 3
+skills. Ten-minute story on a clean clone: ~72 seconds total, every
+README command exact (times in the checklist); the local python-3.10
+Store-stub footgun noted for Thomas, not a doc bug. RELEASING.md got
+two precision fixes (changelog-cut re-opens empty Unreleased; the
+two-explicit-commands wheel step). CHANGELOG deliberately untouched —
+the cut is Thomas's step, scripted byte-safely in the checklist (the
+naive PowerShell replace demonstrably mojibaked em dashes and no-opped
+on LF; the verified Git Bash sed is what ships).
+
+**The deliverable:** build/state/release-v0.2-checklist.md — decision
+point (v0.1.0 first vs straight 0.2.0, tradeoffs stated, the changelog-
+split asymmetry favors straight-to-0.2.0 mechanically; DECISION IS
+THOMAS'S), M10-close precondition, 11 verified steps, the ⚠ Thomas-only
+tag/push/publish steps syntax-checked never executed, and the pending
+one-time PyPI trusted-publisher + gh env setup. M10 items 5/5 — the
+close ritual is next.

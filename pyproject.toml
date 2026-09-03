@@ -59,6 +59,19 @@ path = "kumihimo/__init__.py"
 [tool.hatch.build.targets.wheel]
 packages = ["kumihimo"]
 
+[tool.hatch.build.targets.sdist]
+# Hatchling's default sdist has no allowlist, so it walks the whole project
+# root; it does honor the tracked .gitignore (node_modules/, dist/, the
+# gitignored kumihimo/server/static all come out clean) but NOT machine-local
+# ignore rules like .git/info/exclude. On a dev box using Claude Code's
+# worktree-isolated agents, that leaves .claude/worktrees/ (other sessions'
+# full nested checkouts) invisible to `git status` yet still swept into
+# `uv build --sdist` — found via K35's build verification: an 8+ MB sdist
+# that was 65% one machine's leftover agent worktrees. CI's fresh checkout
+# never has this directory, so it never reached a published release, but the
+# exclude keeps a locally-built sdist honest too.
+exclude = [".claude/worktrees/"]
+
 [tool.hatch.build.targets.wheel.hooks.custom]
 # Ships the gitignored, Vite-built kumihimo/server/static inside the wheel —
 # but only when it exists, so Node stays optional. See hatch_build.py.
