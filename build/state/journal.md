@@ -1100,3 +1100,40 @@ deliberately not regenerated mid-milestone).
 
 **Battery (mine, unpiped):** green end to end. Next: K34 (elk
 lazy-load + both-theme shots).
+
+## 2026-09-03 — iteration 35 (K34: elk lazy-load + both-theme shots)
+
+**Built (Sonnet builder):** the bundle diet. elkjs behind a module-cached
+dynamic import PLUS hasLayoutGaps() — the pre-K34 code called elk
+unconditionally in view mode, so chunk-laziness alone wouldn't have
+satisfied "fetched only when a layout runs"; now a fully-positioned plan
+renders instantly with zero elk bytes. manualChunks: vendor (react+
+react-dom+@xyflow+their real deps) 328.73 kB + app 53.64 kB eager; elk
+1,439.07 kB and marked 44.22 kB lazy. INITIAL JS: 1,837.48 → 382.37 kB
+minified (125.05 gzip) — 79% off the eager path, ~40% under the ~700 kB
+budget. The >500kB warning now fires only for the lazy elk chunk,
+justified in vite.config.ts rather than silenced globally.
+tools/screenshots.py shoots -dark variants of canvas-roadmap/lens-status/
+lens-crew via the real theme toggle; docs pair via #only-light/#only-dark
+(palette CSS verified in the built site), README hero via <picture>. All
+light shots re-shot — retiring K33's owed stale braid-modal.png, which now
+shows the rendered preview.
+
+**Checker+critic: APPROVE.** Baseline independently rebuilt from a clean
+K33 checkout — 1,837.48 kB reproduced exactly; module graph read in the
+minified output (both lazy chunks gated behind real call sites); lazy
+matrix live: positioned plan zero elk, Auto-layout fetches once ever,
+gapped plan fetches on load, marked still modal-gated. The container
+exemption proven coherent: expanded container's box is member-derived
+(no fetch), collapsed chip is a positioned leaf (honest gap). One
+finding, fixed by the checker's authorized write: claude-mcp.md's
+caption still said "the morning v0.1 finished" over the current shot —
+same stale-caption class as M9's README fix. All eight PNGs opened and
+judged presentable. Checker disclosed a self-inflicted worktree mishap:
+git worktree remove --force followed a node_modules JUNCTION into the
+real one and wiped 93 packages — recovered exactly via npm ci, tree
+byte-identical, builds reproduced; the lesson (never junction into a
+worktree you'll force-remove) goes to the M10 retro.
+
+**Battery (mine, unpiped):** green end to end (235 tests). Next: K35
+(v0.2 release prep — the last M10 item).

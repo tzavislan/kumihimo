@@ -188,7 +188,8 @@ means cards never grow into their neighbors as you zoom in.
 
 ## Lenses
 
-![The Status lens: ready frontier glowing, done work dimmed](../assets/lens-status.png)
+![The Status lens: ready frontier glowing, done work dimmed](../assets/lens-status.png#only-light)
+![The Status lens: ready frontier glowing, done work dimmed](../assets/lens-status-dark.png#only-dark)
 
 
 A five-way switch at the top of the sidebar — **Structure** (the default,
@@ -233,7 +234,9 @@ a payload echo untouched.
   receding.
 
 ![The Crew lens on Kumihimo's own roadmap: unassigned work outlined, the
-crew column's trains edges bold](../assets/lens-crew.png)
+crew column's trains edges bold](../assets/lens-crew.png#only-light)
+![The Crew lens on Kumihimo's own roadmap: unassigned work outlined, the
+crew column's trains edges bold](../assets/lens-crew-dark.png#only-dark)
 
 **Precedence**, when more than one visual channel would apply to the same
 node: a finding halo always wins, and for the two lens treatments that dim a

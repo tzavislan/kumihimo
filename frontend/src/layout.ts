@@ -15,13 +15,26 @@
  *              declared once, flat, at the root, referencing real node ids
  *              regardless of which compound they're nested in — elk routes
  *              cross-container edges itself, no lowest-common-ancestor
- *              classification needed on this side.
+ *              classification needed on this side. elkjs itself is a
+ *              dynamic import (K34, getElk below): its bundled entry is
+ *              ~1.4MB minified, so it stays out of the initial bundle and is
+ *              fetched only the first time a layout actually runs — a
+ *              module-level cached promise means every call after the first
+ *              awaits the same settled import rather than re-fetching.
+ *              hasLayoutGaps is the other K34 half: a plain, elk-free walk
+ *              callers use to skip calling into this file at all when
+ *              view.yaml already positions everything, which is what keeps
+ *              a fully-positioned plan's cold load from touching elk (or its
+ *              chunk) in the first place.
  * @layer       frontend
  * @tags        elkjs, layout, layered, containers, collapse, hierarchy,
- *              layout-mode, re-layout, centroid
- * @related     frontend/src/App.tsx (merges these with view.yaml positions;
- *              containerSizes only consulted in pure-auto mode — view.yaml
- *              mode keeps containers.ts's boundingBox derivation instead),
+ *              layout-mode, re-layout, centroid, lazy-load, dynamic-import
+ * @related     frontend/src/App.tsx (merges these with view.yaml positions,
+ *              calling hasLayoutGaps below FIRST so a fully-positioned
+ *              plan's cold load skips this file's elk call — and its
+ *              dynamic import — entirely; containerSizes only consulted in
+ *              pure-auto mode — view.yaml mode keeps containers.ts's
+ *              boundingBox derivation instead),
  *              frontend/src/containers.ts (Grouping — the same containers/
  *              assignments/collapsed shapes this mirrors for the hierarchy;
  *              also relayoutScope, which resolves the scope
@@ -30,10 +43,9 @@
  *              elkPositions — reuses NODE_WIDTH/NODE_HEIGHT and
  *              LayoutContext from here rather than redeclaring them)
  * @design      PLAN.md §5.1, PLAN2.md §2.3 lens 1, §2.3-2.5 (layoutMode,
- *              Re-layout branch, K27)
+ *              Re-layout branch, K27), queue item K34 (elk lazy-load)
  */
-import ELK from "elkjs/lib/elk.bundled.js";
-import type { ElkExtendedEdge, ElkNode } from "elkjs";
+import type { ELK, ElkExtendedEdge, ElkNode } from "elkjs";
 import type { PlanNode, Position } from "./types";
 
 export const NODE_WIDTH = 210;
@@ -51,7 +63,18 @@ export type LayoutMode = "view" | "auto" | "lanes";
 // right just enough that a member card's shadow doesn't touch the frame.
 const CONTAINER_PADDING = "[top=44,left=16,bottom=16,right=16]";
 
-const elk = new ELK();
+// K34: the promise itself is the cache — every call after the first awaits
+// this same settled promise instead of re-importing or re-constructing.
+// Only elkPositions/elkBranchPositions below ever call this, and only when
+// they actually run, so a caller that skips them via hasLayoutGaps never
+// pulls elkjs's chunk over the network at all.
+let elkPromise: Promise<ELK> | null = null;
+function getElk(): Promise<ELK> {
+  if (!elkPromise) {
+    elkPromise = import("elkjs/lib/elk.bundled.js").then((mod) => new mod.default());
+  }
+  return elkPromise;
+}
 
 export interface LayoutContext {
   collapsed: Set<string>;
@@ -157,6 +180,7 @@ export async function elkPositions(nodes: PlanNode[], context?: LayoutContext): 
     edges,
   };
 
+  const elk = await getElk();
   const laid = await elk.layout(graph);
   const positions: Record<string, Position> = {};
   const containerSizes: Record<string, ContainerSize> = {};
@@ -177,6 +201,47 @@ export async function elkPositions(nodes: PlanNode[], context?: LayoutContext): 
     }
   }
   return { positions, containerSizes };
+}
+
+/**
+ * True when SOME node view.yaml mode would actually render has no known
+ * position yet in `layout` — a freshly added node, or a plan with no
+ * view.yaml at all. False means view.yaml already positions everything
+ * elkPositions above would otherwise be asked to fill in, so App.tsx skips
+ * calling it (and therefore skips getElk's dynamic import) entirely on a
+ * cold load: the whole point of K34's lazy-load is defeated if "fill gaps"
+ * still runs elk unconditionally on every load just to be overridden by
+ * view.yaml afterward, so this walks the SAME node set elkPositions's own
+ * rootChildren loop does, but synchronously and elk-free, purely to answer
+ * "is there actually a gap."
+ *
+ * A hidden member of a collapsed container needs no position (excluded from
+ * rendering entirely, same as elkPositions treats it) and neither does an
+ * EXPANDED container's own id — containers.ts's boundingBox derives its box
+ * from its members' positions in view.yaml mode, never consulting the
+ * container's own entry unless no member has landed yet, which can't happen
+ * once every member itself passes this same check. Every other visible id
+ * — loose nodes, collapsed containers as themselves, and an expanded
+ * container's own members — needs its own entry.
+ */
+export function hasLayoutGaps(
+  nodes: PlanNode[],
+  layout: Record<string, Position>,
+  context?: LayoutContext,
+): boolean {
+  const containers = context?.containers ?? new Set<string>();
+  const assignments = context?.assignments ?? new Map<string, string>();
+  const collapsed = context?.collapsed ?? new Set<string>();
+  for (const node of nodes) {
+    const parent = assignments.get(node.id);
+    if (parent) {
+      if (!collapsed.has(parent) && !(node.id in layout)) return true;
+      continue;
+    }
+    if (containers.has(node.id) && !collapsed.has(node.id)) continue;
+    if (!(node.id in layout)) return true;
+  }
+  return false;
 }
 
 /**
@@ -222,6 +287,7 @@ export async function elkBranchPositions(
     children: scoped.map((node) => ({ id: node.id, width: NODE_WIDTH, height: NODE_HEIGHT })),
     edges,
   };
+  const elk = await getElk();
   const laid = await elk.layout(graph);
   const raw: Record<string, Position> = {};
   for (const child of laid.children ?? []) {

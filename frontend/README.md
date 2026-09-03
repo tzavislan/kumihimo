@@ -3,7 +3,7 @@
 <!-- BEGIN GENERATED INDEX -- do not edit by hand -->
 | file | purpose |
 |---|---|
-| `vite.config.ts` | Build config: bundle into kumihimo/server/static with relative asset paths so the wheel-served page works from any mount, and proxy /api (including the WebSock… |
+| `vite.config.ts` | Build config: bundle into kumihimo/server/static with relative asset paths so the wheel-served page works from any mount, proxy /api (including the WebSocket) … |
 <!-- END GENERATED INDEX -->
 
 ## What this is

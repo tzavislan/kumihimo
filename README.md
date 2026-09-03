@@ -25,7 +25,11 @@ well-ordered **prompt** an LLM or coding agent can act on.
   skills, the training log) on the canvas, the release node still blocked
   on a human with a tag:
 
-  <img src="docs/assets/canvas-roadmap.png" alt="Kumihimo's own roadmap on the canvas: v0.1 and v0.2 milestones, crew nodes, and the blocked release node" width="100%">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/canvas-roadmap-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/canvas-roadmap.png">
+    <img src="docs/assets/canvas-roadmap.png" alt="Kumihimo's own roadmap on the canvas: v0.1 and v0.2 milestones, crew nodes, and the blocked release node" width="100%">
+  </picture>
 
 The files are the only source of truth — Markdown with YAML frontmatter, in
 git, diffing cleanly. The editor, CLI, and MCP server are thin clients over

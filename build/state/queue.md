@@ -337,7 +337,7 @@ Accept: preview of plans/roadmap reads as a document in light and dark
 modal open, proven in the network log).
 
 ### K34 — Elk lazy-load + both-theme screenshots
-status: todo
+status: done (iteration 35)
 needs: —
 PLAN2 §4 M10. elkjs moves to dynamic import (layout awaits it on first
 use; a loading state if perceptible); vite manualChunks splits vendor

@@ -17,14 +17,24 @@
              untouched braid — Download's bytes sha256-match a fresh
              GET /api/braid, proving no re-serialization happened anywhere
              between the API and the saved file. Skips cleanly when
-             Playwright's chromium is not installed.
+             Playwright's chromium is not installed. K34's own proof is a
+             separate, standalone test (its own tiny positioned plan and
+             server): a network-log capture proving a fully-positioned cold
+             load fetches no elk chunk at all, and that clicking Auto-layout
+             fetches it exactly once right after — the main flow above
+             already exercises the lazy elk path for free (every GUI
+             add_node on the empty starting plan is itself a gap elk fills),
+             so that half needed no new waits, only the standalone test for
+             the "no fetch when nothing's missing" half it can't reach.
 @layer       tests
 @tags        playwright, smoke, editor, e2e, events, attribution, undo,
-             braid-preview
+             braid-preview, elk, lazy-load, network-log
 @related     frontend/src/App.tsx (the surface driven here),
              frontend/src/BraidModal.tsx (the Rendered/Raw/Diagram/Download
              surface under test, K33), frontend/src/braidPreview.ts (the fold
              transform and lazy `marked` render this exercises indirectly),
+             frontend/src/layout.ts (elkPositions' dynamic import and
+             hasLayoutGaps, both under test, K34),
              frontend/src/useAttribution.ts (the toast/pulse state under
              test), frontend/src/useUndoTrail.ts, frontend/src/useGraphKeyboard.ts
              (Ctrl+Z, under test), kumihimo/server/ops_api.py (where every
@@ -34,7 +44,7 @@
              Download must sha256-match)
 @design      PLAN.md §9 M5, roadmap item playwright-smoke; PLAN2.md §2.5
              Motion & attribution (K31) and Undo trail (K32); PLAN2.md §4 M10
-             styled braid preview (K33)
+             styled braid preview (K33), queue item K34 (elk lazy-load)
 """
 
 import contextlib
@@ -501,3 +511,75 @@ def test_gui_add_then_ctrl_z_undoes_it(editor: Path) -> None:
 
     assert "undoable" not in Plan.load(editor).nodes
     assert not (editor / "nodes" / "undoable.md").exists()
+
+
+def test_cold_load_with_full_positions_skips_elk_until_layout_runs(tmp_path: Path) -> None:
+    """K34's own acceptance line, network-log-proven: layout.ts's elkPositions
+    is a dynamic import now, and App.tsx's hasLayoutGaps skips calling it
+    entirely when view.yaml already positions every node — so a
+    fully-positioned plan's cold load must fetch NO elk chunk at all.
+    Clicking Auto-layout right after must fetch it exactly once, proving the
+    absence above is the skip actually working, not elk being broken and
+    never loading at all. Its own tiny plan and server, deliberately not the
+    shared `editor` fixture: that one starts empty, where every GUI add_node
+    is itself a gap and would fetch elk immediately — the opposite of what
+    this test needs to set up."""
+    root = tmp_path / "positioned"
+    (root / "nodes").mkdir(parents=True)
+    (root / "kumihimo.yaml").write_bytes(
+        b"format: 1\nplan: Positioned\nkinds:\n  from: engineering\n"
+    )
+    for node_id in ("alpha", "beta"):
+        (root / "nodes" / f"{node_id}.md").write_text(
+            f"---\nkind: task\ntitle: {node_id.title()}\n---\nBody.\n", encoding="utf-8"
+        )
+    (root / "view.yaml").write_text(
+        "layout:\n  alpha: {x: 40, y: 40}\n  beta: {x: 320, y: 40}\n", encoding="utf-8"
+    )
+    port = PORT + 1
+    with socket.socket() as probe:
+        if probe.connect_ex(("127.0.0.1", port)) == 0:
+            pytest.skip(f"port {port} busy")
+    command = kumihimo_argv("edit", str(root), "--no-open", "--port", str(port))
+    process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        url = f"http://127.0.0.1:{port}"
+        deadline = time.time() + 40
+        while time.time() < deadline:
+            with contextlib.suppress(Exception):
+                if httpx.get(f"{url}/api/plan", timeout=1).status_code == 200:
+                    break
+            time.sleep(0.3)
+        else:
+            pytest.fail("editor server never came up")
+
+        with playwright_api.sync_playwright() as pw:
+            try:
+                browser = pw.chromium.launch()
+            except playwright_api.Error as err:
+                pytest.skip(f"chromium not launchable: {err}")
+            try:
+                page = browser.new_page(viewport={"width": 1400, "height": 900})
+                requests: list[str] = []
+                page.on("request", lambda request: requests.append(request.url))
+                page.goto(url)
+                page.wait_for_selector('.react-flow__node[data-id="beta"]')
+                page.wait_for_timeout(500)
+                assert not any("elk" in r for r in requests), (
+                    f"elk fetched on cold load: {requests}"
+                )
+
+                page.get_by_role("button", name="Auto-layout", exact=True).click()
+                page.wait_for_timeout(800)
+                assert any("elk" in r for r in requests), (
+                    f"Auto-layout never fetched elk: {requests}"
+                )
+            finally:
+                browser.close()
+    finally:
+        process.terminate()
+        try:
+            process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=10)

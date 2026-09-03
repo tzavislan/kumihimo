@@ -4,11 +4,20 @@
              example plans with the real editor, drives headless chromium, and
              writes retina PNGs into docs/assets — so every UI change can
              re-shoot the docs in one command instead of leaving stale images.
+             K34 adds dark-theme siblings (canvas-roadmap-dark.png,
+             lens-status-dark.png, lens-crew-dark.png) of the roadmap block's
+             three shots, same framing, produced by clicking the editor's own
+             theme toggle — never a prefers-color-scheme emulation, which
+             would bypass theme.ts's toggle/localStorage code path entirely.
 @layer       tools
-@tags        screenshots, docs-assets, playwright
-@related     docs/index.md and README.md (where the images land),
+@tags        screenshots, docs-assets, playwright, dark-theme
+@related     docs/index.md, docs/howto/editor.md, docs/howto/claude-mcp.md,
+             and README.md (where the images land — editor.md and
+             claude-mcp.md pair the K34 dark shots via mkdocs-material's
+             #only-light/#only-dark; README pairs canvas-roadmap via a plain
+             <picture prefers-color-scheme>, GitHub's own equivalent),
              tests/test_editor_smoke.py (same server-spawning approach)
-@design      PLAN.md §9 M6, PLAN2.md §6
+@design      PLAN.md §9 M6, PLAN2.md §6, queue item K34
 """
 
 from __future__ import annotations
@@ -74,7 +83,8 @@ def main() -> int:
     """Shoot every documented view and write the PNGs.
 
     @purpose  One command, current pixels: the editor with a node selected, the
-              braid modal, and the dogfood roadmap canvas.
+              braid modal, and the dogfood roadmap canvas — light and, for the
+              roadmap's three, dark (K34).
     """
     from playwright.sync_api import sync_playwright
 
@@ -122,6 +132,27 @@ def main() -> int:
             page.keyboard.press("5")
             page.wait_for_timeout(500)
             page.screenshot(path=str(ASSETS / "lens-crew.png"))
+            page.keyboard.press("1")
+
+            # Dark-theme variants (K34), same three framings: the editor's
+            # own theme toggle button — the actual gesture a user makes,
+            # which is also what theme.ts persists to localStorage and
+            # flips data-theme on <html> — rather than emulating
+            # prefers-color-scheme, which would skip that code path (and a
+            # user who set the toggle would still see light on an OS set to
+            # dark). Theme colors are a plain [data-theme] custom-property
+            # swap with no CSS transition to wait out (styles.css's only
+            # transition is node-position glide, unrelated), so the same
+            # short settle used for a lens switch is enough.
+            page.locator(".kumi-theme-toggle").click()
+            page.wait_for_timeout(400)
+            page.screenshot(path=str(ASSETS / "canvas-roadmap-dark.png"))
+            page.keyboard.press("2")
+            page.wait_for_timeout(500)
+            page.screenshot(path=str(ASSETS / "lens-status-dark.png"))
+            page.keyboard.press("5")
+            page.wait_for_timeout(500)
+            page.screenshot(path=str(ASSETS / "lens-crew-dark.png"))
             page.keyboard.press("1")
 
         browser.close()

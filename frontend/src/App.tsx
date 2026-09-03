@@ -158,7 +158,7 @@ import { edgeSentence, parseEdge, type EdgeMode } from "./edges";
 import { KumiGroupNode } from "./KumiGroupNode";
 import { KumiNode, zoomTier, type ZoomTier } from "./KumiNode";
 import { lanesPositions } from "./lanes";
-import { elkPositions, NODE_HEIGHT, NODE_WIDTH, type ContainerSize, type LayoutMode } from "./layout";
+import { elkPositions, hasLayoutGaps, NODE_HEIGHT, NODE_WIDTH, type ContainerSize, type LayoutMode } from "./layout";
 import { computeLensContext, type Lens } from "./lenses";
 import { LensBar } from "./LensBar";
 import { LayoutControls } from "./LayoutControls";
@@ -320,6 +320,20 @@ export default function App() {
     if (layoutMode === "lanes") {
       const lanes = lanesPositions(payload.nodes, context);
       setPositions((previous) => ({ ...previous, ...lanes.positions }));
+      setContainerAutoSizes({});
+      return;
+    }
+    // K34: view.yaml already positions every node this payload would render
+    // — nothing for elk to fill, so skip layout.ts's elk call (and its
+    // dynamic import) entirely rather than run it just to have view.yaml
+    // override every result a line below. A plan WITH gaps (a freshly added
+    // node, or no view.yaml at all) still falls through to elkPositions,
+    // same as before K34 — elk fetching on that cold load is correct, not a
+    // regression, and the existing "loading plan…" screen below
+    // (positionsReady gates on it) is already the loading affordance for
+    // that case, so K34 adds no separate spinner for it.
+    if (layoutMode === "view" && !hasLayoutGaps(payload.nodes, payload.layout, context)) {
+      setPositions((previous) => ({ ...previous, ...payload.layout }));
       setContainerAutoSizes({});
       return;
     }
