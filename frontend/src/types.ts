@@ -55,6 +55,14 @@ export interface Position {
   y: number;
 }
 
+// K31: one .kumihimo/events.jsonl line — kumihimo/core/ops.py's _log_event
+// writes these, actor one of "cli"/"mcp"/"editor"/"api".
+export interface EventLogEntry {
+  actor: string;
+  op: string;
+  targets: string[];
+}
+
 export interface Payload {
   plan: string;
   description: string;
@@ -67,4 +75,10 @@ export interface Payload {
   // state from view.yaml's `collapsed` key, sorted, same sidecar rule as
   // `layout`.
   collapsed: string[];
+  // K31: events.jsonl lines new since this server's last rebuild — present
+  // (possibly empty) only on a live-socket push (kumihimo/server/watch.py);
+  // absent from GET /api/plan and from an op's own POST /api/ops response,
+  // since only the watcher path tails the log. attributionDiff.ts is the
+  // only reader.
+  events?: EventLogEntry[];
 }

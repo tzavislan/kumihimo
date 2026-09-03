@@ -989,3 +989,40 @@ running since before K28 — restart it to get the crew tool, braid
 --for/for_agent, and mention-aware link/unlink. M9 complete 3/3; M10
 "Feel" (feel-work) is the last v0.2 milestone. Pushing at close per
 standing say-so.
+
+## 2026-09-03 — iteration 32 (K31: attribution toasts + change pulses)
+
+**Built (Sonnet builder):** the money demo finally shows itself. Every
+mutating op appends {actor, op, targets} — no timestamp, the library
+stays absolutely clock-free — to a gitignored plan-local
+.kumihimo/events.jsonl (write failures swallowed: the log is advisory,
+an op never fails because of it). CLI tags "cli", MCP "mcp", the
+editor's ops API "editor", raw library "api". The server tails the log
+by offset and ships new events with each watcher push; the frontend
+diffs node digests, matches events to changed ids, and raises ONE toast
+("via CLI: <title> updated"; no event = "outside edit") plus a ~1s
+pulse ring on the changed nodes — self-ops (actor editor) raise
+neither. Toast stack top-right, max 4, tokens both themes; reduced
+motion keeps the information and drops the animation. App.tsx +4 lines
+(597/600) — the whole feature lives in three new files. The real-browser
+proof went INTO the smoke test: a kumihimo add subprocess against the
+live editor produces exactly one attributed toast and pulse; a GUI
+self-op produces zero.
+
+**Checker+critic (one pass, all live):** FIX-NEEDED, five findings.
+(1) HIGH: five ops passed the raw uncoerced root to the log helper — a
+str root (documented library surface) threw AFTER the mutation landed;
+fixed to plan.root with a six-op str regression test. (2) MEDIUM: past
+the 200-cap every append rewrote the file; shorter-than-evicted lines
+shrank it below the tailer's offset EVERY write — 40/40 measured full
+replays with a misattribution window; fixed by hysteresis (grow to 400,
+cut to newest 200) plus a shipped-lines memory in EventTail — 1200
+appends across 3 truncation cycles now replay nothing. (3) rename
+toasts named the same title twice (dedupe before the 3-name slice);
+(4) pulse ids leaked forever under reduced motion (skip adding them);
+(5) docs example contradicted MAX_NAMES. Shots reviewed light+dark+
+reduced-motion; byte-identity of check/braid with and without the log
+hash-proven; zero datetime imports package-wide confirmed.
+
+**Battery (mine, unpiped):** ruff, mypy, pytest -q (218), lint, mkdocs
+strict, frontend typecheck+build — green. Next: K32 (undo trail).

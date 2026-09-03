@@ -91,6 +91,7 @@ def add(
             fields=fields,
             needs=split_needs,
             in_=split_in,
+            actor="cli",
         )
     except KumihimoError as err:
         die(str(err))

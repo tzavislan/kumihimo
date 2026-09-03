@@ -6,6 +6,9 @@ A plan is a directory whose root holds `kumihimo.yaml`. Format version `1`.
 myplan/
   kumihimo.yaml        # manifest: meta, kinds, compile defaults
   view.yaml            # layout sidecar (canvas-maintained, optional)
+  .gitignore           # ignores .kumihimo/ (scaffold writes this)
+  .kumihimo/
+    events.jsonl        # advisory mutation log (canvas-maintained, optional)
   nodes/
     api-endpoints.md
     auth/login-flow.md # subfolders namespace ids: "auth/login-flow"
@@ -246,6 +249,41 @@ node named in another node's `in`) are currently folded to a chip on the
 canvas; sorted, flow-style, and the key is dropped entirely rather than
 persisted empty. Semantics never live here; deleting the file costs you an
 arrangement and which containers were folded, nothing more.
+
+## `.kumihimo/events.jsonl`
+
+An advisory log of recent mutations, one JSON object per line, created on
+demand by the first op that runs against the plan:
+
+```json
+{"actor": "cli", "op": "add_node", "targets": ["b"]}
+{"actor": "mcp", "op": "update_node", "targets": ["rate-limit-core"]}
+```
+
+`actor` is set by the thin client that ran the op — `"cli"`, `"mcp"`, or
+`"editor"` (the running canvas's own HTTP ops API) — and defaults to `"api"`
+for a raw library call with none of those in front of it. `op` is the
+mutation's name (`add_node`, `update_node`, `link`, `unlink`, `rename_node`,
+`remove_node`); `targets` is every node id a fresh payload digest diff would
+see change — for `rename_node`, the old id, the new id, and every referrer
+whose file got rewritten; for `remove_node` with `force`, the removed id plus
+every referrer stripped. **No timestamp, ever** — this library has no clock
+(PLAN2 §3.6, the same guarantee `crew`'s `trained` dates rely on); the
+running editor correlates purely by tailing the file from its own last-seen
+byte offset, which is all its attribution toasts need. The log grows to 400
+lines before it's truncated back down to the newest 200 (oldest dropped
+first) — hysteresis, not a tight cap at 200: truncating on every single
+append once past a tight cap forced the editor's tailer to replay the whole
+log far more often than truncation itself actually needed to run. Best-
+effort throughout: a write that fails (a read-only mount, a locked file) is
+silently skipped rather than failing the op it's attached to, and two
+writers appending at nearly the same moment can race, with one's line lost
+to the other's — acceptable for an advisory log, unlike a node file.
+`.kumihimo/`'s mere presence, with any
+content, never changes what `check` or `braid` compute — the store's load
+path only ever reads `nodes/**/*.md`. Gitignored by `kumihimo new`'s own
+`.gitignore`; see [the editor guide](../howto/editor.md#motion-and-attribution)
+for how this log becomes attributed toasts and pulses on the canvas.
 
 ## Fidelity guarantees
 

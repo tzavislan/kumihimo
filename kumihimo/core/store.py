@@ -41,6 +41,26 @@ MANIFEST_NAME = "kumihimo.yaml"
 NODES_DIR = "nodes"
 VIEW_NAME = "view.yaml"
 BOM = "\ufeff"
+# K31: the editor's advisory mutation log \u2014 see kumihimo/core/ops.py's
+# _log_event for the writer and kumihimo/server/events.py for the tailer.
+# Named here, not there, because scaffold() (below) also needs it to write
+# the plan-local .gitignore entry.
+EVENTS_DIR = ".kumihimo"
+EVENTS_FILE = "events.jsonl"
+# K31 fix round: hysteresis, not a hard cap at EVENTS_KEEP — ops.py's
+# _log_event only truncates once the log exceeds EVENTS_TRUNCATE_AT, back
+# down to the newest EVENTS_KEEP. Truncating on every single append (the
+# original design) rewrote the file every write regardless, but AT a tight
+# 200-line cap a shorter new line evicting a longer old one shrinks the
+# file below EventTail's remembered offset (kumihimo/server/events.py) on
+# nearly every write once steady-state — forcing a full-log replay far more
+# often than truncation itself actually needs to run. Growing between the
+# two thresholds is strictly additive (the file can only grow in that
+# window), so EventTail's own shrink-detection now fires rarely instead of
+# on nearly every write; EventTail's shipped-lines memory (maxlen
+# EVENTS_TRUNCATE_AT) covers the rest.
+EVENTS_KEEP = 200
+EVENTS_TRUNCATE_AT = 400
 
 
 def _yaml() -> YAML:
@@ -499,6 +519,13 @@ def scaffold(dest: Path, name: str | None = None) -> Path:
         "compile:\n  strategy: grouped\n"
     )
     _atomic_write(root / MANIFEST_NAME, manifest_text.encode("utf-8"))
+    # K31: the advisory event log lives under here, never git's business — a
+    # plan-local .gitignore so this holds even when the plan is its own repo
+    # (never touched again once it exists: a plan that already has its own
+    # .gitignore, hand-authored or from an older kumihimo, keeps it as-is).
+    gitignore = root / ".gitignore"
+    if not gitignore.exists():
+        _atomic_write(gitignore, f"{EVENTS_DIR}/\n".encode())
     (root / NODES_DIR).mkdir(exist_ok=True)
     starter = Node(id="first-thread", kind="task", title="First thread", body=_STARTER_BODY)
     save_record(new_record(root, starter))

@@ -51,6 +51,7 @@ def set_cmd(
             priority=priority,
             set_fields=fields or None,
             unset_fields=tuple(unset),
+            actor="cli",
         )
     except KumihimoError as err:
         die(str(err))

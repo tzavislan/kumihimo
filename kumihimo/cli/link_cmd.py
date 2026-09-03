@@ -34,7 +34,7 @@ def link(
               exactly one per call, refused with the path if it would cycle.
     """
     try:
-        node = ops.link(plan_path, src, needs=needs, in_=in_, to=to, rel=rel)
+        node = ops.link(plan_path, src, needs=needs, in_=in_, to=to, rel=rel, actor="cli")
     except KumihimoError as err:
         die(str(err))
     if needs is not None:

@@ -45,12 +45,16 @@ export interface KumiGroupNodeData extends Record<string, unknown> {
   // Fired by the ▸/▾ button only — double-click still means focus, same as
   // any other node, so the toggle stops its own click from also selecting.
   onToggle: () => void;
+  // Attribution pulse (PLAN2.md §2.5, K31) — see KumiNodeData's own note;
+  // same per-node closure, bound in canvasBuild.ts either way.
+  onPulseEnd: () => void;
 }
 
 /** Render one container, expanded (a frame around its members) or collapsed
  * (a chip standing in for all of them). */
 export function KumiGroupNode(props: NodeProps) {
-  const { node, color, pillText, collapsed, done, total, onToggle } = props.data as KumiGroupNodeData;
+  const { node, color, pillText, collapsed, done, total, onToggle, onPulseEnd } =
+    props.data as KumiGroupNodeData;
   const kind = node.kind || "?";
   const progress = `${done}/${total} done`;
 
@@ -83,7 +87,11 @@ export function KumiGroupNode(props: NodeProps) {
 
   if (collapsed) {
     return (
-      <div className="kumi-node kumi-group kumi-group-collapsed" style={{ borderLeftColor: color }}>
+      <div
+        className="kumi-node kumi-group kumi-group-collapsed"
+        style={{ borderLeftColor: color }}
+        onAnimationEnd={onPulseEnd}
+      >
         <EdgeHandles />
         {header}
         <div className="kumi-meta">
@@ -106,6 +114,7 @@ export function KumiGroupNode(props: NodeProps) {
       // far-tier chip already carves out of the tokens-only rule — there's
       // no --kumi-* var for a color that only exists at runtime.
       style={{ background: `${color}14`, borderColor: color }}
+      onAnimationEnd={onPulseEnd}
     >
       <EdgeHandles />
       {header}

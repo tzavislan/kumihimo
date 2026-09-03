@@ -48,10 +48,18 @@
  *              glide by the same flag; only a live drag's own continuous
  *              position updates are excluded, by suppressing the class
  *              rather than by tracking "was this an echo" anywhere.
+ *              Attribution (K31): useAttribution.ts now owns the payload
+ *              subscription itself (this file only calls the one hook and
+ *              hands it setPayload) — it diffs each live push, turns an
+ *              externally-caused change into a toast (Toasts.tsx, top-right
+ *              stack) and a pulsingIds set threaded into buildCanvasNodes
+ *              alongside onPulseEnd, so K27's glide and K31's pulse ride the
+ *              same nodes-rebuild effect without fighting over it.
  * @layer       frontend
  * @tags        react-flow, editor, ops, live, elk, sidebar, theme, focus,
  *              trace, semantic-zoom, findings, palette, keyboard, containers,
- *              lenses, lanes, layout-mode, re-layout, motion, glide
+ *              lenses, lanes, layout-mode, re-layout, motion, glide,
+ *              attribution, toasts, pulse
  * @related     frontend/src/canvasBuild.ts (buildCanvasNodes/buildCanvasEdges
  *              — the nodes-rebuild effect's and edges memo's own bodies,
  *              moved out to stay under the line cap),
@@ -86,6 +94,10 @@
  *              chip editors post link/unlink for needs/agents/skills, K30),
  *              frontend/src/Palette.tsx (the Ctrl+K overlay this mounts),
  *              frontend/src/styles.css (the tokens data-theme switches),
+ *              frontend/src/useAttribution.ts (K31: owns the plan
+ *              subscription plus toast/pulse state, the one hook call this
+ *              file makes for all of it),
+ *              frontend/src/Toasts.tsx (the toast stack this mounts),
  *              kumihimo/server/ops_api.py (where every gesture lands)
  * @design      PLAN.md §5.1-5.3, PLAN2.md §2.1-2.5, §3
  */
@@ -104,7 +116,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fetchBraid, fetchDirty, fetchPlan, openLive, postOp } from "./api";
+import { fetchBraid, fetchDirty, postOp } from "./api";
 import { buildCanvasEdges, buildCanvasNodes } from "./canvasBuild";
 import { ancestorsOf, containerCones, descendantsOf, pathsBetween } from "./cones";
 import { groupNodes, jumpTarget, membersByContainer, relayoutBranchPositions, relayoutScope } from "./containers";
@@ -119,8 +131,10 @@ import { LensBar } from "./LensBar";
 import { LayoutControls } from "./LayoutControls";
 import { NodeForm } from "./NodeForm";
 import { Palette, type PaletteCommand } from "./Palette";
+import { Toasts } from "./Toasts";
 import { useTheme } from "./theme";
 import type { Payload, Position } from "./types";
+import { useAttribution } from "./useAttribution";
 import { useGraphKeyboard } from "./useGraphKeyboard";
 
 const NODE_TYPES = { kumi: KumiNode, kumiGroup: KumiGroupNode };
@@ -128,6 +142,10 @@ const NODE_TYPES = { kumi: KumiNode, kumiGroup: KumiGroupNode };
 /** The whole application. */
 export default function App() {
   const [payload, setPayload] = useState<Payload | null>(null);
+  // K31: the plan subscription itself (initial fetch + live socket) now
+  // lives inside this hook, alongside the attribution toast/pulse state it
+  // derives from every live push — see useAttribution.ts's own header.
+  const { toasts, dismissToast, pulsingIds, onPulseEnd } = useAttribution(setPayload);
   const [positions, setPositions] = useState<Record<string, Position>>({});
   // Elk's own computed size for each EXPANDED container, pure-auto mode only
   // (containers.ts's buildContainerNode falls back to boundingBox whenever
@@ -214,11 +232,6 @@ export default function App() {
     () => computeLensContext(payload?.nodes ?? [], lens, !focus && !trace, grouping.assignments, collapsedSet),
     [payload, lens, focus, trace, grouping, collapsedSet],
   );
-
-  useEffect(() => {
-    fetchPlan().then(setPayload).catch(console.error);
-    return openLive(setPayload);
-  }, []);
 
   // Esc exits either lens; a plain window listener since focus/trace apply
   // even when no form input has focus. Cleaned up on unmount like any other
@@ -373,6 +386,8 @@ export default function App() {
         lensCtx,
         previous,
         onToggleCollapse: toggleCollapse,
+        pulsingIds,
+        onPulseEnd,
       }),
     );
   }, [
@@ -390,6 +405,8 @@ export default function App() {
     containerAutoSizes,
     selectedId,
     lensCtx,
+    pulsingIds,
+    onPulseEnd,
   ]);
 
   // Focus/trace dim edges; the Flow lens bolds/faints them instead, only
@@ -889,6 +906,7 @@ export default function App() {
         onClose={() => setPaletteOpen(false)}
         onSelectNode={jumpTo}
       />
+      <Toasts toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }

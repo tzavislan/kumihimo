@@ -18,6 +18,8 @@
 
 from __future__ import annotations
 
+import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -148,6 +150,44 @@ def _save_and_reload(root: Path, *records: NodeRecord) -> Plan:
     return Plan.load(root)
 
 
+def _log_event(root: Path, actor: str, op: str, targets: list[str]) -> None:
+    """Append one `{actor, op, targets}` line to `.kumihimo/events.jsonl`.
+
+    @purpose  The editor's attribution UI (PLAN2.md §2.5, K31) tails this file
+              to say who changed what — advisory only, never load-bearing.
+              Carries no timestamp, pid, or host, ever: invariant 5 keeps this
+              library clock-free, and the editor correlates purely by tailing
+              from its own last-seen file offset, which is all attribution
+              needs. Every exception here is swallowed: a write failure (a
+              read-only mount, a locked file, no permission on the dir) must
+              never fail the op it's attached to. Concurrency is best-effort
+              and undocumented-lock-free by design — this does a read-modify-
+              write, same atomic-rename style store.py's own writes use, but
+              two processes appending at once can still race and one's line
+              can lose to the other's; acceptable for an advisory log, unlike
+              a node file. Truncation is hysteresis (store.EVENTS_KEEP/
+              EVENTS_TRUNCATE_AT — see that module's own comment for why),
+              not a tight cap: the log grows between rare truncations rather
+              than rewriting to the same size on nearly every call.
+    @tags     ops, events, attribution, advisory, clock-free
+    """
+    try:
+        events_dir = root / store.EVENTS_DIR
+        events_dir.mkdir(parents=True, exist_ok=True)
+        path = events_dir / store.EVENTS_FILE
+        line = json.dumps({"actor": actor, "op": op, "targets": targets}, sort_keys=True)
+        existing = path.read_text(encoding="utf-8") if path.is_file() else ""
+        lines = [entry for entry in existing.splitlines() if entry.strip()]
+        lines.append(line)
+        if len(lines) > store.EVENTS_TRUNCATE_AT:
+            lines = lines[-store.EVENTS_KEEP :]
+        tmp = path.with_suffix(path.suffix + ".tmp")
+        tmp.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        os.replace(tmp, path)
+    except OSError:
+        pass
+
+
 def add_node(
     root: Path,
     node_id: str,
@@ -158,11 +198,15 @@ def add_node(
     fields: dict[str, Any] | None = None,
     needs: tuple[str, ...] = (),
     in_: tuple[str, ...] = (),
+    actor: str = "api",
 ) -> Node:
     """Create a node file with canonical frontmatter and return it.
 
     @purpose  The only way tools bring a node into existence; every edge target
-              must already exist and the id must be free.
+              must already exist and the id must be free. `actor` (K31) names
+              who's asking — "cli"/"mcp"/"editor" from the thin clients, else
+              the default "api" for a raw library caller — logged to the
+              advisory events file, never persisted on the node itself.
     @tags     ops, add
     """
     plan = Plan.load(root)
@@ -186,7 +230,9 @@ def add_node(
     )
     record = store.new_record(plan.root, node)
     store.save_record(record)
-    return Plan.load(root).node(node_id)
+    result = Plan.load(root).node(node_id)
+    _log_event(plan.root, actor, "add_node", [node_id])
+    return result
 
 
 def update_node(
@@ -199,12 +245,13 @@ def update_node(
     priority: int | None = None,
     set_fields: dict[str, Any] | None = None,
     unset_fields: tuple[str, ...] = (),
+    actor: str = "api",
 ) -> Node:
     """Change a node's kind, title, body, priority, or kind-defined fields.
 
     @purpose  Field *values* stay permissive (check reports schema breaches);
               structure stays strict (reserved keys are not fields, kinds must
-              exist).
+              exist). `actor` (K31) — see add_node's own note.
     @tags     ops, update
     """
     plan = Plan.load(root)
@@ -232,7 +279,9 @@ def update_node(
         del record.fm[name]
     if body is not None:
         record.body = body
-    return _save_and_reload(root, record).node(node_id)
+    result = _save_and_reload(root, record).node(node_id)
+    _log_event(plan.root, actor, "update_node", [node_id])
+    return result
 
 
 def link(
@@ -246,6 +295,7 @@ def link(
     agents: str | None = None,
     skills: str | None = None,
     trains: str | None = None,
+    actor: str = "api",
 ) -> Node:
     """Draw one edge from src: a dependency, a membership, an annotation, or a
     mention (agents=/skills=/trains=).
@@ -253,7 +303,8 @@ def link(
     @purpose  Exactly one edge per call; needs-edges are refused (with the
               path) when they would close a cycle, so no tool can write one.
               Mentions carry no ordering — no cycle guard applies to them —
-              but are refused when the target is the wrong kind.
+              but are refused when the target is the wrong kind. `actor`
+              (K31) — see add_node's own note.
     @tags     ops, link, cycle-guard, mentions
     """
     chosen = [value for value in (needs, in_, to, agents, skills, trains) if value is not None]
@@ -293,7 +344,9 @@ def link(
         if target in getattr(record.node, key):
             raise KumihimoError(f"'{src}' already has '{target}' under {key}")
         _list_add(record, key, target)
-    return _save_and_reload(root, record).node(src)
+    result = _save_and_reload(root, record).node(src)
+    _log_event(plan.root, actor, "link", [src])
+    return result
 
 
 def unlink(
@@ -306,11 +359,13 @@ def unlink(
     agents: str | None = None,
     skills: str | None = None,
     trains: str | None = None,
+    actor: str = "api",
 ) -> Node:
     """Remove one edge from src.
 
     @purpose  The inverse of link; removing an absent edge is an error, not a
-              shrug, so tools notice their own stale state.
+              shrug, so tools notice their own stale state. `actor` (K31) —
+              see add_node's own note.
     @tags     ops, unlink, mentions
     """
     chosen = [value for value in (needs, in_, to, agents, skills, trains) if value is not None]
@@ -338,7 +393,9 @@ def unlink(
     else:
         key, value = _mention_edge(agents, skills, trains)
         _list_remove(record, key, value)
-    return _save_and_reload(root, record).node(src)
+    result = _save_and_reload(root, record).node(src)
+    _log_event(plan.root, actor, "unlink", [src])
+    return result
 
 
 def _rewrite_reference(record: NodeRecord, old: str, new: str) -> bool:
@@ -371,12 +428,15 @@ def _rewrite_reference(record: NodeRecord, old: str, new: str) -> bool:
     return changed
 
 
-def rename_node(root: Path, old: str, new: str) -> Node:
+def rename_node(root: Path, old: str, new: str, *, actor: str = "api") -> Node:
     """Move a node to a new id, fixing every referrer and the view layout.
 
     @purpose  Renames are safe or they don't happen: the renamed file's bytes
               never change (the id is the filename), and no reference is left
-              pointing at the old name.
+              pointing at the old name. `actor` (K31) — see add_node's own
+              note; the logged targets are the old id, the new id, and every
+              referrer whose file got rewritten — everything a payload digest
+              diff will see change.
     @tags     ops, rename, referrer-fixup, mentions
     """
     plan = Plan.load(root)
@@ -403,15 +463,20 @@ def rename_node(root: Path, old: str, new: str) -> Node:
         if isinstance(layout, dict) and old in layout:
             layout[new] = layout.pop(old)
             store.save_view(plan.root, view)
-    return Plan.load(root).node(new)
+    result = Plan.load(root).node(new)
+    targets = [old, new, *(record.node.id for record in changed)]
+    _log_event(plan.root, actor, "rename_node", targets)
+    return result
 
 
-def remove_node(root: Path, node_id: str, *, force: bool = False) -> list[str]:
+def remove_node(root: Path, node_id: str, *, force: bool = False, actor: str = "api") -> list[str]:
     """Delete a node; with force, strip every reference to it first.
 
     @purpose  A referenced node refuses to die quietly — the error names the
               referrers, and force removes the edges in the same operation so
-              the plan is never left dangling.
+              the plan is never left dangling. `actor` (K31) — see add_node's
+              own note; the logged targets are the removed id plus every
+              referrer stripped (empty unless force found any).
     @tags     ops, remove, mentions
     """
     plan = Plan.load(root)
@@ -466,4 +531,6 @@ def remove_node(root: Path, node_id: str, *, force: bool = False) -> list[str]:
         if isinstance(layout, dict) and node_id in layout:
             del layout[node_id]
             store.save_view(plan.root, view)
-    return sorted(referrers)
+    result = sorted(referrers)
+    _log_event(plan.root, actor, "remove_node", [node_id, *result])
+    return result

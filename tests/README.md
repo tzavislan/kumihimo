@@ -10,6 +10,7 @@
 | `test_cli_verbs.py` | The M1 demo path, end to end through the real CLI: new → add → link → check, plus field coercion, error exit codes, --strict, and the cycle named in check outp… |
 | `test_crew_golden.py` | The crew braid's byte-identity contract: crew-demo compiled grouped (Cast + Assigned/With/Trains + Consult) and compiled `--for wright` (the grounding line, th… |
 | `test_editor_smoke.py` | The M5 tripwire, in a real browser: build a three-node plan entirely in the GUI (add via form, draw a needs edge between handles, edit a field, drag a node), b… |
+| `test_events.py` | K31's advisory event log end to end: every mutating op appends `{actor, op, targets}` with the right actor per thin client (CLI "cli", MCP "mcp", the editor's … |
 | `test_example_apiguard.py` | Holds the shipped example to its promises: it validates clean, its braid order is deterministic and exactly what the graph implies, a hand-introduced cycle is … |
 | `test_example_fieldnotes.py` | PLAN.md §10.4's test, executable: a deliberately non-engineering plan whose kinds live entirely in its manifest (no pack) checks clean, braids through its own … |
 | `test_golden.py` | The braid's byte-identity contract: apiguard compiled with each strategy must equal the committed golden exactly. A template change that alters output must upd… |

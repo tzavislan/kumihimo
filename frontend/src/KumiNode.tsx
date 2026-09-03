@@ -79,6 +79,12 @@ export interface KumiNodeData extends Record<string, unknown> {
   // null the rest of the time so this component never has to check the lens
   // itself.
   crewSkills: string[] | null;
+  // Attribution pulse (PLAN2.md §2.5, K31): fired on this card's own
+  // animationend regardless of whether a pulse animation actually ran (a
+  // harmless no-op via useAttribution.ts's onPulseEnd when it didn't) —
+  // canvasBuild.ts binds this per node id, same convention as onToggle on
+  // KumiGroupNode.tsx's data.
+  onPulseEnd: () => void;
 }
 
 /** The four ports, one per edge kind (PLAN2.md §2.4): needs runs left/right,
@@ -111,7 +117,8 @@ export function EdgeHandles() {
 
 /** Render one plan node on the canvas, at the tier App.tsx has picked. */
 export function KumiNode(props: NodeProps) {
-  const { node, color, pillText, tier, memberCount, acceptance, crewSkills } = props.data as KumiNodeData;
+  const { node, color, pillText, tier, memberCount, acceptance, crewSkills, onPulseEnd } =
+    props.data as KumiNodeData;
   const isMilestone = node.kind === "milestone";
   const status = typeof node.effective.status === "string" ? node.effective.status : null;
   const effort = typeof node.effective.effort === "string" ? node.effective.effort : null;
@@ -126,7 +133,7 @@ export function KumiNode(props: NodeProps) {
     // compact by sitting smaller *inside* it (base .kumi-node padding plus
     // the chip's own), not by the node shrinking.
     return (
-      <div className="kumi-node kumi-tier-far" title={node.title}>
+      <div className="kumi-node kumi-tier-far" title={node.title} onAnimationEnd={onPulseEnd}>
         <EdgeHandles />
         <div
           className="kumi-chip"
@@ -147,6 +154,7 @@ export function KumiNode(props: NodeProps) {
     <div
       className={`kumi-node kumi-tier-${tier}${isMilestone ? " kumi-milestone" : ""}`}
       style={{ borderLeftColor: color }}
+      onAnimationEnd={onPulseEnd}
     >
       <EdgeHandles />
       <div className="kumi-title">{node.title}</div>

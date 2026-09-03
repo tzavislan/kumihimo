@@ -17,6 +17,11 @@ kumihimo/server/static/
 # Docs build output
 site/
 
+# Kumihimo plans' own advisory event log (K31) — .kumihimo/ under any plan
+# root in this repo (plans/roadmap, examples/*): scaffold() now writes this
+# same rule into every new plan's own .gitignore too (kumihimo/core/store.py).
+.kumihimo/
+
 # OS / editor noise
 .DS_Store
 Thumbs.db

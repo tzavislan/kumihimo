@@ -325,7 +325,7 @@ case keeps the branch right where it was, and a crowded one moves it the
 short distance needed to stay collision-free instead. Like Auto and Lanes,
 this writes nothing to `view.yaml`.
 
-## Motion
+## Motion and attribution
 
 A position that changes because of something *other* than your own drag —
 another editor's change arriving over the live socket, an MCP edit, or one
@@ -333,6 +333,26 @@ of the layout actions above — glides to its new spot over about 200ms
 instead of jumping there. Dragging itself stays instant, with no glide, so
 the card never lags behind your pointer. If your OS is set to reduce motion,
 every glide is skipped in favor of an immediate move.
+
+A change from *outside this browser tab* also says who and pulses where.
+Every mutating op — CLI, MCP, or another editor tab's own gesture — appends a
+line to the plan's advisory `.kumihimo/events.jsonl`
+([format reference](../reference/formats.md#kumihimoeventsjsonl)); the next
+live-socket push carries whatever's new there since the last one, and the
+canvas matches it against the node ids that actually changed. One toast per
+source, top-right, newest on top (up to four kept, each dismissing itself
+after about six seconds, or on click): "*via CLI: rate-limit-core
+updated*", "*via MCP: crew-model, headers-and-429, pick-algorithm +1 more
+updated*" — up to three names, then a count of however many more. Added
+and removed nodes say so ("*added*"/"*removed*" in place of "*updated*"); a
+change with no matching event — a hand edit, `git checkout`, some other
+tool — reads "*outside edit*" instead of a source. The nodes actually
+involved briefly ring (a hidden container member's ring lands on its
+collapsed chip instead, the same substitution focus/trace and the lenses
+already make); reduced motion drops the ring but never the toast — the
+information stays, only the motion goes. **Your own edits in this tab never
+toast or pulse** — the op's own response already updated what you're
+looking at, so there's nothing left to announce.
 
 ## Dark mode
 

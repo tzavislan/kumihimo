@@ -283,6 +283,9 @@ export interface ContainerNodeParams {
   // off wherever the members actually are.
   autoSize: { width: number; height: number } | undefined;
   onToggle: () => void;
+  // Attribution pulse (PLAN2.md §2.5, K31) — canvasBuild.ts binds one
+  // closure per container id, passed straight through to KumiGroupNodeData.
+  onPulseEnd: () => void;
   className: string | undefined;
   measured: Node["measured"];
 }
@@ -301,6 +304,7 @@ export function buildContainerNode(params: ContainerNodeParams): Node {
     positions,
     autoSize,
     onToggle,
+    onPulseEnd,
     className,
     measured,
   } = params;
@@ -324,7 +328,7 @@ export function buildContainerNode(params: ContainerNodeParams): Node {
       }
     }
   }
-  const data: KumiGroupNodeData = { node, color, pillText, collapsed, done, total, onToggle };
+  const data: KumiGroupNodeData = { node, color, pillText, collapsed, done, total, onToggle, onPulseEnd };
   return {
     id: node.id,
     type: "kumiGroup",

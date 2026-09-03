@@ -101,6 +101,7 @@ def add_node(
         fields=fields,
         needs=tuple(needs or ()),
         in_=tuple(in_ or ()),
+        actor="mcp",
     )
     return _summary(node)
 
@@ -128,6 +129,7 @@ def update_node(
         priority=priority,
         set_fields=set_fields,
         unset_fields=tuple(unset_fields or ()),
+        actor="mcp",
     )
     return _summary(node)
 
@@ -138,7 +140,7 @@ def remove_node(root: Path, node_id: str, force: bool = False) -> dict[str, Any]
     @purpose  ops.remove_node over MCP — a referenced node names its referrers
               instead of dying quietly.
     """
-    referrers = ops.remove_node(root, node_id, force=force)
+    referrers = ops.remove_node(root, node_id, force=force, actor="mcp")
     return {"removed": node_id, "referrers_stripped": referrers}
 
 
@@ -155,7 +157,7 @@ def link(
     @purpose  ops.link over MCP; a needs-edge that would close a cycle is
               refused with the path.
     """
-    return _summary(ops.link(root, src, needs=needs, in_=in_, to=to, rel=rel))
+    return _summary(ops.link(root, src, needs=needs, in_=in_, to=to, rel=rel, actor="mcp"))
 
 
 def unlink(
@@ -170,7 +172,7 @@ def unlink(
     @purpose  ops.unlink over MCP; removing an absent edge errors so stale
               agent state gets noticed.
     """
-    return _summary(ops.unlink(root, src, needs=needs, in_=in_, to=to))
+    return _summary(ops.unlink(root, src, needs=needs, in_=in_, to=to, actor="mcp"))
 
 
 def rename_node(root: Path, old: str, new: str) -> dict[str, Any]:
@@ -178,7 +180,7 @@ def rename_node(root: Path, old: str, new: str) -> dict[str, Any]:
 
     @purpose  ops.rename_node over MCP; the renamed file's bytes never change.
     """
-    return _summary(ops.rename_node(root, old, new))
+    return _summary(ops.rename_node(root, old, new, actor="mcp"))
 
 
 def check(root: Path) -> list[dict[str, str]]:

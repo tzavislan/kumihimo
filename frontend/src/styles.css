@@ -6,13 +6,18 @@
  *              colors and canvas halos, focus/trace cone tints, semantic-zoom
  *              tiers, containers, the lens bar and Status/Flow/Risk/Crew lens
  *              classes (K26; Crew is K30), mention edges (K30), the
- *              sidebar's chip editors (K30), React Flow chrome, and
- *              payload-echo motion (.kumi-glide, K27). Deliberately small
- *              and system-font.
+ *              sidebar's chip editors (K30), React Flow chrome,
+ *              payload-echo motion (.kumi-glide, K27), and the K31
+ *              attribution toast stack (.kumi-toast-*) plus pulse ring
+ *              (.kumi-pulse, keyed off KumiNode.tsx's .kumi-tier-far the
+ *              same way the halo rules below already substitute the chip
+ *              for the mostly-empty outer box). Deliberately small and
+ *              system-font.
  * @layer       frontend
  * @tags        css, chrome, design-tokens, dark-mode, focus, trace,
  *              semantic-zoom, findings, palette, containers, lenses, motion,
- *              glide, reduced-motion, crew, mentions, chips
+ *              glide, reduced-motion, crew, mentions, chips, attribution,
+ *              toasts, pulse
  * @related     frontend/src/theme.ts (sets data-theme on <html>),
  *              frontend/src/App.tsx (the per-node focus/trace/halo classes
  *              this file styles, the sidebar finding rows this file's
@@ -441,6 +446,31 @@ body {
   font-size: var(--kumi-text-sm); color: var(--kumi-text-faint);
 }
 
+/* Attribution toasts (PLAN2.md §2.5 Motion & attribution, K31): top-right,
+ * newest on top (useAttribution.ts prepends fresh ones), max 4 kept —
+ * Toasts.tsx renders the whole array, so "kept" is "visible" here. z-index
+ * above even the Ctrl+K palette (70) — a live external change is worth
+ * surfacing over whatever's open, same reasoning the palette's own comment
+ * gives for outranking the braid modal. */
+.kumi-toast-stack {
+  position: fixed; top: var(--kumi-space-16); right: var(--kumi-space-16);
+  z-index: 80; display: flex; flex-direction: column; gap: var(--kumi-space-8);
+  width: min(320px, calc(100vw - 32px));
+}
+.kumi-toast {
+  background: var(--kumi-surface); border: 1px solid var(--kumi-border);
+  border-left: 4px solid var(--kumi-accent); border-radius: var(--kumi-radius-md);
+  box-shadow: var(--kumi-shadow-sm); padding: var(--kumi-space-8) var(--kumi-space-12);
+  font-size: var(--kumi-text-sm); color: var(--kumi-text); cursor: pointer;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .kumi-toast { animation: kumi-toast-in 200ms ease-out; }
+}
+@keyframes kumi-toast-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 .kumi-canvas { height: 100%; }
 
 /* Payload-echo position glides (PLAN2.md §2.5, K27). React Flow moves a
@@ -462,6 +492,39 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .kumi-glide .react-flow__node {
     transition: none;
+  }
+}
+
+/* Attribution pulse (PLAN2.md §2.5 Motion & attribution, K31): a live push
+ * whose events (kumihimo/core/ops.py's advisory log) explain an externally-
+ * caused change briefly rings the changed card — same box-shadow-ring recipe
+ * the halo rules further down use, animated once instead of held static.
+ * useAttribution.ts adds "kumi-pulse" per node id and clears it again on
+ * this element's own animationend (KumiNode.tsx/KumiGroupNode.tsx). The
+ * information (the toast) still shows under reduced motion — only the ring
+ * itself is skipped, same principle as .kumi-glide just above. */
+@keyframes kumi-pulse-ring {
+  from { box-shadow: var(--kumi-shadow-sm), 0 0 0 0 color-mix(in srgb, var(--kumi-accent) 70%, transparent); }
+  to { box-shadow: var(--kumi-shadow-sm), 0 0 0 12px color-mix(in srgb, var(--kumi-accent) 0%, transparent); }
+}
+.react-flow__node.kumi-pulse .kumi-node {
+  animation: kumi-pulse-ring 1s ease-out;
+}
+/* At far tier the visible card is the inner chip (same substitution the
+ * halo rules below make) — ring that instead of the mostly-empty outer box;
+ * animationend still bubbles from the chip up to the wrapping .kumi-node
+ * KumiNode.tsx's onAnimationEnd listens on, so clearing the pulse works
+ * exactly the same either way. */
+.react-flow__node.kumi-pulse .kumi-node.kumi-tier-far {
+  animation: none;
+}
+.react-flow__node.kumi-pulse .kumi-node.kumi-tier-far .kumi-chip {
+  animation: kumi-pulse-ring 1s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .react-flow__node.kumi-pulse .kumi-node,
+  .react-flow__node.kumi-pulse .kumi-node.kumi-tier-far .kumi-chip {
+    animation: none;
   }
 }
 

@@ -278,7 +278,7 @@ lens; chip edit round-trips through ops; lens count stays capped at five.
 ## M10 — Feel (PLAN2.md §2.5 + §4 M10, split 2026-09-03)
 
 ### K31 — Attribution toasts + change pulses
-status: todo
+status: done (iteration 32)
 needs: —
 PLAN2 §2.5 Motion & attribution. Ops layer appends one JSON line per
 mutation to `<plan>/.kumihimo/events.jsonl` — {actor, op, targets}, NO

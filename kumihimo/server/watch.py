@@ -3,12 +3,16 @@
 @purpose     The file→browser half of the live loop: a broadcaster fanning
              payloads out to every connected WebSocket, and the watchfiles task
              that rebuilds and publishes on any relevant change under the plan
-             root.
+             root — each publish's payload also carries `events` (K31): the
+             advisory log lines new since the last rebuild, read from one
+             EventTail held for the loop's whole lifetime, for the frontend's
+             attribution toasts/pulses to match against its own digest diff.
 @layer       server
-@tags        watchfiles, websocket, broadcast, live-loop
+@tags        watchfiles, websocket, broadcast, live-loop, events, attribution
 @related     kumihimo/server/app.py (wires the task and the sockets),
-             kumihimo/server/payload.py (what gets pushed)
-@design      PLAN.md §5.2
+             kumihimo/server/payload.py (what gets pushed),
+             kumihimo/server/events.py (EventTail, the log reader)
+@design      PLAN.md §5.2, PLAN2.md §2.5 Motion & attribution (K31)
 """
 
 from __future__ import annotations
@@ -20,6 +24,7 @@ from typing import Any
 
 from watchfiles import awatch
 
+from kumihimo.server.events import EventTail
 from kumihimo.server.payload import plan_payload
 
 RELEVANT_SUFFIXES = (".md", ".yaml", ".yml")
@@ -107,9 +112,14 @@ async def watch_plan(root: Path, broadcaster: Broadcaster, stop: asyncio.Event) 
 
     @purpose  The demo promise, literally: edit a file in vim or over MCP and
               the canvas follows. Payload build errors must never kill the
-              watcher — a plan mid-edit is often briefly malformed.
-    @tags     watchfiles, live-loop
+              watcher — a plan mid-edit is often briefly malformed. The
+              EventTail is constructed once, here, before the loop starts —
+              its starting offset is this moment's end-of-file, so a plan
+              already carrying a long event history never dumps it on the
+              first change after the editor opens (K31).
+    @tags     watchfiles, live-loop, events, attribution
     """
+    tail = EventTail(root)
     async for changes in awatch(root, stop_event=stop, debounce=200, step=100):
         if not any(is_relevant(root, changed_path) for _, changed_path in changes):
             continue
@@ -119,4 +129,9 @@ async def watch_plan(root: Path, broadcaster: Broadcaster, stop: asyncio.Event) 
             # A plan mid-edit is often briefly unloadable (locked file, torn
             # write); the watcher outlives it and the next change republishes.
             continue
+        # events.jsonl itself never matches is_relevant (its suffix isn't
+        # .md/.yaml/.yml), so it can only have moved as a side effect of
+        # whatever node/manifest write just triggered this rebuild — already
+        # on disk by the time we get here (K31: ops.py logs after saving).
+        payload["events"] = tail.read_new()
         broadcaster.publish(payload)

@@ -23,9 +23,16 @@
  *              endpoints when containers.ts rerouted it — Inherited fix B),
  *              bolds/faints by the Flow lens's critical path, or (K30) pops
  *              trains-mention edges and fades every other kind under Crew.
+ *              buildCanvasNodes also folds in the K31 attribution pulse: a
+ *              "kumi-pulse" class (CSS-animated, styles.css) for any node/
+ *              container whose id is in `pulsingIds` (already resolved by
+ *              useAttribution.ts/attributionDiff.ts — a hidden member's
+ *              pulse substitutes onto its collapsed container), and an
+ *              `onPulseEnd` closure per id threaded into node data so the
+ *              card can clear its own pulse on animationend.
  * @layer       frontend
  * @tags        react-flow, nodes, edges, containers, lenses, halos, selection,
- *              crew, mentions
+ *              crew, mentions, pulse, attribution
  * @related     frontend/src/App.tsx (the sole caller, once each inside its
  *              nodes-rebuild effect and edges memo),
  *              frontend/src/containers.ts (buildContainerNode, Grouping,
@@ -33,8 +40,10 @@
  *              frontend/src/derive.ts (coneClassName, haloClassName, colorFor,
  *              acceptanceList, findingHalos, FocusState/TraceState),
  *              frontend/src/lenses.ts (lensNodeClasses, flowEdgeClassName,
- *              crewEdgeClassName, LensContext, FlowResult, CrewResult)
- * @design      PLAN2.md §2.1-2.3, §3, Inherited fixes A and B (K26)
+ *              crewEdgeClassName, LensContext, FlowResult, CrewResult),
+ *              frontend/src/useAttribution.ts (owns `pulsingIds`/`onPulseEnd`
+ *              in React state, K31)
+ * @design      PLAN2.md §2.1-2.3, §2.5, §3, Inherited fixes A and B (K26)
  */
 import type { Edge, Node } from "@xyflow/react";
 import {
@@ -100,6 +109,12 @@ export interface BuildCanvasNodesParams {
   lensCtx: LensContext;
   previous: Node[];
   onToggleCollapse: (id: string) => void;
+  // Attribution pulse (PLAN2.md §2.5, K31): ids already resolved (a hidden
+  // member substituted onto its collapsed container — useAttribution.ts via
+  // attributionDiff.ts's resolveEndpoint call) to whichever card/chip should
+  // actually ring; this file only has to check membership.
+  pulsingIds: Set<string>;
+  onPulseEnd: (id: string) => void;
 }
 
 /** The full RF nodes array for one render — see the file header. */
@@ -118,6 +133,8 @@ export function buildCanvasNodes(params: BuildCanvasNodesParams): Node[] {
     lensCtx,
     previous,
     onToggleCollapse,
+    pulsingIds,
+    onPulseEnd,
   } = params;
   const halos = findingHalos(payload.nodes, payload.findings);
   const members = membersByContainer(grouping.assignments);
@@ -135,6 +152,7 @@ export function buildCanvasNodes(params: BuildCanvasNodesParams): Node[] {
       [
         coneClassName(id, focus, trace, collapsed ? memberIds : undefined),
         lensNodeClasses(id, containerNode, halo, lensCtx),
+        pulsingIds.has(id) ? "kumi-pulse" : "",
       ]
         .filter(Boolean)
         .join(" ") || undefined;
@@ -150,6 +168,7 @@ export function buildCanvasNodes(params: BuildCanvasNodesParams): Node[] {
         positions,
         autoSize: useElkSizes ? containerAutoSizes[id] : undefined,
         onToggle: () => onToggleCollapse(id),
+        onPulseEnd: () => onPulseEnd(id),
         className,
         measured: byOldId.get(id)?.measured,
       }),
@@ -177,6 +196,7 @@ export function buildCanvasNodes(params: BuildCanvasNodesParams): Node[] {
       // via the tint above, so this is the one mention key with no other
       // visual channel of its own.
       crewSkills: lensCtx.lens === "crew" ? node.skills : null,
+      onPulseEnd: () => onPulseEnd(node.id),
     };
     const halo = haloClassName(node.id, halos);
     built.push({
@@ -196,7 +216,11 @@ export function buildCanvasNodes(params: BuildCanvasNodesParams): Node[] {
       extent: !hidden && parentId ? "parent" : undefined,
       selected: node.id === selectedId,
       className:
-        [coneClassName(node.id, focus, trace), lensNodeClasses(node.id, node, halo, lensCtx)]
+        [
+          coneClassName(node.id, focus, trace),
+          lensNodeClasses(node.id, node, halo, lensCtx),
+          pulsingIds.has(node.id) ? "kumi-pulse" : "",
+        ]
           .filter(Boolean)
           .join(" ") || undefined,
     });

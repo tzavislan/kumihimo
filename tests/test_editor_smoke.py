@@ -4,13 +4,21 @@
              entirely in the GUI (add via form, draw a needs edge between
              handles, edit a field, drag a node), braid it from the button, and
              then hold the files to the canonical forms — the whole loop or
-             nothing. Skips cleanly when Playwright's chromium is not
+             nothing. K31's own real-browser proof lives here too: a real CLI
+             subprocess mutating the same plan while the editor is open must
+             show exactly one attributed toast and pulse the right node, and
+             an editor-driven gesture (this same session's own GUI add) must
+             show none. Skips cleanly when Playwright's chromium is not
              installed.
 @layer       tests
-@tags        playwright, smoke, editor, e2e
+@tags        playwright, smoke, editor, e2e, events, attribution
 @related     frontend/src/App.tsx (the surface driven here),
-             kumihimo/server/ops_api.py (where every gesture lands)
-@design      PLAN.md §9 M5, roadmap item playwright-smoke
+             frontend/src/useAttribution.ts (the toast/pulse state under
+             test), kumihimo/server/ops_api.py (where every gesture lands),
+             kumihimo/core/ops.py (the events.jsonl log a real `kumihimo add`
+             subprocess writes to, actor "cli")
+@design      PLAN.md §9 M5, roadmap item playwright-smoke; PLAN2.md §2.5
+             Motion & attribution, queue item K31
 """
 
 import contextlib
@@ -37,6 +45,22 @@ pytestmark = pytest.mark.skipif(
 )
 
 
+def kumihimo_argv(*args: str) -> list[str]:
+    """The real `kumihimo` command line, console-script-first.
+
+    @purpose  Shared by the `editor` fixture (launching the server) and the
+              K31 test (a real CLI mutation while it's up): the console
+              script direct, so signaling a `uv run` wrapper doesn't leave
+              the actual process running (orphaned on Windows, TERM-shielded
+              on Linux) — for a one-shot verb like `add` this mostly just
+              keeps both call sites honest about which `kumihimo` runs.
+    """
+    venv = Path(__file__).resolve().parent.parent / ".venv"
+    candidates = (venv / "Scripts" / "kumihimo.exe", venv / "bin" / "kumihimo")
+    exe = next((str(c) for c in candidates if c.is_file()), None)
+    return ([exe] if exe else ["uv", "run", "kumihimo"]) + list(args)
+
+
 @pytest.fixture
 def editor(tmp_path: Path) -> Iterator[Path]:
     """A live kumihimo edit server on an empty plan, torn down afterwards.
@@ -50,18 +74,7 @@ def editor(tmp_path: Path) -> Iterator[Path]:
     with socket.socket() as probe:
         if probe.connect_ex(("127.0.0.1", PORT)) == 0:
             pytest.skip(f"port {PORT} busy")
-    # Launch the console script directly: signaling a `uv run` wrapper leaves
-    # the actual server running (orphaned on Windows, TERM-shielded on Linux).
-    venv = Path(__file__).resolve().parent.parent / ".venv"
-    candidates = (venv / "Scripts" / "kumihimo.exe", venv / "bin" / "kumihimo")
-    exe = next((str(c) for c in candidates if c.is_file()), None)
-    command = ([exe] if exe else ["uv", "run", "kumihimo"]) + [
-        "edit",
-        str(root),
-        "--no-open",
-        "--port",
-        str(PORT),
-    ]
+    command = kumihimo_argv("edit", str(root), "--no-open", "--port", str(PORT))
     process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     try:
         deadline = time.time() + 40
@@ -191,3 +204,54 @@ def test_build_a_plan_in_the_gui_and_braid_it(editor: Path) -> None:
     assert plan.check() == [
         finding for finding in plan.check() if finding.level == "warning"
     ]  # empty bodies warn; no errors
+
+
+def test_cli_mutation_shows_one_toast_and_pulse_editor_self_op_shows_none(editor: Path) -> None:
+    """K31's acceptance line, proven in a real browser: a CLI mutation to the
+    open plan produces exactly one attributed toast plus a pulse on the
+    right node; this same session's own GUI gesture produces neither."""
+    with playwright_api.sync_playwright() as pw:
+        try:
+            browser = pw.chromium.launch()
+        except playwright_api.Error as err:
+            pytest.skip(f"chromium not launchable: {err}")
+        try:
+            page = browser.new_page(viewport={"width": 1400, "height": 900})
+            page.goto(URL)
+            page.wait_for_selector(".kumi-side h1")
+
+            # Editor self-op: add through the GUI, then give the watcher's
+            # own echo of this exact change (well under a second, elsewhere
+            # in this file) time to arrive — actor "editor" must raise
+            # nothing at all, not even an "outside edit" toast.
+            page.fill('input[placeholder="id-slug"]', "self")
+            page.fill('input[placeholder="title (optional)"]', "Self op")
+            page.get_by_role("button", name="Add", exact=True).click()
+            page.wait_for_selector('.react-flow__node[data-id="self"]')
+            page.wait_for_timeout(700)
+            assert page.locator(".kumi-toast").count() == 0
+
+            # A real CLI process, entirely outside this browser session.
+            completed = subprocess.run(
+                kumihimo_argv("add", str(editor), "via-cli", "--title", "Via CLI"),
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            assert completed.returncode == 0, completed.stderr
+
+            page.wait_for_selector(".kumi-toast", timeout=5000)
+            # Checked immediately on the same render pass the toast arrived
+            # in, before the ~1s pulse animation can complete and remove its
+            # own class (KumiNode.tsx's onAnimationEnd) — see useAttribution.
+            toasts = page.locator(".kumi-toast")
+            assert toasts.count() == 1
+            toast_text = toasts.inner_text()
+            assert toast_text.startswith("via CLI:")
+            assert "Via CLI" in toast_text
+            assert toast_text.endswith("added")
+            assert page.locator('.react-flow__node[data-id="via-cli"].kumi-pulse').count() == 1
+        finally:
+            browser.close()
+
+    assert Plan.load(editor).nodes["via-cli"].title == "Via CLI"

@@ -11,7 +11,9 @@
 | `LensBar.tsx` | The sidebar's lens switcher (PLAN2.md §2.3, §3): a five-way segmented control — Structure (default), Status, Flow, Risk, Crew (K30) — sitting right below the s… |
 | `NodeForm.tsx` | The selected node's editor: title, kind, schema-driven field inputs (choice→select, bool→checkbox, int→number, list→comma text), chip editors for needs/agents/… |
 | `Palette.tsx` | Ctrl+K/Cmd+K command palette: one text box searching two groups — NODES (substring match over id/title/body, title-or- id hits ranked above body-only hits, the… |
+| `Toasts.tsx` | The attribution toast stack (K31): top-right, newest on top, dismiss-on-click. useAttribution.ts already caps `toasts` at 4 and expires each after ~6s, so this… |
 | `api.ts` | The wire: fetch the initial payload, then hold a WebSocket that delivers every change, reconnecting quietly when the server restarts. |
+| `attributionDiff.ts` | Pure classification for K31 attribution: diff two payloads' node digests into added/removed/updated, match the newly shipped `events` (kumihimo/core/ops.py's a… |
 | `canvasBuild.ts` | Turn one payload plus the current view state into React Flow's nodes and edges arrays — the two bodies App.tsx's nodes-rebuild effect and edges memo used to ca… |
 | `cones.ts` | Pure graph math over the payload's needs edges: ancestor and descendant cones (BFS hop-distance) for focus mode, and the node set lying on any needs-path betwe… |
 | `containers.ts` | Container math for PLAN2.md §2.3 lens 1: which nodes are containers and who belongs to which (first `in`-target that is itself a container — mirrors kumihimo/c… |
@@ -24,6 +26,7 @@
 | `main.tsx` | Entry point: mount App under #root. |
 | `theme.ts` | Light/dark theme (PLAN2.md §2.5): init from localStorage or OS preference, persist on change, toggle. The DOM write (data-theme on <html>) is the one place tha… |
 | `types.ts` | The TypeScript mirror of the server's payload contract — one shape, defined once on each side of the wire. |
+| `useAttribution.ts` | K31: owns the plan subscription — the initial fetch plus the live socket, superseding App.tsx's old bare `openLive(setPayload)` — diffing each live push agains… |
 | `useGraphKeyboard.ts` | Graph-directional keyboard (PLAN2.md §2.5): with the palette closed and focus outside any form field, digits 1-5 switch the lens bar (K26; 5 is Crew, K30) rega… |
 <!-- END GENERATED INDEX -->
 

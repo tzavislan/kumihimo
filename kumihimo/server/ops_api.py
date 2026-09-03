@@ -275,6 +275,7 @@ def apply(root: Path, request: OpRequest) -> None:
                 fields=request.fields,
                 needs=tuple(request.needs),
                 in_=tuple(request.in_),
+                actor="editor",
             )
         elif isinstance(request, UpdateNodeOp):
             _check_digest(root, request.node_id, request.base_digest)
@@ -287,10 +288,11 @@ def apply(root: Path, request: OpRequest) -> None:
                 priority=request.priority,
                 set_fields=request.set_fields or None,
                 unset_fields=tuple(request.unset_fields),
+                actor="editor",
             )
         elif isinstance(request, RemoveNodeOp):
             _check_digest(root, request.node_id, request.base_digest)
-            ops.remove_node(root, request.node_id, force=request.force)
+            ops.remove_node(root, request.node_id, force=request.force, actor="editor")
         elif isinstance(request, LinkOp):
             _check_digest(root, request.src, request.base_digest)
             ops.link(
@@ -303,6 +305,7 @@ def apply(root: Path, request: OpRequest) -> None:
                 agents=request.agents,
                 skills=request.skills,
                 trains=request.trains,
+                actor="editor",
             )
         elif isinstance(request, UnlinkOp):
             _check_digest(root, request.src, request.base_digest)
@@ -315,10 +318,11 @@ def apply(root: Path, request: OpRequest) -> None:
                 agents=request.agents,
                 skills=request.skills,
                 trains=request.trains,
+                actor="editor",
             )
         elif isinstance(request, RenameNodeOp):
             _check_digest(root, request.old, request.base_digest)
-            ops.rename_node(root, request.old, request.new)
+            ops.rename_node(root, request.old, request.new, actor="editor")
         elif isinstance(request, SetPositionsOp):
             _set_positions(root, request.positions)
         else:
