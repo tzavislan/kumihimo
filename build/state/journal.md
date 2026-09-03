@@ -1061,3 +1061,42 @@ M10-feel polish candidates, not defects.
 **Battery (mine, unpiped):** ruff, mypy, pytest -q (233), lint, mkdocs
 strict, frontend typecheck+build — green. Next: K33 (styled braid
 preview).
+
+## 2026-09-03 — iteration 34 (K33: styled braid preview)
+
+**Built (Sonnet builder):** the braid modal grew up. BraidModal.tsx
+(extracted whole from App.tsx — now 584/600) renders the compiled
+Markdown styled via marked@18.0.11, lazy-imported as its own 44 kB chunk
+(network-log-proven to load on first modal open, cached after);
+Rendered default with a Raw switch; the 82-line plan-shape mermaid
+block folds by default behind an honest "(hidden — N lines)"
+affordance; Copy stays; Download ships the exact API bytes (sha256-
+equal in all four view states, CRLF bodies preserved verbatim —
+invariant 7 through the preview). breaks:true fixes the stacked
+*Assigned:*/*With:* metadata lines; the hand-wrapped-prose raggedness
+it causes on apiguard was critic-judged an accepted, documented cost —
+braid output bytes never change to serve a preview nicety. The builder
+proved marked's DEFAULTS pass <script> through and neutralized raw
+HTML via a renderer override before any reviewer saw it.
+
+**Checker+critic: FIX-NEEDED → APPROVE.** The blocking find was earned:
+[x](javascript:alert(1)) and the CommonMark autolink <javascript:...>
+rendered as real clickable anchors — the checker CLICKED them and the
+alerts fired in-origin (marked's default link renderer does zero scheme
+filtering, by upstream design). Fix: link+image overrides with an
+allow-list (http/https/mailto + relative/fragment; images http/https/
+relative), scheme extracted WHATWG-style (tab/LF/CR stripped anywhere,
+leading C0/space, colon after /?# is content); denied URLs render their
+inline content as plain text, no element. Re-verify: original vectors
+dead, bypass suite dead (case tricks, leading space, real tab byte,
+vbscript:, image variant); the entity-encoded-colon nuance (&#58;)
+classifies as relative but the escape layer independently lands it on
+an inert same-origin 404 — accepted with the checker's analysis on
+record. Raw-HTML escape path byte-identical before/after. Docs
+narrowed to the now-true claim. 234 tests; the smoke suite is now 4
+real-browser tests. Screenshots owed at close: braid-modal.png shows
+the pre-K33 modal (script fixed to wait on the rendered view; PNGs
+deliberately not regenerated mid-milestone).
+
+**Battery (mine, unpiped):** green end to end. Next: K34 (elk
+lazy-load + both-theme shots).

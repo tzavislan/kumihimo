@@ -65,12 +65,17 @@
  *              fires its topmost enabled entry. The edge panel moved out to
  *              EdgePanel.tsx (K32) purely to buy room under the line cap for
  *              the above — same "primitives and callbacks in, JSX out" split
- *              NodeForm.tsx/LensBar.tsx/ChipEditor.tsx already use.
+ *              NodeForm.tsx/LensBar.tsx/ChipEditor.tsx already use. Braid
+ *              preview (K33): this file still only fetches braidText
+ *              (runBraid) and mounts BraidModal.tsx unconditionally, exactly
+ *              like Palette.tsx — the Rendered/Raw switch, diagram fold, and
+ *              Download all live there so a plain useState inside it
+ *              survives a close-and-reopen without this file's help.
  * @layer       frontend
  * @tags        react-flow, editor, ops, live, elk, sidebar, theme, focus,
  *              trace, semantic-zoom, findings, palette, keyboard, containers,
  *              lenses, lanes, layout-mode, re-layout, motion, glide,
- *              attribution, toasts, pulse, undo
+ *              attribution, toasts, pulse, undo, braid-preview
  * @related     frontend/src/canvasBuild.ts (buildCanvasNodes/buildCanvasEdges
  *              — the nodes-rebuild effect's and edges memo's own bodies,
  *              moved out to stay under the line cap),
@@ -118,6 +123,11 @@
  *              applyOp this file makes for all of it),
  *              frontend/src/UndoPanel.tsx (the undo trail's own sidebar
  *              section this mounts, K32),
+ *              frontend/src/BraidModal.tsx (the braid preview this mounts
+ *              unconditionally, K33 — Rendered/Raw, diagram fold, Copy,
+ *              Download all live there, not here),
+ *              frontend/src/braidPreview.ts (fold/render/slug —
+ *              BraidModal.tsx's own pure and lazy-`marked` support, K33),
  *              kumihimo/server/ops_api.py (where every gesture lands, and
  *              since K32 where its inverse envelope is computed)
  * @design      PLAN.md §5.1-5.3, PLAN2.md §2.1-2.5, §2.5 Undo trail, §3
@@ -138,6 +148,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchBraid, fetchDirty, postOp } from "./api";
+import { BraidModal } from "./BraidModal";
 import { buildCanvasEdges, buildCanvasNodes } from "./canvasBuild";
 import { ancestorsOf, containerCones, descendantsOf, pathsBetween } from "./cones";
 import { groupNodes, jumpTarget, membersByContainer, relayoutBranchPositions, relayoutScope } from "./containers";
@@ -905,22 +916,7 @@ export default function App() {
           </div>
         ) : null}
       </main>
-      {braidText !== null ? (
-        <div className="kumi-modal" onClick={() => setBraidText(null)}>
-          <div className="kumi-modal-box" onClick={(event) => event.stopPropagation()}>
-            <div className="kumi-actions">
-              <button
-                className="kumi-primary"
-                onClick={() => void navigator.clipboard.writeText(braidText)}
-              >
-                Copy
-              </button>
-              <button onClick={() => setBraidText(null)}>Close</button>
-            </div>
-            <pre className="kumi-braid">{braidText}</pre>
-          </div>
-        </div>
-      ) : null}
+      <BraidModal text={braidText} planName={payload.plan} onClose={() => setBraidText(null)} />
       <Palette
         open={paletteOpen}
         nodes={payload.nodes}

@@ -4,6 +4,7 @@
 | file | purpose |
 |---|---|
 | `App.tsx` | The editor: payload in (fetch + live socket), React Flow out, and every gesture — drag, connect, form save, add, delete, rename, edge removal, container collap… |
+| `BraidModal.tsx` | The braid preview (K33): App.tsx's Braid button/palette command still just fetch the text and hand it here unmounted-or-not — this owns everything about SHOWIN… |
 | `ChipEditor.tsx` | One relationship field (needs/agents/skills) as removable chips plus an id-autocomplete add input (K30). Purely presentational: `values`/`options`/`titleOf` de… |
 | `EdgePanel.tsx` | The sidebar's edge panel: the selected edge's sentence, a jump button per endpoint, and Remove edge — mention edges included. Purely presentational, the same s… |
 | `KumiGroupNode.tsx` | The container React Flow node (PLAN2.md §2.3 lens 1): any node with members renders as this instead of KumiNode.tsx's leaf card. Two looks, chosen by data.coll… |
@@ -16,6 +17,7 @@
 | `UndoPanel.tsx` | The sidebar's undo trail (K32): a collapsible section listing this session's own applied ops, newest first, each a button — enabled while its inverse's precond… |
 | `api.ts` | The wire: fetch the initial payload, then hold a WebSocket that delivers every change, reconnecting quietly when the server restarts. postOp's success shape al… |
 | `attributionDiff.ts` | Pure classification for K31 attribution: diff two payloads' node digests into added/removed/updated, match the newly shipped `events` (kumihimo/core/ops.py's a… |
+| `braidPreview.ts` | Pure/async support for BraidModal.tsx (K33): fold the braid's one "Plan shape" mermaid fence to a one-line affordance (Raw and Rendered share this transform), … |
 | `canvasBuild.ts` | Turn one payload plus the current view state into React Flow's nodes and edges arrays — the two bodies App.tsx's nodes-rebuild effect and edges memo used to ca… |
 | `cones.ts` | Pure graph math over the payload's needs edges: ancestor and descendant cones (BFS hop-distance) for focus mode, and the node set lying on any needs-path betwe… |
 | `containers.ts` | Container math for PLAN2.md §2.3 lens 1: which nodes are containers and who belongs to which (first `in`-target that is itself a container — mirrors kumihimo/c… |
@@ -93,3 +95,21 @@ same `applyOp` every other gesture uses — posting an inverse is not a new
 write path, it is a normal op whose own response then pushes a fresh
 inverse back onto the trail, which is what makes undo-of-undo just another
 entry rather than a special case.
+
+`BraidModal.tsx` (K33) is the braid preview App.tsx's Braid button/palette
+command opens: a Rendered/Raw switch (Rendered default), a Diagram toggle
+folding the compiled braid's one ```mermaid "Plan shape" fence to a one-line
+placeholder in both views, and Copy/Download — both wired to the untouched
+prop, never the folded display copy, so what leaves the app always matches
+`GET /api/braid` byte for byte. Always mounted (same "renders nothing while
+its prop says closed" shape as `Palette.tsx`), so its own `useState` for
+which view/fold is showing survives a close-and-reopen within the session
+for free. `braidPreview.ts` is its pure/async support: the fold transform,
+a plan-name-to-filename slug, and `renderBraidMarkdown` — a lazily-imported
+`marked` (never in the initial bundle; fetched the first time a render
+actually runs) configured with deliberate overrides, since node bodies are
+user-authored text, not trusted input: raw HTML is escaped rather than
+passed through, and `link`/`image` apply a URL-scheme allow-list (http/
+https/mailto for links, http/https/relative for images) so a hostile
+`javascript:`/`data:` URL — including a bare CommonMark autolink — degrades
+to inert text instead of a live, clickable `<a>`/`<img>`.

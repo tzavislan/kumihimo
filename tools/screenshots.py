@@ -96,7 +96,12 @@ def main() -> int:
             page.wait_for_timeout(400)
             page.screenshot(path=str(ASSETS / "canvas-editor.png"))
             page.get_by_role("button", name="Braid", exact=True).click()
-            page.wait_for_selector(".kumi-braid")
+            # Rendered is the modal's default view (K33) — its own <h1>
+            # exists only once marked's lazily-loaded chunk has actually
+            # rendered something, so waiting on it (rather than the old
+            # always-present .kumi-braid <pre>) also means this shot never
+            # fires before the styled preview has painted.
+            page.wait_for_selector(".kumi-braid-rendered h1")
             page.wait_for_timeout(300)
             page.screenshot(path=str(ASSETS / "braid-modal.png"))
 

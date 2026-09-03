@@ -11,17 +11,24 @@
  *              toast stack (.kumi-toast-*) plus pulse ring (.kumi-pulse,
  *              keyed off KumiNode.tsx's .kumi-tier-far the same way the halo
  *              rules below already substitute the chip for the mostly-empty
- *              outer box), and the K32 undo trail (.kumi-undo-*, styled off
+ *              outer box), the K32 undo trail (.kumi-undo-*, styled off
  *              existing surface/border/text tokens rather than new ones — a
- *              grayed entry is just a disabled sidebar button). Deliberately
- *              small and system-font.
+ *              grayed entry is just a disabled sidebar button), and the K33
+ *              styled braid preview (.kumi-braid-*: the toolbar's Rendered/
+ *              Raw segmented control and Diagram-fold button, plus
+ *              .kumi-braid-rendered's own tag-selector styling for whatever
+ *              marked emits — headings/lists/code/tables/blockquotes/task-
+ *              list checkboxes — every color still a token, nothing new
+ *              minted for it). Deliberately small and system-font.
  * @layer       frontend
  * @tags        css, chrome, design-tokens, dark-mode, focus, trace,
  *              semantic-zoom, findings, palette, containers, lenses, motion,
  *              glide, reduced-motion, crew, mentions, chips, attribution,
- *              toasts, pulse, undo
+ *              toasts, pulse, undo, braid-preview, markdown
  * @related     frontend/src/theme.ts (sets data-theme on <html>),
  *              frontend/src/UndoPanel.tsx (renders the kumi-undo-* markup),
+ *              frontend/src/BraidModal.tsx (renders the kumi-braid-* markup,
+ *              K33),
  *              frontend/src/App.tsx (the per-node focus/trace/halo classes
  *              this file styles, the sidebar finding rows this file's
  *              .kumi-finding-clickable styles, and the .kumi-glide class it
@@ -1168,3 +1175,126 @@ body {
 [data-theme="dark"] .react-flow__attribution a {
   color: var(--kumi-text-subtle);
 }
+
+/* Styled braid preview (PLAN2.md §4 M10, K33). The modal box itself grows a
+ * little over the shared .kumi-modal-box width — a styled document with
+ * headings and tables wants more room than the plain-text preview did. */
+.kumi-braid-box { width: min(880px, 92vw); }
+.kumi-braid-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--kumi-space-8);
+  margin: 0 0 var(--kumi-space-8);
+}
+/* Same segmented-control recipe as .kumi-lens-bar, kept as its own class
+ * rather than shared — two toggles, not five lenses, and coupling this to a
+ * sidebar-specific class would make a future lens-bar restyle silently
+ * reshape the braid modal too. */
+.kumi-braid-view-toggle {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  flex: 0 0 auto;
+  background: var(--kumi-surface-muted);
+  border-radius: var(--kumi-radius-sm);
+}
+.kumi-braid-view-btn {
+  font: inherit;
+  font-size: var(--kumi-text-sm);
+  padding: 4px 10px;
+  border: none;
+  border-radius: var(--kumi-radius-sm);
+  background: transparent;
+  color: var(--kumi-text-muted);
+  cursor: pointer;
+}
+.kumi-braid-view-btn:hover { background: var(--kumi-surface-hover); }
+.kumi-braid-view-active {
+  background: var(--kumi-surface);
+  color: var(--kumi-text);
+  font-weight: 600;
+  box-shadow: var(--kumi-shadow-sm);
+}
+.kumi-braid-diagram-toggle { font-size: var(--kumi-text-sm); }
+.kumi-braid-actions { margin: var(--kumi-space-8) 0; }
+.kumi-braid-loading, .kumi-braid-error {
+  font-size: var(--kumi-text-sm);
+  color: var(--kumi-text-subtle);
+}
+.kumi-braid-error button { margin-left: var(--kumi-space-6); }
+
+/* Rendered view: marked's own output (braidPreview.ts), tag-selected since
+ * dangerouslySetInnerHTML markup carries no classes of its own. Paragraphs/
+ * lists/blockquotes cap at a readable measure and center in the wider box;
+ * code/pre/tables opt back out to the full width since tabular or
+ * fixed-width content wraps worse at 72ch than prose does (judgment call). */
+.kumi-braid-rendered {
+  flex: 1;
+  overflow: auto;
+  font-size: var(--kumi-text-md);
+  line-height: 1.6;
+  background: var(--kumi-bg-well);
+  border: 1px solid var(--kumi-border);
+  border-radius: var(--kumi-radius-sm);
+  padding: var(--kumi-space-16);
+}
+.kumi-braid-rendered > * { max-width: 72ch; margin-left: auto; margin-right: auto; }
+.kumi-braid-rendered > *:first-child { margin-top: 0; }
+.kumi-braid-rendered h1, .kumi-braid-rendered h2, .kumi-braid-rendered h3 {
+  color: var(--kumi-text);
+  line-height: 1.3;
+}
+.kumi-braid-rendered h1 { font-size: 1.5em; margin: 0 0 var(--kumi-space-12); }
+.kumi-braid-rendered h2 {
+  font-size: 1.25em;
+  margin: var(--kumi-space-16) 0 var(--kumi-space-8);
+  border-top: 1px solid var(--kumi-border);
+  padding-top: var(--kumi-space-16);
+}
+.kumi-braid-rendered h2:first-child { border-top: none; padding-top: 0; }
+.kumi-braid-rendered h3 { font-size: 1.08em; margin: var(--kumi-space-16) 0 var(--kumi-space-6); }
+.kumi-braid-rendered p { margin: var(--kumi-space-8) 0; color: var(--kumi-text); }
+.kumi-braid-rendered ul, .kumi-braid-rendered ol { margin: var(--kumi-space-8) 0; padding-left: 1.4em; }
+.kumi-braid-rendered li { margin: 2px 0; }
+.kumi-braid-rendered li input[type="checkbox"] { margin-right: 6px; }
+.kumi-braid-rendered code {
+  font-family: var(--kumi-font-mono);
+  font-size: 0.9em;
+  background: var(--kumi-surface-muted);
+  border-radius: 4px;
+  padding: 1px 4px;
+}
+.kumi-braid-rendered pre {
+  max-width: 100%;
+  overflow-x: auto;
+  background: var(--kumi-surface-muted);
+  border: 1px solid var(--kumi-border);
+  border-radius: var(--kumi-radius-sm);
+  padding: var(--kumi-space-8);
+}
+.kumi-braid-rendered pre code { background: none; padding: 0; }
+.kumi-braid-rendered blockquote {
+  margin: var(--kumi-space-8) 0;
+  padding: 2px var(--kumi-space-12);
+  border-left: 3px solid var(--kumi-border-strong);
+  color: var(--kumi-text-muted);
+}
+/* display:block lets a wide table scroll horizontally inside its own box
+ * instead of blowing out the modal — thead/tbody/tr/td keep their own
+ * table-* display values, so this doesn't unstyle the table itself. */
+.kumi-braid-rendered table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: 0.92em;
+}
+.kumi-braid-rendered th, .kumi-braid-rendered td {
+  border: 1px solid var(--kumi-border);
+  padding: 4px 8px;
+  text-align: left;
+}
+.kumi-braid-rendered th { background: var(--kumi-surface-muted); }
+.kumi-braid-rendered hr { border: none; border-top: 1px solid var(--kumi-border); margin: var(--kumi-space-16) 0; }
+.kumi-braid-rendered strong { color: var(--kumi-text); }
+.kumi-braid-rendered em { color: var(--kumi-text-muted); }

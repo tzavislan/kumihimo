@@ -97,5 +97,5 @@ rules and why there's no **Trains** row.
 | Auto-layout / Use view.yaml button | Toggle between the elk auto-layout and your saved positions, without touching what's saved |
 | Lanes button | Arrange every node into one column per dependency depth ([Layout](../howto/editor.md#layout)) |
 | Re-layout branch button | With a node selected, re-arrange just its container or dependency cone in place, leaving everything else untouched ([Layout](../howto/editor.md#layout)) |
-| Braid button | Compile the current plan and show it in a modal with a Copy button |
+| Braid button | Compile the current plan and open the [braid preview](../howto/editor.md#braid-preview): styled Rendered/Raw views, a Diagram fold, Copy, and Download |
 | Undo trail entry click | Post that entry's inverse op through the same write door every other gesture uses; a grayed entry's title attribute says why it can't fire ([The editor](../howto/editor.md#sync-conflicts-and-undo)) |

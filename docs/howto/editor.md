@@ -26,8 +26,8 @@ Everything you do writes through the same operations layer as the CLI:
   refuses while referenced, naming the referrers.
 - **Click an edge** — opens the edge panel in the sidebar (see "Reading
   edges" below).
-- **Braid** — compiles the current plan and shows the prompt with a copy
-  button.
+- **Braid** — compiles the current plan and shows it styled, in both themes,
+  with Copy and Download (see "Braid preview" below).
 
 ## Reading edges
 
@@ -357,6 +357,46 @@ Centroid preservation is therefore best-effort, not a guarantee: the common
 case keeps the branch right where it was, and a crowded one moves it the
 short distance needed to stay collision-free instead. Like Auto and Lanes,
 this writes nothing to `view.yaml`.
+
+## Braid preview
+
+**Braid** compiles the current plan and opens it in a modal, styled like a
+document — headings, lists, `code`, tables, and blockquotes — in both light
+and dark, using the same tokens as the rest of the canvas. **Rendered** is
+the default view; **Raw** switches to the compiled Markdown exactly as
+written, the same plain-text view the modal always had. Your choice is
+remembered for the rest of the session (not across a reload).
+
+Node bodies are user-authored text, not trusted input, so the renderer never
+produces an executable or navigable hostile element from one: raw HTML in a
+body (`<script>`, `<img onerror=…>`, an `<iframe>`, an inline event-handler
+attribute) is escaped to inert, visible text rather than passed through, and
+a link's or image's own URL is checked against an allow-list before it's
+ever wired into a live `href`/`src` — `http:`/`https:`/`mailto:` (links) or
+`http:`/`https:`/a relative path (images) pass through; anything else —
+`javascript:`, `data:`, or any other scheme, including the classic
+`[text](javascript:…)` and CommonMark's own `<javascript:…>` autolink form —
+renders as the link's plain text instead, with no `<a>` or `<img>` at all.
+Both views are covered the same way. The first time you open a braid, the
+styled renderer is fetched on demand — it is not part of the page's initial
+download, so it costs nothing until you actually open one.
+
+The compiled braid embeds one Mermaid diagram (the "Plan shape" section) —
+rendered natively by GitHub and by this project's own docs site, but not
+here: drawing it would pull in a renderer heavy enough to compete with the
+rest of the app's own load time, so the preview always shows it as source
+inside a fenced code block instead. Since that source can run to dozens of
+lines on a large plan, the **Diagram** toggle folds it down to a one-line
+"(plan-shape diagram hidden — *N* lines)" placeholder by default, in both
+Rendered and Raw — click it to unfold the real source when you want to read
+it here.
+
+**Copy** and **Download** both always hand over the complete, real braid —
+never a copy with the diagram folded away, regardless of what the toggle is
+currently showing on screen. Download saves it as
+`<plan-name-slug>.braid.md`, byte-for-byte identical to what `kumihimo
+braid`/`GET /api/braid` would produce; nothing is re-serialized or has its
+line endings translated on the way to the file.
 
 ## Motion and attribution
 

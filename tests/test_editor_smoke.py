@@ -10,21 +10,35 @@
              an editor-driven gesture (this same session's own GUI add) must
              show none. K32's real-browser proof: adding a node through the
              GUI and pressing Ctrl+Z removes it from both the canvas and disk.
-             Skips cleanly when Playwright's chromium is not installed.
+             K33's own proof lives in the braid section of the main flow:
+             Rendered is the modal's default (a real <h1>), Raw still carries
+             the exact compiled text, the Diagram toggle folds/unfolds the one
+             ```mermaid fence in both views, and Copy/Download both carry the
+             untouched braid — Download's bytes sha256-match a fresh
+             GET /api/braid, proving no re-serialization happened anywhere
+             between the API and the saved file. Skips cleanly when
+             Playwright's chromium is not installed.
 @layer       tests
-@tags        playwright, smoke, editor, e2e, events, attribution, undo
+@tags        playwright, smoke, editor, e2e, events, attribution, undo,
+             braid-preview
 @related     frontend/src/App.tsx (the surface driven here),
+             frontend/src/BraidModal.tsx (the Rendered/Raw/Diagram/Download
+             surface under test, K33), frontend/src/braidPreview.ts (the fold
+             transform and lazy `marked` render this exercises indirectly),
              frontend/src/useAttribution.ts (the toast/pulse state under
              test), frontend/src/useUndoTrail.ts, frontend/src/useGraphKeyboard.ts
              (Ctrl+Z, under test), kumihimo/server/ops_api.py (where every
              gesture lands, inverse envelopes included), kumihimo/core/ops.py
              (the events.jsonl log a real `kumihimo add` subprocess writes to,
-             actor "cli")
+             actor "cli"), kumihimo/server/app.py (GET /api/braid — the bytes
+             Download must sha256-match)
 @design      PLAN.md §9 M5, roadmap item playwright-smoke; PLAN2.md §2.5
-             Motion & attribution (K31) and Undo trail (K32)
+             Motion & attribution (K31) and Undo trail (K32); PLAN2.md §4 M10
+             styled braid preview (K33)
 """
 
 import contextlib
+import hashlib
 import socket
 import subprocess
 import time
@@ -185,16 +199,73 @@ def test_build_a_plan_in_the_gui_and_braid_it(editor: Path) -> None:
             page.mouse.up()
             page.wait_for_timeout(400)
 
-            # Braid from the button and read the prompt out of the modal.
+            # Braid from the button. Rendered is the modal's default view
+            # (K33) — its own <h1> proves "# Braid: Smoke" actually rendered
+            # as a heading, not just arrived as text in a <pre>. The Smoke
+            # plan has needs edges but no membership, so diagram.py's
+            # mermaid() still emits a real (small) "Plan shape" fence —
+            # folded by default, so neither the heading's own diagram-hidden
+            # placeholder nor the rendered pane should show "graph LR" yet.
+            page.context.grant_permissions(["clipboard-read", "clipboard-write"], origin=URL)
             page.get_by_role("button", name="Braid", exact=True).click()
+            page.wait_for_selector(".kumi-braid-rendered h1")
+            rendered_h1 = page.locator(".kumi-braid-rendered h1").inner_text()
+            rendered_folded = page.locator(".kumi-braid-rendered").inner_text()
+
+            # Raw carries the exact compiled text — same fold, same text,
+            # just <pre> instead of marked's HTML (K33: both views share one
+            # fold transform over the one ```mermaid fence).
+            page.get_by_role("tab", name="Raw", exact=True).click()
             page.wait_for_selector(".kumi-braid")
             braid_text = page.locator(".kumi-braid").inner_text()
+
+            # Copy and Download, both while STILL folded: the point of this
+            # ordering is that if either wired itself to the folded display
+            # copy instead of the untouched prop, the diagram would come back
+            # as the "(...hidden...)" placeholder instead of real "graph LR"
+            # source — folding is a reading aid, never a data loss risk for
+            # what gets copied or downloaded (K33's own invariant).
+            page.get_by_role("button", name="Copy", exact=True).click()
+            clipboard_text = page.evaluate("navigator.clipboard.readText()")
+            with page.expect_download() as download_info:
+                page.get_by_role("button", name="Download", exact=True).click()
+            download = download_info.value
+            download_filename = download.suggested_filename
+            downloaded_bytes = Path(download.path()).read_bytes()
+
+            # The Diagram toggle unfolds the fence in both views alike;
+            # get_by_title rather than get_by_role — this button is the one
+            # control in the modal whose title is deliberately more precise
+            # than its short, state-flipping visible label.
+            page.get_by_title(
+                "Mermaid itself is never rendered — this only shows or hides the fenced source"
+            ).click()
+            page.wait_for_function(
+                "document.querySelector('.kumi-braid').innerText.includes('graph LR')"
+            )
+            raw_unfolded = page.locator(".kumi-braid").inner_text()
         finally:
             browser.close()
 
+    api_bytes = httpx.get(f"{URL}/api/braid").content
+    assert rendered_h1 == "Braid: Smoke"
+    assert "diagram hidden" in rendered_folded
+    assert "graph LR" not in rendered_folded
     assert "# Braid: Smoke" in braid_text
     assert braid_text.index("Write the spec") < braid_text.index("Build the thing")
     assert braid_text.index("Build the thing") < braid_text.index("Verify it works")
+    assert "diagram hidden" in braid_text
+    assert "graph LR" not in braid_text
+    # Windows' system clipboard normalizes plain text to CRLF regardless of
+    # what any web app writes (a browser/OS convention outside this app's
+    # control) — Copy is checked for CONTENT fidelity accordingly. Download's
+    # Blob path never touches the OS clipboard at all, so it alone is held to
+    # the acceptance line's literal byte-for-byte bar, below.
+    assert clipboard_text.replace("\r\n", "\n") == api_bytes.decode("utf-8")
+    assert "graph LR" in clipboard_text  # the real diagram, not the fold placeholder
+    assert download_filename == "smoke.braid.md"
+    assert hashlib.sha256(downloaded_bytes).hexdigest() == hashlib.sha256(api_bytes).hexdigest()
+    assert "graph LR" in raw_unfolded  # the Diagram toggle unfolded it back
 
     plan = Plan.load(editor)
     assert plan.nodes["build"].needs == ["spec"]
@@ -207,6 +278,147 @@ def test_build_a_plan_in_the_gui_and_braid_it(editor: Path) -> None:
     assert plan.check() == [
         finding for finding in plan.check() if finding.level == "warning"
     ]  # empty bodies warn; no errors
+
+
+# Checker-flagged gap, fixed same day the checker found it live: the html-
+# escape override alone left marked's default link/image renderers doing no
+# scheme filtering at all — a node body's [x](javascript:alert(1)) or the
+# CommonMark autolink <javascript:alert(1)> rendered as a real, clickable
+# <a href="javascript:alert(1)">, confirmed by clicking one in the running
+# app. braidPreview.ts's link/image renderer overrides fix this; this test
+# is the checker's own two vectors plus data: (link and image), a
+# denied-scheme link's nested formatting surviving as inert text, ordinary
+# http(s)/relative/fragment links still producing real anchors, and a wider
+# raw-HTML-escape regression sweep (script/event-handler-attribute/comment/
+# entity/code vectors) — all read straight out of the live rendered DOM, not
+# just string-matched off the HTML source, so a payload that parses into
+# some OTHER live element this test didn't think to name would still be
+# caught by the anchor/img inventory or the innerHTML assertions below.
+def test_braid_preview_escapes_html_and_filters_link_schemes(editor: Path) -> None:
+    body = "\n\n".join(
+        [
+            "Vector 1 script tag: <script>alert(1)</script>",
+            'Vector 2 img onerror: <img src=x onerror="alert(2)">',
+            'Vector 3 svg onload: <svg onload="alert(3)">',
+            'Vector 4 iframe javascript src: <iframe src="javascript:alert(4)"></iframe>',
+            'Vector 5 anchor onclick raw html: <a href="#" onclick="alert(5)">raw</a>',
+            "Vector 6 html comment: <!-- <script>alert(6)</script> -->",
+            "Vector 7 already-escaped entity: &lt;script&gt;",
+            "Vector 8 inline code literal: `<script>alert(8)</script>`",
+            "Checker vector: reference-style javascript link: [click me](javascript:alert(9))",
+            "Checker vector: CommonMark autolink: <javascript:alert(10)>",
+            "data link: [data click](data:text/html,<script>alert(11)</script>)",
+            "data image below:",
+            "![data image](data:image/png;base64,AAAA)",
+            "Bold inside a denied link: [**bold click**](javascript:alert(12))",
+            "Legit https link: [anthropic](https://www.anthropic.com)",
+            "Legit relative link: [readme](./README.md)",
+            "Legit fragment link: [section](#section)",
+            "Legit https image below:",
+            "![legit image](https://example.com/pic.png)",
+        ]
+    )
+    body += "\n\n```js\nfenced code block literal: <script>alert(13)</script>\n```\n"
+    completed = subprocess.run(
+        kumihimo_argv("add", str(editor), "payload", "--title", "Payload node", "--body", body),
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert completed.returncode == 0, completed.stderr
+
+    with playwright_api.sync_playwright() as pw:
+        try:
+            browser = pw.chromium.launch()
+        except playwright_api.Error as err:
+            pytest.skip(f"chromium not launchable: {err}")
+        try:
+            page = browser.new_page(viewport={"width": 1400, "height": 900})
+            page.goto(URL)
+            page.wait_for_selector(".kumi-side h1")
+            page.get_by_role("button", name="Braid", exact=True).click()
+            page.wait_for_selector(".kumi-braid-rendered h1")
+            rendered = page.eval_on_selector(
+                ".kumi-braid-rendered",
+                "(el) => ({"
+                " html: el.innerHTML,"
+                " anchors: [...el.querySelectorAll('a')].map(a => a.getAttribute('href')),"
+                " imgs: [...el.querySelectorAll('img')].map(i => i.getAttribute('src')),"
+                " strongCount: el.querySelectorAll('strong').length,"
+                " scriptCount: el.querySelectorAll('script').length,"
+                " iframeCount: el.querySelectorAll('iframe').length,"
+                " svgCount: el.querySelectorAll('svg').length,"
+                # Real DOM attribute presence, not a string search over the
+                # HTML source — the point is "would the browser ever
+                # actually run this," which only a live element with the
+                # attribute really set can answer. A properly-escaped
+                # payload leaves the WORD 'onerror=' sitting in plain text
+                # (that's expected and fine); this only fires on a genuine
+                # attribute.
+                " dangerousAttrElements: el.querySelectorAll("
+                "   '[onclick],[onerror],[onload],[onmouseover],'"
+                ' + \'[href^="javascript:" i],[src^="javascript:" i]\''
+                " ).length,"
+                "})",
+            )
+
+            # Raw view too: React's own text interpolation makes it safe by
+            # construction, but confirm no vector reaches it as a live
+            # element either, and the fold-affordance path stays untouched.
+            page.get_by_role("tab", name="Raw", exact=True).click()
+            page.wait_for_selector(".kumi-braid")
+            raw_has_anchor = page.eval_on_selector(".kumi-braid", "(el) => !!el.querySelector('a')")
+            raw_has_img = page.eval_on_selector(".kumi-braid", "(el) => !!el.querySelector('img')")
+            raw_has_script = page.eval_on_selector(
+                ".kumi-braid", "(el) => !!el.querySelector('script')"
+            )
+        finally:
+            browser.close()
+
+    html = rendered["html"]
+    anchors = rendered["anchors"]
+    imgs = rendered["imgs"]
+
+    # --- the checker's two demonstrated vectors, plus data: for both link
+    # and image: no live/navigable element at all, not merely a filtered one.
+    assert not any(href.startswith(("javascript:", "data:", "vbscript:")) for href in anchors)
+    assert not any(src.startswith("data:") for src in imgs)  # data: image denied, not just this one
+    assert "click me" in html  # link text still visible, just not wrapped in <a>
+    assert "javascript:alert(10)" in html  # the autolink's own text (== its href) still visible
+
+    # --- ordinary links/images are unaffected by the allow-list.
+    assert anchors == ["https://www.anthropic.com", "./README.md", "#section"]
+    assert imgs == ["https://example.com/pic.png"]  # data: image denied; this https one wasn't
+
+    # --- nested formatting inside a denied link still renders (K33's own
+    # "hostile input degrades to visible text, never to a live element" —
+    # not to nothing).
+    assert rendered["strongCount"] >= 1
+
+    # --- raw-HTML escape regression: every vector above stays inert text.
+    # Real DOM checks (element/attribute counts), not string-in-html checks
+    # for the attribute names — "onerror=" legitimately appears as plain
+    # visible TEXT once escaped (only the surrounding <> and quotes change),
+    # so a substring search for it would false-positive on correctly-escaped
+    # output; only a live element actually carrying the attribute matters.
+    assert rendered["scriptCount"] == 0
+    assert rendered["iframeCount"] == 0
+    assert rendered["svgCount"] == 0
+    assert rendered["dangerousAttrElements"] == 0
+    assert "<script>" not in html
+    assert "<iframe" not in html
+    assert "<svg" not in html
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in html  # vector 1, escaped
+    assert "&lt;script&gt;" in html  # vector 7, single-decoded (not &amp;lt;)
+    assert "&amp;lt;" not in html  # would mean vector 7 got double-escaped
+    assert "<code>&lt;script&gt;alert(8)&lt;/script&gt;</code>" in html  # vector 8
+    assert '<pre><code class="language-js">' in html  # fenced block still a real code block
+    assert "&lt;script&gt;alert(13)&lt;/script&gt;" in html  # ...with its content literal
+
+    # --- Raw view: no vector reaches it as a live element either.
+    assert raw_has_anchor is False
+    assert raw_has_img is False
+    assert raw_has_script is False
 
 
 def test_cli_mutation_shows_one_toast_and_pulse_editor_self_op_shows_none(editor: Path) -> None:

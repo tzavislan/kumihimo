@@ -321,7 +321,7 @@ external edit grays the stale entry with the reason; undo of undo works;
 all through POST /api/ops with zero new write paths.
 
 ### K33 — Styled braid preview
-status: todo
+status: done (iteration 34)
 needs: —
 PLAN2 §4 M10. The braid modal renders the compiled Markdown styled
 (headings, lists, code, tables, blockquotes) with the existing tokens in
