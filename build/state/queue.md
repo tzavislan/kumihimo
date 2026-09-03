@@ -393,3 +393,101 @@ in git" should mean the discovered repo tracks at least one file under
 the plan root (or the manifest itself); otherwise report tracked: false
 and show nothing. Trigger test: plan in a temp dir nested under a repo
 that doesn't track it; non-trigger: plans/roadmap keeps its indicator.
+
+## M11 — Refine (the what-next chart, groomed 2026-09-03)
+
+### K38 — Repo presentation pass
+status: todo
+needs: —
+README badges (CI, docs, license — PyPI badge waits for the release), gh
+repo edit --description + topics (mcp, claude, planning,
+prompt-engineering, react-flow, knowledge-graph), .github/dependabot.yml
+(github-actions weekly, pip weekly, npm weekly in /frontend),
+action major bumps clearing the Node-20 deprecation annotations
+(actions/checkout, actions/setup-node, astral-sh/setup-uv — current
+majors, CI green after), SECURITY.md (private report path, supported
+versions honest: none released yet), .github/ISSUE_TEMPLATE (bug +
+feature, minimal) and PULL_REQUEST_TEMPLATE.md pointing at
+CONVENTIONS.md + the battery. Accept: CI green on the bumped actions
+with zero deprecation annotations; badges render on GitHub; topics live.
+
+### K39 — README demo GIF
+status: todo
+needs: —
+A scripted playwright drive of the real editor on a scratch plan: an
+outside CLI edit raises "via CLI: … updated" + pulse, then Ctrl+Z
+undoes an op — captured as frames, assembled via PIL into
+docs/assets/demo.gif (<4MB, ~10-20s loop, light theme, 1200px wide max),
+embedded in the README above the fold with honest alt text; docs/index.md
+optional. Accept: the GIF plays on GitHub, shows toast+pulse+undo
+legibly, README renders.
+
+### K40 — Chip ops stop racing the echo
+status: todo
+needs: —
+Audit finding: two fast chip adds 409 (second still holds the pre-echo
+digest). ChipEditor rows disable their inputs/buttons while an op is in
+flight for that node (pending state cleared on response), OR chain the
+digest from the op response — pick the simpler that kills the race;
+document in editor.md's chip section. Accept: a scripted double-add
+lands both edges with zero conflict notices (smoke or live proof).
+
+### K41 — Crew semantics + selection UX
+status: todo
+needs: —
+Four audit notes: (1) Crew lens outlines only UNDONE unassigned tasks
+(effective status != done); (2) adding a node centers it into view
+(reuse the palette's center path); (3) the node form banners its
+identity ("editing <title> · <id>") at the top; (4) Esc clears
+selection when no focus/trace/palette/modal is active (priority chain
+documented in useGraphKeyboard). docs: editor.md + shortcuts.md.
+Accept: each behavior proven in the smoke or live; lens docs updated.
+
+### K42 — Structure-lens mention calm
+status: todo
+needs: —
+Outside the Crew lens, mention edges fade harder (own non-Crew opacity
+token) and their labels hide below a zoom threshold (reuse the semantic
+zoom tier signal if reachable in the edge label component — else a
+viewport-zoom listener). No elk/layout change (K34's needs-only rule
+stands). Accept: before/after shots of the roadmap Structure lens show
+visibly calmer mention presence; Crew lens unchanged (measured
+opacities per K30's matrix).
+
+### K43 — Micro-hardening
+status: todo
+needs: —
+(1) braidPreview urlScheme decodes numeric/named colon entities
+(&#58; &#x3a; &colon;) before scheme classification — the checker's v13
+nuance dies; trigger+non-trigger tests in the smoke's XSS sweep.
+(2) Task-pill white text reaches AA: adjust the task blue (or pill text
+strategy) to >=4.5:1 without losing the kind hue family; verify no
+other surface uses the token in a way that breaks (grep). (3) The CLI
+check summary's edge count includes mention edges (cosmetic undercount
+since K28). Accept: measured contrast >=4.5; entity vectors render as
+plain text; check on the roadmap prints the true edge count.
+
+### K44 — Vitest for the pure TS math
+status: todo
+needs: —
+vitest (pinned) + tests for the pure functions: lenses (crew hue/tint/
+text-contrast math vs the WCAG formula), attributionDiff (grouping,
+dedupe, actor mapping), braidPreview (urlScheme incl. K43's entity
+cases, foldDiagram counts), cones/lanes if cheap. `npm test` wired into
+the frontend CI job. Accept: tests fail when a formula is broken
+(mutate-and-see proven once locally), CI runs them, README/CONTRIBUTING
+mention the command.
+
+### K45 — Restore op: remove becomes undoable
+status: todo
+needs: —
+remove_node's op response gains inverse {op: restore_node, node_id,
+content: the prior file bytes (and view.yaml position if it had one)};
+new RestoreOp in ops_api + core.ops.restore_node writing the bytes back
+atomically, refused if the file exists ("'x' already exists — refresh"),
+referrers NOT resurrected (remove --force stripped them; the restore
+returns the node file only, documented honestly in the trail label and
+editor.md). Trail entry enabled while the file stays absent. Accept:
+remove → undo restores the file byte-for-byte; force-remove's referrer
+strips stay stripped with the limitation documented; undo-of-restore
+(re-remove) works; events.jsonl carries the restore.
