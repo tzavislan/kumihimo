@@ -8,17 +8,20 @@
              subprocess mutating the same plan while the editor is open must
              show exactly one attributed toast and pulse the right node, and
              an editor-driven gesture (this same session's own GUI add) must
-             show none. Skips cleanly when Playwright's chromium is not
-             installed.
+             show none. K32's real-browser proof: adding a node through the
+             GUI and pressing Ctrl+Z removes it from both the canvas and disk.
+             Skips cleanly when Playwright's chromium is not installed.
 @layer       tests
-@tags        playwright, smoke, editor, e2e, events, attribution
+@tags        playwright, smoke, editor, e2e, events, attribution, undo
 @related     frontend/src/App.tsx (the surface driven here),
              frontend/src/useAttribution.ts (the toast/pulse state under
-             test), kumihimo/server/ops_api.py (where every gesture lands),
-             kumihimo/core/ops.py (the events.jsonl log a real `kumihimo add`
-             subprocess writes to, actor "cli")
+             test), frontend/src/useUndoTrail.ts, frontend/src/useGraphKeyboard.ts
+             (Ctrl+Z, under test), kumihimo/server/ops_api.py (where every
+             gesture lands, inverse envelopes included), kumihimo/core/ops.py
+             (the events.jsonl log a real `kumihimo add` subprocess writes to,
+             actor "cli")
 @design      PLAN.md §9 M5, roadmap item playwright-smoke; PLAN2.md §2.5
-             Motion & attribution, queue item K31
+             Motion & attribution (K31) and Undo trail (K32)
 """
 
 import contextlib
@@ -255,3 +258,34 @@ def test_cli_mutation_shows_one_toast_and_pulse_editor_self_op_shows_none(editor
             browser.close()
 
     assert Plan.load(editor).nodes["via-cli"].title == "Via CLI"
+
+
+def test_gui_add_then_ctrl_z_undoes_it(editor: Path) -> None:
+    """K32's acceptance line, proven in a real browser: adding a node through
+    the GUI form, then pressing Ctrl+Z, removes it from both the canvas and
+    disk — the undo trail's inverse posted through the same op door, not a
+    second write path."""
+    with playwright_api.sync_playwright() as pw:
+        try:
+            browser = pw.chromium.launch()
+        except playwright_api.Error as err:
+            pytest.skip(f"chromium not launchable: {err}")
+        try:
+            page = browser.new_page(viewport={"width": 1400, "height": 900})
+            page.goto(URL)
+            page.wait_for_selector(".kumi-side h1")
+
+            page.fill('input[placeholder="id-slug"]', "undoable")
+            page.fill('input[placeholder="title (optional)"]', "Undo me")
+            page.get_by_role("button", name="Add", exact=True).click()
+            page.wait_for_selector('.react-flow__node[data-id="undoable"]')
+            # The trail's own panel: one enabled entry for the add just made.
+            page.wait_for_selector(".kumi-undo-entry:not([disabled])")
+
+            page.keyboard.press("Control+z")
+            page.wait_for_selector('.react-flow__node[data-id="undoable"]', state="detached")
+        finally:
+            browser.close()
+
+    assert "undoable" not in Plan.load(editor).nodes
+    assert not (editor / "nodes" / "undoable.md").exists()

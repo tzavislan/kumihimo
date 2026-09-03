@@ -80,18 +80,27 @@ def build_app(root: Path, static_dir: Path | None = None) -> FastAPI:
 
     @app.post("/api/ops")
     def post_op(request: OpRequest) -> dict[str, Any]:
-        """Apply one editor gesture and return the fresh payload.
+        """Apply one editor gesture and return the fresh payload plus its
+        inverse (K32).
 
         @purpose  The single write door: digest conflicts answer 409 (refresh),
-                  everything else wrong answers 400 with the message.
+                  everything else wrong answers 400 with the message. On
+                  success, `inverse`/`preconditions`/`label` ride alongside the
+                  payload so the editor's own undo trail can post the inverse
+                  back through this exact same door later — zero new write
+                  paths, per PLAN2.md §2.5.
         """
         try:
-            apply(root, request)
+            outcome = apply(root, request)
         except StaleDigestError as err:
             raise HTTPException(status_code=409, detail=str(err)) from err
         except KumihimoError as err:
             raise HTTPException(status_code=400, detail=str(err)) from err
-        return plan_payload(root)
+        response = plan_payload(root)
+        response["inverse"] = outcome.inverse
+        response["preconditions"] = outcome.preconditions
+        response["label"] = outcome.label
+        return response
 
     @app.get("/api/braid", response_class=PlainTextResponse)
     def get_braid(

@@ -1026,3 +1026,38 @@ hash-proven; zero datetime imports package-wide confirmed.
 
 **Battery (mine, unpiped):** ruff, mypy, pytest -q (218), lint, mkdocs
 strict, frontend typecheck+build — green. Next: K32 (undo trail).
+
+## 2026-09-03 — iteration 33 (K32: inverse-op undo trail)
+
+**Built (Sonnet builder):** undo as forward ops through the same write
+door, never time-travel. ops_api.apply() returns {inverse envelope,
+preconditions [{id, digest}], label} computed from before-state: add↔
+remove (no force — external referrers refuse honestly), update restores
+only fields that actually changed (NodeForm resends everything; the
+no-op filter keeps labels honest), link↔unlink same-key, rename↔reverse
+with referrer re-fixup, positions/collapsed↔prior view values,
+remove→null ("not undoable in v0.2 — git is"). Frontend: useUndoTrail +
+UndoPanel (new files; EdgePanel extracted first to buy cap headroom —
+App.tsx 598/600), session-scoped from op responses only, cap 50, Ctrl+Z
+fires the topmost enabled entry with the form-field guard hoisted so
+native text-undo stays native. Smoke test grew the real-browser proof:
+GUI add → Ctrl+Z → gone from canvas AND disk.
+
+**Checker+critic (one pass): APPROVE, zero findings.** The matrix held
+under attack: every inverse sha256-byte-exact on comment-laden files —
+including scalar-mention rename referrers and the forced-dirty re-save
+path (invariant 7 survives K32's re-serialization, proven); precondition
+scoping exactly node-level; undo-of-undo chains byte-exact; the two
+refusal layers proved INDEPENDENT (stale digest grays the entry;
+a semantically-invalid-but-fresh inverse posts and is refused by the op
+door with the cycle path — PLAN2 par.5 risk 4's intent, live); two-tab
+session scoping airtight both directions; 51 ops → newest 50; zero K31
+toasts from undo ops (actor suppression composes). Checker's one
+authorized write folded the flagged K31 README-prose gap. Two cosmetic
+notes taken: grayed reason says "changed since" even for removed nodes;
+selection never clears once made (setSelectedId(null) has no caller) —
+M10-feel polish candidates, not defects.
+
+**Battery (mine, unpiped):** ruff, mypy, pytest -q (233), lint, mkdocs
+strict, frontend typecheck+build — green. Next: K33 (styled braid
+preview).

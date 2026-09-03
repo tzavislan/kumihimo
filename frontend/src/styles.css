@@ -7,18 +7,21 @@
  *              tiers, containers, the lens bar and Status/Flow/Risk/Crew lens
  *              classes (K26; Crew is K30), mention edges (K30), the
  *              sidebar's chip editors (K30), React Flow chrome,
- *              payload-echo motion (.kumi-glide, K27), and the K31
- *              attribution toast stack (.kumi-toast-*) plus pulse ring
- *              (.kumi-pulse, keyed off KumiNode.tsx's .kumi-tier-far the
- *              same way the halo rules below already substitute the chip
- *              for the mostly-empty outer box). Deliberately small and
- *              system-font.
+ *              payload-echo motion (.kumi-glide, K27), the K31 attribution
+ *              toast stack (.kumi-toast-*) plus pulse ring (.kumi-pulse,
+ *              keyed off KumiNode.tsx's .kumi-tier-far the same way the halo
+ *              rules below already substitute the chip for the mostly-empty
+ *              outer box), and the K32 undo trail (.kumi-undo-*, styled off
+ *              existing surface/border/text tokens rather than new ones — a
+ *              grayed entry is just a disabled sidebar button). Deliberately
+ *              small and system-font.
  * @layer       frontend
  * @tags        css, chrome, design-tokens, dark-mode, focus, trace,
  *              semantic-zoom, findings, palette, containers, lenses, motion,
  *              glide, reduced-motion, crew, mentions, chips, attribution,
- *              toasts, pulse
+ *              toasts, pulse, undo
  * @related     frontend/src/theme.ts (sets data-theme on <html>),
+ *              frontend/src/UndoPanel.tsx (renders the kumi-undo-* markup),
  *              frontend/src/App.tsx (the per-node focus/trace/halo classes
  *              this file styles, the sidebar finding rows this file's
  *              .kumi-finding-clickable styles, and the .kumi-glide class it
@@ -375,6 +378,34 @@ body {
   border-radius: var(--kumi-radius-sm); padding: var(--kumi-space-6) var(--kumi-space-8);
   margin: var(--kumi-space-8) 0; cursor: pointer;
 }
+/* Undo trail (PLAN2.md §2.5 Undo trail, §5 risk 4, K32): a collapsible
+ * <details> section (UndoPanel.tsx), newest entry first. Entries are plain
+ * .kumi-side buttons, so border/background/hover already come free from
+ * that rule above — only layout (full-width, stacked label+reason) and the
+ * disabled ("grayed, with why") look need declaring here. */
+.kumi-undo { margin: var(--kumi-space-8) 0; }
+.kumi-undo summary {
+  cursor: pointer; font-size: var(--kumi-text-md); color: var(--kumi-text-muted);
+  padding: var(--kumi-space-4) 0;
+}
+.kumi-undo-list {
+  list-style: none; margin: var(--kumi-space-4) 0 0; padding: 0;
+  max-height: 220px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.kumi-undo-entry {
+  width: 100%; text-align: left; display: flex; flex-direction: column; gap: 1px;
+  font-size: var(--kumi-text-sm); padding: var(--kumi-space-4) var(--kumi-space-6);
+}
+.kumi-undo-entry:disabled { cursor: not-allowed; opacity: 0.55; background: var(--kumi-bg-well); }
+/* Specificity-explicit: ".kumi-side button:hover" alone would otherwise
+ * still win on hover even while disabled — disabled buttons keep matching
+ * :hover in CSS even though clicks don't reach them. */
+.kumi-undo-entry:disabled:hover { background: var(--kumi-bg-well); }
+.kumi-undo-label { color: var(--kumi-text); }
+.kumi-undo-entry:disabled .kumi-undo-label { color: var(--kumi-text-faint); }
+.kumi-undo-reason { font-size: var(--kumi-text-xs); color: var(--kumi-text-faint); font-style: italic; }
+
 /* Focus/trace summary line (PLAN2.md §2.1): small, muted, non-interactive
  * except for trace's inline Clear button. */
 .kumi-focus-hint { font-size: var(--kumi-text-sm); color: var(--kumi-text-muted); margin: 0 0 var(--kumi-space-8); }

@@ -67,6 +67,7 @@ text field; the arrow/F/Delete rows below additionally need a node selected.
 | ↑ / ↓ | Cycle among siblings: other nodes sharing this one's first `in` group, or, if it belongs to no group, other likewise-ungrouped nodes — both rings in id order |
 | F | Enter focus mode on the selection (same as double-click; a container focuses the union of its members' cones) |
 | Delete / Backspace | Confirm, then remove the node; a referenced node's removal is refused, naming the referrers — same rule as the sidebar's Delete button, and there's no auto-force from the keyboard |
+| Ctrl+Z (Cmd+Z on macOS) | Undo: post the inverse of the sidebar's topmost *enabled* trail entry — works with or without a selection. A no-op when every entry is grayed (or the trail is empty); see [The editor](../howto/editor.md#sync-conflicts-and-undo) for what grays an entry and why removal has no entry to undo at all |
 | Esc | Exit focus or trace |
 
 **A direction note.** PLAN2.md's design prose says up = dependency,
@@ -97,3 +98,4 @@ rules and why there's no **Trains** row.
 | Lanes button | Arrange every node into one column per dependency depth ([Layout](../howto/editor.md#layout)) |
 | Re-layout branch button | With a node selected, re-arrange just its container or dependency cone in place, leaving everything else untouched ([Layout](../howto/editor.md#layout)) |
 | Braid button | Compile the current plan and show it in a modal with a Copy button |
+| Undo trail entry click | Post that entry's inverse op through the same write door every other gesture uses; a grayed entry's title attribute says why it can't fire ([The editor](../howto/editor.md#sync-conflicts-and-undo)) |

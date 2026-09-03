@@ -2,13 +2,20 @@
  * @file        frontend/src/api.ts
  * @purpose     The wire: fetch the initial payload, then hold a WebSocket that
  *              delivers every change, reconnecting quietly when the server
- *              restarts.
+ *              restarts. postOp's success shape also carries the K32 inverse
+ *              envelope, its digest preconditions, and a human label —
+ *              kumihimo/server/ops_api.py's OpOutcome, merged into every
+ *              /api/ops response — for the caller to hand to useUndoTrail.ts.
  * @layer       frontend
- * @tags        fetch, websocket, reconnect
- * @related     kumihimo/server/app.py (the endpoints this speaks to)
- * @design      PLAN.md §5.2
+ * @tags        fetch, websocket, reconnect, undo
+ * @related     kumihimo/server/app.py (the endpoints this speaks to),
+ *              kumihimo/server/ops_api.py (OpOutcome — the inverse/
+ *              preconditions/label shape postOp's success case mirrors),
+ *              frontend/src/useUndoTrail.ts (the sole reader of those three)
+ * @design      PLAN.md §5.2, PLAN2.md §2.5 Undo trail, queue item K32
  */
 import type { Payload } from "./types";
+import type { Precondition } from "./useUndoTrail";
 
 /** Fetch the current payload once. */
 export async function fetchPlan(): Promise<Payload> {
@@ -22,7 +29,17 @@ export interface OpError {
   detail: string;
 }
 
-export type OpResult = { ok: true; payload: Payload } | ({ ok: false } & OpError);
+export type OpResult =
+  | {
+      ok: true;
+      payload: Payload;
+      // K32: null inverse means honestly not undoable (remove_node) — see
+      // OpOutcome's own doc comment for why preconditions is then always [].
+      inverse: Record<string, unknown> | null;
+      preconditions: Precondition[];
+      label: string;
+    }
+  | ({ ok: false } & OpError);
 
 /** POST one op envelope; 409 means stale (refresh), 400 carries the message. */
 export async function postOp(envelope: Record<string, unknown>): Promise<OpResult> {
@@ -42,7 +59,13 @@ export async function postOp(envelope: Record<string, unknown>): Promise<OpResul
     }
     return { ok: false, status: response.status, detail };
   }
-  return { ok: true, payload: (await response.json()) as Payload };
+  const body = (await response.json()) as Payload & {
+    inverse: Record<string, unknown> | null;
+    preconditions: Precondition[];
+    label: string;
+  };
+  const { inverse, preconditions, label, ...payload } = body;
+  return { ok: true, payload: payload as Payload, inverse, preconditions, label };
 }
 
 /** Fetch the compiled braid text (throws with the server's message on 400). */

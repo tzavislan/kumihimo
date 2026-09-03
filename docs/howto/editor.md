@@ -8,8 +8,8 @@ The canvas renders the plan live: kind-colored nodes, solid arrows for
 `needs`, dashed edges for membership, dotted labeled edges for annotations,
 and thin dotted labeled edges for mentions (who's assigned, what skill, who
 trains it). The sidebar carries the live `check` findings, an add-node form,
-the braid button, and — when the plan lives in git — a dirty-vs-HEAD
-indicator.
+the braid button, a session-scoped [undo trail](#undo), and — when the plan
+lives in git — a dirty-vs-HEAD indicator.
 
 Everything you do writes through the same operations layer as the CLI:
 
@@ -277,8 +277,41 @@ Each form save carries the digest of the file it was based on. If someone
 else changed that file meanwhile, the save is rejected with a conflict notice
 and nothing is clobbered — refresh (the watcher already did) and re-apply.
 
-Undo is git. That's a feature: every session's worth of edits is a reviewable
-diff, and `git checkout -- .` is a bigger undo than any editor ships.
+### Undo
+
+A collapsible **Undo** section in the sidebar, just below the Braid button,
+lists every op *this browser tab* has applied this session — newest first,
+session-scoped and in-memory, so a reload starts it empty. It is not a
+history of the plan, only of what you just did here; for anything else,
+undo is still git (below). Every entry is a button carrying a plain-language
+label ("*set crew-model status: doing → done*", "*link: cache needs
+redis-outage*"); click one, or press **Ctrl+Z** (**Cmd+Z** on macOS,
+[shortcuts reference](../reference/shortcuts.md)) to fire the topmost
+*enabled* one. Either way the entry's inverse posts through the exact same
+`/api/ops` write door every other gesture already uses — there is no second
+path that bypasses `core.ops`. That posted inverse gets a response with its
+own inverse, which lands back on the trail as a fresh entry: undoing an undo
+is just clicking (or Ctrl+Z-ing) again.
+
+An entry stays enabled only while the node file it touched hasn't changed
+since. The server computes each inverse from the exact state read just
+before its op ran and ties it to that same node's digest right after —
+the moment anything else touches that file first (another editor tab, an
+MCP or CLI mutation, a hand edit), the entry grays out with its reason
+("*rate-limit-core changed since*") instead of silently applying a now-wrong
+inverse. Undoing an `unlink` re-draws the edge it removed, which can rarely
+be refused the same way drawing a fresh edge can: if the graph changed
+enough in between that redrawing it would now close a dependency cycle, the
+op door says so and the entry stays on the trail, still enabled, for another
+attempt.
+
+**Removing a node has no inverse.** Undoing a delete would mean recreating a
+file from memory the disk no longer has any trace of — dishonest for a tool
+whose whole model is "files are the only truth." The trail still logs that
+the removal happened, just permanently grayed, with no button that does
+anything. For that, and for anything from outside this one browser tab's own
+session, undo is git: every session's worth of edits is a reviewable diff,
+and `git checkout -- .` is a bigger undo than any editor ships.
 
 ## Layout
 

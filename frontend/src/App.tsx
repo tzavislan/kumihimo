@@ -54,12 +54,23 @@
  *              externally-caused change into a toast (Toasts.tsx, top-right
  *              stack) and a pulsingIds set threaded into buildCanvasNodes
  *              alongside onPulseEnd, so K27's glide and K31's pulse ride the
- *              same nodes-rebuild effect without fighting over it.
+ *              same nodes-rebuild effect without fighting over it. Undo
+ *              (K32): useUndoTrail.ts owns the trail's state; applyOp's own
+ *              success branch is the ONLY place that pushes onto it (every
+ *              op this file posts — drag, connect, form save, add, delete,
+ *              rename, edge removal, container collapse, lens-adjacent state
+ *              excepted — goes through applyOp, so nothing can post without
+ *              also landing on the trail). UndoPanel.tsx renders it as a
+ *              collapsible sidebar section; useGraphKeyboard.ts's Ctrl+Z
+ *              fires its topmost enabled entry. The edge panel moved out to
+ *              EdgePanel.tsx (K32) purely to buy room under the line cap for
+ *              the above — same "primitives and callbacks in, JSX out" split
+ *              NodeForm.tsx/LensBar.tsx/ChipEditor.tsx already use.
  * @layer       frontend
  * @tags        react-flow, editor, ops, live, elk, sidebar, theme, focus,
  *              trace, semantic-zoom, findings, palette, keyboard, containers,
  *              lenses, lanes, layout-mode, re-layout, motion, glide,
- *              attribution, toasts, pulse
+ *              attribution, toasts, pulse, undo
  * @related     frontend/src/canvasBuild.ts (buildCanvasNodes/buildCanvasEdges
  *              — the nodes-rebuild effect's and edges memo's own bodies,
  *              moved out to stay under the line cap),
@@ -76,8 +87,12 @@
  *              Re-layout branch buttons this mounts, K27),
  *              frontend/src/KumiGroupNode.tsx (the container node type this
  *              mounts as "kumiGroup"),
- *              frontend/src/edges.ts (parseEdge/edgeSentence/unlinkEnvelope
- *              for the edge panel),
+ *              frontend/src/edges.ts (parseEdge/edgeSentence — parses the
+ *              selected/hovered edge id and sentences it for the panel and
+ *              tooltip; EdgePanel.tsx is the one that also needs
+ *              unlinkEnvelope),
+ *              frontend/src/EdgePanel.tsx (the selected-edge sidebar panel
+ *              this mounts, K32),
  *              frontend/src/derive.ts (nodeTitle, findingHalos, FocusState/
  *              TraceState),
  *              frontend/src/lenses.ts (Lens, computeLensContext — the
@@ -98,8 +113,14 @@
  *              subscription plus toast/pulse state, the one hook call this
  *              file makes for all of it),
  *              frontend/src/Toasts.tsx (the toast stack this mounts),
- *              kumihimo/server/ops_api.py (where every gesture lands)
- * @design      PLAN.md §5.1-5.3, PLAN2.md §2.1-2.5, §3
+ *              frontend/src/useUndoTrail.ts (K32: the undo trail's state and
+ *              enabled/reason math, the hook call plus one push() from
+ *              applyOp this file makes for all of it),
+ *              frontend/src/UndoPanel.tsx (the undo trail's own sidebar
+ *              section this mounts, K32),
+ *              kumihimo/server/ops_api.py (where every gesture lands, and
+ *              since K32 where its inverse envelope is computed)
+ * @design      PLAN.md §5.1-5.3, PLAN2.md §2.1-2.5, §2.5 Undo trail, §3
  */
 import {
   Background,
@@ -121,7 +142,8 @@ import { buildCanvasEdges, buildCanvasNodes } from "./canvasBuild";
 import { ancestorsOf, containerCones, descendantsOf, pathsBetween } from "./cones";
 import { groupNodes, jumpTarget, membersByContainer, relayoutBranchPositions, relayoutScope } from "./containers";
 import { findingHalos, minimapNodeColor, nodeTitle, type FocusState, type TraceState } from "./derive";
-import { edgeSentence, parseEdge, unlinkEnvelope, type EdgeMode } from "./edges";
+import { EdgePanel } from "./EdgePanel";
+import { edgeSentence, parseEdge, type EdgeMode } from "./edges";
 import { KumiGroupNode } from "./KumiGroupNode";
 import { KumiNode, zoomTier, type ZoomTier } from "./KumiNode";
 import { lanesPositions } from "./lanes";
@@ -134,8 +156,10 @@ import { Palette, type PaletteCommand } from "./Palette";
 import { Toasts } from "./Toasts";
 import { useTheme } from "./theme";
 import type { Payload, Position } from "./types";
+import { UndoPanel } from "./UndoPanel";
 import { useAttribution } from "./useAttribution";
 import { useGraphKeyboard } from "./useGraphKeyboard";
+import { useUndoTrail } from "./useUndoTrail";
 
 const NODE_TYPES = { kumi: KumiNode, kumiGroup: KumiGroupNode };
 
@@ -146,6 +170,7 @@ export default function App() {
   // lives inside this hook, alongside the attribution toast/pulse state it
   // derives from every live push — see useAttribution.ts's own header.
   const { toasts, dismissToast, pulsingIds, onPulseEnd } = useAttribution(setPayload);
+  const undoTrail = useUndoTrail(payload); // K32 — see useUndoTrail.ts's header
   const [positions, setPositions] = useState<Record<string, Position>>({});
   // Elk's own computed size for each EXPANDED container, pure-auto mode only
   // (containers.ts's buildContainerNode falls back to boundingBox whenever
@@ -346,12 +371,13 @@ export default function App() {
     if (result.ok) {
       setPayload(result.payload);
       setNotice(null);
+      undoTrail.push(result.inverse, result.preconditions, result.label); // K32
     } else if (result.status === 409) {
       setNotice(`Conflict: ${result.detail}`);
     } else {
       setNotice(result.detail);
     }
-  }, []);
+  }, [undoTrail.push]);
 
   // Toggle one container's fold state (the ▸/▾ button on its card).
   const toggleCollapse = useCallback(
@@ -607,7 +633,16 @@ export default function App() {
   // F focuses, Delete/Backspace removes, digits 1-4 switch the lens bar
   // (K26) — see useGraphKeyboard.ts for the key bindings and the form-field
   // guard.
-  useGraphKeyboard({ payload, selectedId, paletteOpen, jumpTo, focusOn, applyOp, onLensChange: setLens });
+  useGraphKeyboard({
+    payload,
+    selectedId,
+    paletteOpen,
+    jumpTo,
+    focusOn,
+    applyOp,
+    onLensChange: setLens,
+    undoEntries: undoTrail.entries,
+  });
 
   const onConnect = useCallback(
     (connection: Connection) => {
@@ -720,6 +755,7 @@ export default function App() {
             Braid
           </button>
         </div>
+        <UndoPanel entries={undoTrail.entries} onUndo={(entry) => entry.inverse && void applyOp(entry.inverse)} />
         <h2>New edge draws as</h2>
         <div className="kumi-actions">
           <select value={edgeMode} onChange={(event) => setEdgeMode(event.target.value as EdgeMode)}>
@@ -732,28 +768,14 @@ export default function App() {
           ) : null}
         </div>
         {selectedEdge && selectedEdgeInfo ? (
-          <div className="kumi-edge-panel">
-            <p className="kumi-edge-sentence">{edgeSentence(payload, selectedEdgeInfo)}</p>
-            <div className="kumi-actions">
-              <button onClick={() => jumpTo(selectedEdgeInfo.from)}>
-                ↷ {nodeTitle(payload, selectedEdgeInfo.from)}
-              </button>
-              <button onClick={() => jumpTo(selectedEdgeInfo.to)}>
-                ↷ {nodeTitle(payload, selectedEdgeInfo.to)}
-              </button>
-            </div>
-            <div className="kumi-actions">
-              <button
-                onClick={() => {
-                  const envelope = unlinkEnvelope(selectedEdge);
-                  if (envelope) void applyOp(envelope);
-                  setSelectedEdge(null);
-                }}
-              >
-                Remove edge
-              </button>
-            </div>
-          </div>
+          <EdgePanel
+            payload={payload}
+            edgeId={selectedEdge}
+            info={selectedEdgeInfo}
+            onJump={jumpTo}
+            onApply={(env) => void applyOp(env)}
+            onClose={() => setSelectedEdge(null)}
+          />
         ) : null}
         <h2>Add node</h2>
         <div className="kumi-add">

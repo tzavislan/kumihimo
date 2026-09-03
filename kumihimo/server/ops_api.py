@@ -5,20 +5,30 @@
              concurrent edits, serialized by a single-writer lock, and executed
              through core.ops (positions and container collapse excepted —
              both are view state that goes straight to view.yaml, never a
-             node file).
+             node file). Every apply() also computes that op's inverse from
+             state read immediately before it runs (K32): a full envelope the
+             client can POST back verbatim to undo it, the node digest(s) it
+             preconditions on (so a later external edit grays the trail entry
+             instead of silently mis-undoing), and one human-readable label.
+             remove_node is the honest exception — its inverse is None; git is
+             the real undo for a deletion (PLAN2.md §2.5, §5 risk 4).
 @layer       server
 @tags        ops-envelope, digests, single-writer, view-layout, containers,
-             mentions
+             mentions, undo, inverse-ops
 @related     kumihimo/core/ops.py (every mutation lands there),
-             kumihimo/server/app.py (mounts apply() at POST /api/ops),
-             kumihimo/server/payload.py (file_digest, the concurrency token;
-             also reads `collapsed` back out of view.yaml for the payload)
-@design      PLAN.md §5.2-5.3
+             kumihimo/server/app.py (mounts apply() at POST /api/ops, merges
+             OpOutcome's fields into the response payload),
+             kumihimo/server/payload.py (file_digest, the concurrency token —
+             also the inverse's precondition unit; also reads `collapsed`
+             back out of view.yaml for the payload),
+             frontend/src/useUndoTrail.ts (the client-side trail this feeds)
+@design      PLAN.md §5.2-5.3, PLAN2.md §2.5 Undo trail, §5 risk 4
 """
 
 from __future__ import annotations
 
 import threading
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
@@ -181,6 +191,30 @@ OpRequest = Annotated[
 ]
 
 
+@dataclass
+class OpOutcome:
+    """What one applied op hands back for the undo trail (K32).
+
+    @purpose  `inverse` is a full OpRequest-shaped envelope (JSON, by alias)
+              the client can POST back to `/api/ops` verbatim to undo this
+              op, or None when the op is honestly not reversible this way
+              (remove_node — git is the real undo, PLAN2.md §2.5). Every op
+              here executed while already holding a node's own digest check,
+              so the inverse's `base_digest` and this same value in
+              `preconditions` are always the SAME post-op digest: undoing an
+              undo works for exactly the reason applying the original op did.
+              `preconditions` is empty for set_positions/set_collapsed — those
+              touch view.yaml, which carries no digest of its own in this
+              contract (forward set_positions/set_collapsed have no digest
+              gate either, today), so their trail entries stay enabled always.
+              `label` is one human sentence for the trail.
+    """
+
+    inverse: dict[str, Any] | None
+    preconditions: list[dict[str, str]]
+    label: str
+
+
 def _check_digest(root: Path, node_id: str, base_digest: str | None) -> None:
     """Reject the op when the client's file snapshot is stale.
 
@@ -195,6 +229,136 @@ def _check_digest(root: Path, node_id: str, base_digest: str | None) -> None:
     current = file_digest(path)
     if current != base_digest:
         raise StaleDigestError(f"'{node_id}' changed since you loaded it; refresh and re-apply")
+
+
+def _node_path(root: Path, node_id: str) -> Path:
+    """The on-disk path for a node id, matching store's own layout.
+
+    @purpose  One spelling of "where does this id's file live", shared by
+              digest gating and the K32 inverse/precondition computation.
+    """
+    return root / store.NODES_DIR / Path(node_id + ".md")
+
+
+def _precondition(node_id: str, digest: str) -> list[dict[str, str]]:
+    """One {id, digest} precondition list — the common single-node case.
+
+    @purpose  Every op that touches exactly one node file (all but
+              set_positions/set_collapsed) preconditions its inverse on that
+              same node's post-op digest.
+    """
+    return [{"id": node_id, "digest": digest}]
+
+
+def _edge_key_target(
+    needs: str | None,
+    in_: str | None,
+    to: str | None,
+    agents: str | None,
+    skills: str | None,
+    trains: str | None,
+) -> tuple[str, str]:
+    """The (json-key, target) pair among link/unlink's six optional kwargs.
+
+    @purpose  One spelling of "which edge kwarg was actually given" for the
+              inverse builders below — core.ops.link/unlink already enforce
+              exactly one is set, by the time this runs.
+    """
+    for key, value in (
+        ("needs", needs),
+        ("in", in_),
+        ("to", to),
+        ("agents", agents),
+        ("skills", skills),
+        ("trains", trains),
+    ):
+        if value is not None:
+            return key, value
+    raise KumihimoError("give exactly one of needs=, in_=, to=, agents=, skills=, or trains=")
+
+
+def _edge_sentence(key: str, src: str, target: str, rel: str | None = None) -> str:
+    """ "A needs B" / "A is in B" / "A links B (rel)" / "A mentions B (key)".
+
+    @purpose  Mirrors frontend/src/edges.ts's edgeSentence in words, for the
+              K32 undo trail's own link/unlink labels — ids, not titles,
+              since the server has no reason to load a second node's title
+              just to name an edge.
+    """
+    if key == "needs":
+        return f"{src} needs {target}"
+    if key == "in":
+        return f"{src} is in {target}"
+    if key == "to":
+        return f"{src} links {target}" + (f" ({rel})" if rel and rel != "see-also" else "")
+    return f"{src} mentions {target} ({key})"
+
+
+def _update_inverse(
+    request: UpdateNodeOp, prior: store.NodeRecord, digest: str
+) -> tuple[dict[str, Any], str]:
+    """The inverse update_node envelope plus a human label, from before-state.
+
+    @purpose  Restores every part this update actually changed, byte-for-
+              byte: kind/title/body/priority when touched-and-different, each
+              set_fields entry that changed value (NodeForm.tsx's Save resends
+              every visible field, changed or not — an unchanged one would
+              otherwise pollute both the inverse and the label with a no-op
+              "x -> x" clause), each unset_fields entry (always meaningful:
+              update_node itself already refuses to unset a field that wasn't
+              there). A field this op newly created (absent from `prior`)
+              gets unset back out rather than restored to a fabricated value.
+    @tags     undo, update-node
+    """
+    inverse: dict[str, Any] = {
+        "op": "update_node",
+        "node_id": request.node_id,
+        "base_digest": digest,
+    }
+    clauses: list[str] = []
+    if request.kind is not None and request.kind != prior.node.kind:
+        inverse["kind"] = prior.node.kind
+        clauses.append(f"kind: {prior.node.kind} → {request.kind}")
+    if request.title is not None and request.title != prior.node.title:
+        inverse["title"] = prior.node.title
+        clauses.append(f"title: {prior.node.title!r} → {request.title!r}")
+    if request.body is not None and request.body != prior.node.body:
+        inverse["body"] = prior.node.body
+        clauses.append("body edited")
+    if request.priority is not None and request.priority != prior.node.priority:
+        inverse["priority"] = prior.node.priority
+        clauses.append(f"priority: {prior.node.priority} → {request.priority}")
+    set_back: dict[str, Any] = {}
+    unset_back: list[str] = []
+    for name, value in request.set_fields.items():
+        if name not in prior.node.fields:
+            unset_back.append(name)
+            clauses.append(f"{name}: (none) → {value}")
+        elif prior.node.fields[name] != value:
+            old = prior.node.fields[name]
+            set_back[name] = old
+            clauses.append(f"{name}: {old} → {value}")
+        # else: resent unchanged (NodeForm.tsx resends every visible field) —
+        # nothing to restore, nothing worth a clause.
+    for name in request.unset_fields:
+        old = prior.node.fields.get(name)
+        set_back[name] = old
+        clauses.append(f"{name} removed (was {old})")
+    if set_back:
+        inverse["set_fields"] = set_back
+    if unset_back:
+        inverse["unset_fields"] = unset_back
+    # The "set X key: old -> new" shorthand only reads naturally when the
+    # sole clause actually IS a "key: value" fragment — "set a body edited"
+    # would not, so a lone body/kind-unset-shaped clause without one falls
+    # through to the general "update X: ..." phrasing instead.
+    if len(clauses) == 1 and ": " in clauses[0]:
+        label = f"set {request.node_id} {clauses[0]}"
+    elif clauses:
+        label = f"update {request.node_id}: " + "; ".join(clauses)
+    else:
+        label = f"update {request.node_id}"
+    return inverse, label
 
 
 def _set_positions(root: Path, positions: dict[str, dict[str, int]]) -> None:
@@ -257,12 +421,17 @@ def _set_collapsed(root: Path, collapsed: list[str]) -> None:
     store.save_view(root, view)
 
 
-def apply(root: Path, request: OpRequest) -> None:
-    """Execute one validated op under the single-writer lock.
+def apply(root: Path, request: OpRequest) -> OpOutcome:
+    """Execute one validated op under the single-writer lock; hand back its
+    inverse for the undo trail (K32).
 
     @purpose  The only write door the editor has; everything semantic goes
               through core.ops so the CLI, MCP, and editor can never diverge.
-    @tags     single-writer, ops
+              Before-state for the inverse is read here, at the same moment
+              _check_digest already reads the file (or, for unlink's `to=`
+              case, via one extra Plan.load) — no new race, since the whole
+              body runs under _WRITE_LOCK.
+    @tags     single-writer, ops, undo
     """
     with _WRITE_LOCK:
         if isinstance(request, AddNodeOp):
@@ -277,8 +446,19 @@ def apply(root: Path, request: OpRequest) -> None:
                 in_=tuple(request.in_),
                 actor="editor",
             )
+            digest = file_digest(_node_path(root, request.node_id))
+            inverse: dict[str, Any] = {
+                "op": "remove_node",
+                "node_id": request.node_id,
+                "base_digest": digest,
+            }
+            return OpOutcome(
+                inverse, _precondition(request.node_id, digest), f"add {request.node_id}"
+            )
+
         elif isinstance(request, UpdateNodeOp):
             _check_digest(root, request.node_id, request.base_digest)
+            prior_record = Plan.load(root).records.get(request.node_id)
             ops.update_node(
                 root,
                 request.node_id,
@@ -290,11 +470,30 @@ def apply(root: Path, request: OpRequest) -> None:
                 unset_fields=tuple(request.unset_fields),
                 actor="editor",
             )
+            digest = file_digest(_node_path(root, request.node_id))
+            if prior_record is None:
+                # Unreachable in practice — ops.update_node above would have
+                # raised "no node" first — but honest rather than fabricated
+                # prior values if some future caller ever gets here anyway.
+                return OpOutcome(None, [], f"update {request.node_id}")
+            inverse, label = _update_inverse(request, prior_record, digest)
+            return OpOutcome(inverse, _precondition(request.node_id, digest), label)
+
         elif isinstance(request, RemoveNodeOp):
             _check_digest(root, request.node_id, request.base_digest)
             ops.remove_node(root, request.node_id, force=request.force, actor="editor")
+            return OpOutcome(None, [], f"remove {request.node_id}")
+
         elif isinstance(request, LinkOp):
             _check_digest(root, request.src, request.base_digest)
+            key, target = _edge_key_target(
+                request.needs,
+                request.in_,
+                request.to,
+                request.agents,
+                request.skills,
+                request.trains,
+            )
             ops.link(
                 root,
                 request.src,
@@ -307,8 +506,35 @@ def apply(root: Path, request: OpRequest) -> None:
                 trains=request.trains,
                 actor="editor",
             )
+            digest = file_digest(_node_path(root, request.src))
+            inverse = {"op": "unlink", "src": request.src, "base_digest": digest, key: target}
+            label = f"link: {_edge_sentence(key, request.src, target, request.rel)}"
+            return OpOutcome(inverse, _precondition(request.src, digest), label)
+
         elif isinstance(request, UnlinkOp):
             _check_digest(root, request.src, request.base_digest)
+            key, target = _edge_key_target(
+                request.needs,
+                request.in_,
+                request.to,
+                request.agents,
+                request.skills,
+                request.trains,
+            )
+            # Only `to=` needs before-state: the removed link's own `rel`
+            # (default "see-also" when it was a plain string entry) is what
+            # the inverse must recreate — every other key's inverse is just
+            # the same (key, target) pair, no extra state to lose.
+            prior_rel = "see-also"
+            if key == "to":
+                before_node = Plan.load(root).nodes.get(request.src)
+                found = (
+                    next((link for link in before_node.links if link.to == target), None)
+                    if before_node
+                    else None
+                )
+                if found is not None:
+                    prior_rel = found.rel
             ops.unlink(
                 root,
                 request.src,
@@ -320,10 +546,63 @@ def apply(root: Path, request: OpRequest) -> None:
                 trains=request.trains,
                 actor="editor",
             )
+            digest = file_digest(_node_path(root, request.src))
+            inverse = {"op": "link", "src": request.src, "base_digest": digest, key: target}
+            label_rel = prior_rel if key == "to" else None
+            if key == "to":
+                inverse["rel"] = prior_rel
+            label = f"unlink: {_edge_sentence(key, request.src, target, label_rel)}"
+            return OpOutcome(inverse, _precondition(request.src, digest), label)
+
         elif isinstance(request, RenameNodeOp):
             _check_digest(root, request.old, request.base_digest)
             ops.rename_node(root, request.old, request.new, actor="editor")
+            digest = file_digest(_node_path(root, request.new))
+            inverse = {
+                "op": "rename_node",
+                "old": request.new,
+                "new": request.old,
+                "base_digest": digest,
+            }
+            label = f"rename {request.old} → {request.new}"
+            return OpOutcome(inverse, _precondition(request.new, digest), label)
+
         elif isinstance(request, SetPositionsOp):
+            # No digest concept for view.yaml (forward set_positions itself
+            # carries no digest gate either) — preconditions stays empty, so
+            # a move's trail entry is always enabled. Only ids that already
+            # had an explicit prior position can be restored; an id placed
+            # for the first time has no server-known "before" (its old spot
+            # was purely elk's client-side auto-layout guess) and is simply
+            # left out of the inverse rather than restored to a fiction.
+            prior_view = store.load_view(root)
+            prior_layout = prior_view.get("layout") if prior_view is not None else None
+            restored: dict[str, dict[str, int]] = {}
+            if isinstance(prior_layout, dict):
+                for node_id in request.positions:
+                    entry = prior_layout.get(node_id)
+                    if isinstance(entry, dict) and "x" in entry and "y" in entry:
+                        restored[node_id] = {"x": int(entry["x"]), "y": int(entry["y"])}
             _set_positions(root, request.positions)
+            label = f"move {', '.join(sorted(request.positions))}"
+            move_inverse = {"op": "set_positions", "positions": restored} if restored else None
+            return OpOutcome(move_inverse, [], label)
+
         else:
+            # SetCollapsedOp. Same no-digest reasoning as positions above.
+            prior_view = store.load_view(root)
+            prior_raw = prior_view.get("collapsed") if prior_view is not None else None
+            prior_collapsed = (
+                sorted({str(item) for item in prior_raw}) if isinstance(prior_raw, list) else []
+            )
             _set_collapsed(root, request.collapsed)
+            added = sorted(set(request.collapsed) - set(prior_collapsed))
+            removed = sorted(set(prior_collapsed) - set(request.collapsed))
+            if added:
+                label = f"collapse {', '.join(added)}"
+            elif removed:
+                label = f"expand {', '.join(removed)}"
+            else:
+                label = "collapse: unchanged"
+            collapse_inverse = {"op": "set_collapsed", "collapsed": prior_collapsed}
+            return OpOutcome(collapse_inverse, [], label)

@@ -5,6 +5,7 @@
 |---|---|
 | `App.tsx` | The editor: payload in (fetch + live socket), React Flow out, and every gesture — drag, connect, form save, add, delete, rename, edge removal, container collap… |
 | `ChipEditor.tsx` | One relationship field (needs/agents/skills) as removable chips plus an id-autocomplete add input (K30). Purely presentational: `values`/`options`/`titleOf` de… |
+| `EdgePanel.tsx` | The sidebar's edge panel: the selected edge's sentence, a jump button per endpoint, and Remove edge — mention edges included. Purely presentational, the same s… |
 | `KumiGroupNode.tsx` | The container React Flow node (PLAN2.md §2.3 lens 1): any node with members renders as this instead of KumiNode.tsx's leaf card. Two looks, chosen by data.coll… |
 | `KumiNode.tsx` | The leaf React Flow node: kind-colored edge stripe, title, id, and a kind pill. Renders one of three semantic-zoom tiers (far/mid/near), chosen upstream in App… |
 | `LayoutControls.tsx` | The sidebar's layout controls (PLAN2.md §2.3-2.5, K27): the Auto-layout/Use view.yaml toggle (unchanged), the new Lanes button next to it, and Re-layout branch… |
@@ -12,7 +13,8 @@
 | `NodeForm.tsx` | The selected node's editor: title, kind, schema-driven field inputs (choice→select, bool→checkbox, int→number, list→comma text), chip editors for needs/agents/… |
 | `Palette.tsx` | Ctrl+K/Cmd+K command palette: one text box searching two groups — NODES (substring match over id/title/body, title-or- id hits ranked above body-only hits, the… |
 | `Toasts.tsx` | The attribution toast stack (K31): top-right, newest on top, dismiss-on-click. useAttribution.ts already caps `toasts` at 4 and expires each after ~6s, so this… |
-| `api.ts` | The wire: fetch the initial payload, then hold a WebSocket that delivers every change, reconnecting quietly when the server restarts. |
+| `UndoPanel.tsx` | The sidebar's undo trail (K32): a collapsible section listing this session's own applied ops, newest first, each a button — enabled while its inverse's precond… |
+| `api.ts` | The wire: fetch the initial payload, then hold a WebSocket that delivers every change, reconnecting quietly when the server restarts. postOp's success shape al… |
 | `attributionDiff.ts` | Pure classification for K31 attribution: diff two payloads' node digests into added/removed/updated, match the newly shipped `events` (kumihimo/core/ops.py's a… |
 | `canvasBuild.ts` | Turn one payload plus the current view state into React Flow's nodes and edges arrays — the two bodies App.tsx's nodes-rebuild effect and edges memo used to ca… |
 | `cones.ts` | Pure graph math over the payload's needs edges: ancestor and descendant cones (BFS hop-distance) for focus mode, and the node set lying on any needs-path betwe… |
@@ -28,6 +30,7 @@
 | `types.ts` | The TypeScript mirror of the server's payload contract — one shape, defined once on each side of the wire. |
 | `useAttribution.ts` | K31: owns the plan subscription — the initial fetch plus the live socket, superseding App.tsx's old bare `openLive(setPayload)` — diffing each live push agains… |
 | `useGraphKeyboard.ts` | Graph-directional keyboard (PLAN2.md §2.5): with the palette closed and focus outside any form field, digits 1-5 switch the lens bar (K26; 5 is Crew, K30) rega… |
+| `useUndoTrail.ts` | K32: the session-scoped undo trail. Every op THIS browser tab applies through App.tsx's applyOp lands here newest-first (one push() call per postOp response — … |
 <!-- END GENERATED INDEX -->
 
 ## What this is
@@ -42,12 +45,15 @@ only path (CLAUDE.md invariant 1), this app is just another thin client of
 it.
 
 `KumiNode.tsx`, `KumiGroupNode.tsx`, `NodeForm.tsx`, `ChipEditor.tsx`,
-`Palette.tsx`, and `LensBar.tsx` are the other pieces App.tsx renders — the
-leaf graph node (with its semantic-zoom tiers), the container node a node
-with members renders as instead (PLAN2.md §2.3 lens 1), the selected node's
-field-driven edit form (mounting three ChipEditor rows for needs/agents/
-skills, K30), the Ctrl+K command palette, and the sidebar's Structure/Status/
-Flow/Risk/Crew segmented control (PLAN2.md §2.3, K26; Crew is K30).
+`Palette.tsx`, `LensBar.tsx`, `EdgePanel.tsx`, and `UndoPanel.tsx` are the
+other pieces App.tsx renders — the leaf graph node (with its semantic-zoom
+tiers), the container node a node with members renders as instead (PLAN2.md
+§2.3 lens 1), the selected node's field-driven edit form (mounting three
+ChipEditor rows for needs/agents/skills, K30), the Ctrl+K command palette,
+the sidebar's Structure/Status/Flow/Risk/Crew segmented control (PLAN2.md
+§2.3, K26; Crew is K30), the selected edge's jump/remove panel (pulled out
+of App.tsx at K32 to stay under the line cap), and the K32 undo trail's own
+collapsible sidebar section.
 `canvasBuild.ts` turns one payload plus the current view state into React
 Flow's own nodes/edges arrays — moved out of App.tsx's nodes-rebuild effect
 and edges memo purely to stay under the line cap. `cones.ts`, `containers.ts`,
@@ -65,3 +71,25 @@ server's payload contract (`kumihimo/server/payload.py`); `elk.d.ts` types
 the one elkjs subpath import that ships without its own declarations.
 `styles.css` (not TypeScript, not scanned here) holds every class these
 files reference, switched by `[data-theme]` for light/dark.
+
+`useAttribution.ts` (K31) owns the plan subscription itself — the initial
+fetch plus the live socket, superseding App.tsx's old bare
+`openLive(setPayload)` call — diffing each live push against the one before
+it through `attributionDiff.ts`'s pure digest diff (added/removed/updated
+node ids, matched against the `events` `kumihimo/server/watch.py` rides onto
+the payload) into toast text and a pulsing-node-id set; an editor self-op
+(actor `editor`) claims its own event silently, raising neither toast nor
+pulse. `Toasts.tsx` renders the resulting stack from that state alone —
+top-right, newest on top, capped at 4, auto-dismiss ~6s, dismiss-on-click —
+with no timers of its own.
+
+`useUndoTrail.ts` (K32) is the same "hook owns state, App.tsx just calls it
+and mounts one panel" shape as `useAttribution.ts`: every `applyOp` call
+pushes its server-computed inverse envelope onto a capped, newest-first,
+session-only list, and the hook re-derives each entry's enabled/grayed state
+against the live payload on every render. `UndoPanel.tsx` renders that list;
+Ctrl+Z (`useGraphKeyboard.ts`) fires the topmost enabled entry through the
+same `applyOp` every other gesture uses — posting an inverse is not a new
+write path, it is a normal op whose own response then pushes a fresh
+inverse back onto the trail, which is what makes undo-of-undo just another
+entry rather than a special case.

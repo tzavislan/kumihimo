@@ -4,13 +4,17 @@
              with canonical files, stale digests answer 409 while fresh ones
              pass, positions and container collapse go to view.yaml only
              (sorted, flow-style, the latter's key dropped when empty),
-             errors keep their messages at 400, and the braid endpoint
-             compiles.
+             errors keep their messages at 400, the braid endpoint compiles,
+             and (K32) every op response carries a correctly-shaped inverse
+             envelope, digest preconditions that go stale after an external
+             edit, byte-exact round-trips (including through a referrer-
+             fixing rename), and undo-of-undo.
 @layer       tests
-@tags        ops-envelope, digests, conflicts, view-layout
+@tags        ops-envelope, digests, conflicts, view-layout, undo, inverse-ops
 @related     kumihimo/server/ops_api.py (under test),
              kumihimo/server/app.py (the routes)
-@design      PLAN.md §5.2-5.3, roadmap items editor-ops and editor-conflicts
+@design      PLAN.md §5.2-5.3, roadmap items editor-ops and editor-conflicts;
+             PLAN2.md §2.5 Undo trail, §5 risk 4, queue item K32
 """
 
 from pathlib import Path
@@ -300,3 +304,315 @@ def test_set_collapsed_rejects_a_node_that_is_not_a_container(
     assert response.status_code == 400
     assert "'a' is not a container" in response.json()["detail"]
     assert not (root / "view.yaml").is_file()
+
+
+# --- K32: inverse-op undo trail ---------------------------------------------
+
+
+def test_inverse_add_node_is_remove_without_force(plan_dir: PlanFactory, tmp_path: Path) -> None:
+    root = plan_dir({"seed.md": BODIED})
+    client = client_for(root, tmp_path)
+    response = client.post(
+        "/api/ops", json={"op": "add_node", "node_id": "fresh", "kind": "task", "body": "New.\n"}
+    )
+    assert response.status_code == 200
+    body = response.json()
+    digest = digest_of(client, "fresh")
+    assert body["inverse"] == {"op": "remove_node", "node_id": "fresh", "base_digest": digest}
+    assert body["preconditions"] == [{"id": "fresh", "digest": digest}]
+    assert body["label"] == "add fresh"
+
+    undo = client.post("/api/ops", json=body["inverse"])
+    assert undo.status_code == 200
+    assert not (root / "nodes" / "fresh.md").exists()
+
+
+def test_inverse_remove_node_is_null(plan_dir: PlanFactory, tmp_path: Path) -> None:
+    root = plan_dir({"a.md": BODIED})
+    client = client_for(root, tmp_path)
+    response = client.post(
+        "/api/ops",
+        json={"op": "remove_node", "node_id": "a", "base_digest": digest_of(client, "a")},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["inverse"] is None
+    assert body["preconditions"] == []
+    assert body["label"] == "remove a"
+
+
+def test_inverse_update_field_restores_prior_value_and_unsets_new_field(
+    plan_dir: PlanFactory, tmp_path: Path
+) -> None:
+    root = plan_dir({"a.md": "---\nkind: task\neffort: S\n---\nBody.\n"})
+    client = client_for(root, tmp_path)
+    response = client.post(
+        "/api/ops",
+        json={
+            "op": "update_node",
+            "node_id": "a",
+            "base_digest": digest_of(client, "a"),
+            # effort already exists (S -> M, restorable); risk is brand new
+            # (must unset back out, not restore to a fabricated value); title
+            # resent unchanged must not appear in the inverse at all.
+            "set_fields": {"effort": "M", "risk": "high"},
+            "title": None,
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["inverse"]["set_fields"] == {"effort": "S"}
+    assert body["inverse"]["unset_fields"] == ["risk"]
+    assert "title" not in body["inverse"]
+    assert "effort: S → M" in body["label"]
+    assert "risk: (none) → high" in body["label"]
+
+
+def test_inverse_update_resent_unchanged_field_produces_no_clause(
+    plan_dir: PlanFactory, tmp_path: Path
+) -> None:
+    # Trigger for the "resent unchanged" branch: NodeForm.tsx's Save resends
+    # every visible field regardless of whether it actually changed.
+    root = plan_dir({"a.md": "---\nkind: task\neffort: S\n---\nBody.\n"})
+    client = client_for(root, tmp_path)
+    response = client.post(
+        "/api/ops",
+        json={
+            "op": "update_node",
+            "node_id": "a",
+            "base_digest": digest_of(client, "a"),
+            "set_fields": {"effort": "S"},
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert "set_fields" not in body["inverse"]
+    assert "unset_fields" not in body["inverse"]
+    assert body["label"] == "update a"
+
+
+def test_inverse_update_body_restores_prior_body(plan_dir: PlanFactory, tmp_path: Path) -> None:
+    root = plan_dir({"a.md": "---\nkind: task\n---\nOld body.\n"})
+    client = client_for(root, tmp_path)
+    response = client.post(
+        "/api/ops",
+        json={
+            "op": "update_node",
+            "node_id": "a",
+            "base_digest": digest_of(client, "a"),
+            "body": "New body.\n",
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["inverse"]["body"] == "Old body.\n"
+    assert body["label"] == "update a: body edited"
+
+
+def test_inverse_link_is_unlink_same_key(plan_dir: PlanFactory, tmp_path: Path) -> None:
+    root = plan_dir({"a.md": BODIED, "b.md": BODIED.replace("Body", "B")})
+    client = client_for(root, tmp_path)
+    response = client.post("/api/ops", json={"op": "link", "src": "a", "needs": "b"})
+    assert response.status_code == 200
+    body = response.json()
+    digest = digest_of(client, "a")
+    assert body["inverse"] == {"op": "unlink", "src": "a", "base_digest": digest, "needs": "b"}
+    assert body["label"] == "link: a needs b"
+
+    undo = client.post("/api/ops", json=body["inverse"])
+    assert undo.status_code == 200
+    assert Plan.load(root).nodes["a"].needs == []
+
+
+def test_inverse_unlink_is_link_with_same_rel(plan_dir: PlanFactory, tmp_path: Path) -> None:
+    root = plan_dir({"a.md": BODIED, "b.md": BODIED.replace("Body", "B")})
+    client = client_for(root, tmp_path)
+    assert (
+        client.post(
+            "/api/ops", json={"op": "link", "src": "a", "to": "b", "rel": "threatens"}
+        ).status_code
+        == 200
+    )
+    response = client.post("/api/ops", json={"op": "unlink", "src": "a", "to": "b"})
+    assert response.status_code == 200
+    body = response.json()
+    digest = digest_of(client, "a")
+    assert body["inverse"] == {
+        "op": "link",
+        "src": "a",
+        "base_digest": digest,
+        "to": "b",
+        "rel": "threatens",
+    }
+    assert body["label"] == "unlink: a links b (threatens)"
+
+    undo = client.post("/api/ops", json=body["inverse"])
+    assert undo.status_code == 200
+    assert Plan.load(root).nodes["a"].links[0].rel == "threatens"
+
+
+def test_inverse_rename_is_reverse_rename(plan_dir: PlanFactory, tmp_path: Path) -> None:
+    root = plan_dir({"a.md": BODIED})
+    client = client_for(root, tmp_path)
+    response = client.post("/api/ops", json={"op": "rename_node", "old": "a", "new": "b"})
+    assert response.status_code == 200
+    body = response.json()
+    digest = digest_of(client, "b")
+    assert body["inverse"] == {"op": "rename_node", "old": "b", "new": "a", "base_digest": digest}
+    assert body["label"] == "rename a → b"
+
+
+def test_inverse_set_positions_restores_prior_and_omits_first_placement(
+    plan_dir: PlanFactory, tmp_path: Path
+) -> None:
+    root = plan_dir({"a.md": BODIED})
+    client = client_for(root, tmp_path)
+    first = client.post(
+        "/api/ops", json={"op": "set_positions", "positions": {"a": {"x": 10, "y": 20}}}
+    )
+    assert first.status_code == 200
+    first_body = first.json()
+    assert first_body["inverse"] is None  # no prior explicit position to restore
+    assert first_body["preconditions"] == []
+    assert first_body["label"] == "move a"
+
+    second = client.post(
+        "/api/ops", json={"op": "set_positions", "positions": {"a": {"x": 99, "y": 99}}}
+    )
+    assert second.status_code == 200
+    second_body = second.json()
+    assert second_body["inverse"] == {
+        "op": "set_positions",
+        "positions": {"a": {"x": 10, "y": 20}},
+    }
+
+    undo = client.post("/api/ops", json=second_body["inverse"])
+    assert undo.status_code == 200
+    view = (root / "view.yaml").read_text(encoding="utf-8")
+    assert "a: {x: 10, y: 20}" in view
+
+
+def test_inverse_set_collapsed_restores_prior(plan_dir: PlanFactory, tmp_path: Path) -> None:
+    root = plan_dir(
+        {
+            "m.md": "---\nkind: milestone\n---\nShip.\n",
+            "a.md": "---\nkind: task\nin: [m]\n---\nA.\n",
+        }
+    )
+    client = client_for(root, tmp_path)
+    collapse = client.post("/api/ops", json={"op": "set_collapsed", "collapsed": ["m"]})
+    assert collapse.status_code == 200
+    collapse_body = collapse.json()
+    assert collapse_body["inverse"] == {"op": "set_collapsed", "collapsed": []}
+    assert collapse_body["preconditions"] == []
+    assert collapse_body["label"] == "collapse m"
+
+    expand = client.post("/api/ops", json=collapse_body["inverse"])
+    assert expand.status_code == 200
+    expand_body = expand.json()
+    assert expand_body["inverse"] == {"op": "set_collapsed", "collapsed": ["m"]}
+    assert expand_body["label"] == "expand m"
+
+
+def test_precondition_digest_goes_stale_after_external_edit(
+    plan_dir: PlanFactory, tmp_path: Path
+) -> None:
+    root = plan_dir({"a.md": "---\nkind: task\neffort: S\n---\nBody.\n"})
+    client = client_for(root, tmp_path)
+    response = client.post(
+        "/api/ops",
+        json={
+            "op": "update_node",
+            "node_id": "a",
+            "base_digest": digest_of(client, "a"),
+            "set_fields": {"effort": "M"},
+        },
+    )
+    assert response.status_code == 200
+    precondition = response.json()["preconditions"][0]
+    assert precondition == {"id": "a", "digest": digest_of(client, "a")}
+
+    # A second op, "B", touching the same node from entirely outside this
+    # API — a CLI/MCP mutation or a hand edit, same as the existing
+    # stale-digest test above simulates.
+    target = root / "nodes" / "a.md"
+    target.write_bytes(target.read_bytes().replace(b"effort: M", b"effort: L"))
+
+    assert digest_of(client, "a") != precondition["digest"]
+
+
+def test_inverse_round_trip_is_byte_identical(plan_dir: PlanFactory, tmp_path: Path) -> None:
+    root = plan_dir({"a.md": "---\nkind: task\neffort: S\n---\nBody.\n"})
+    client = client_for(root, tmp_path)
+    target = root / "nodes" / "a.md"
+    original = target.read_bytes()
+
+    response = client.post(
+        "/api/ops",
+        json={
+            "op": "update_node",
+            "node_id": "a",
+            "base_digest": digest_of(client, "a"),
+            "set_fields": {"effort": "L"},
+        },
+    )
+    assert response.status_code == 200
+    assert target.read_bytes() != original  # the forward op did change the file
+
+    undo = client.post("/api/ops", json=response.json()["inverse"])
+    assert undo.status_code == 200
+    assert target.read_bytes() == original
+
+
+def test_rename_inverse_refixes_referrers_byte_for_byte(
+    plan_dir: PlanFactory, tmp_path: Path
+) -> None:
+    root = plan_dir({"b.md": BODIED, "a.md": "---\nkind: task\nneeds: [b]\n---\nA.\n"})
+    client = client_for(root, tmp_path)
+    a_path = root / "nodes" / "a.md"
+    original_a = a_path.read_bytes()
+    original_b = (root / "nodes" / "b.md").read_bytes()
+
+    response = client.post("/api/ops", json={"op": "rename_node", "old": "b", "new": "kernel"})
+    assert response.status_code == 200
+    inverse = response.json()["inverse"]
+    assert inverse == {
+        "op": "rename_node",
+        "old": "kernel",
+        "new": "b",
+        "base_digest": digest_of(client, "kernel"),
+    }
+    assert a_path.read_text(encoding="utf-8") == "---\nkind: task\nneeds: [kernel]\n---\nA.\n"
+
+    undo = client.post("/api/ops", json=inverse)
+    assert undo.status_code == 200
+    assert not (root / "nodes" / "kernel.md").exists()
+    assert a_path.read_bytes() == original_a
+    assert (root / "nodes" / "b.md").read_bytes() == original_b
+
+
+def test_undo_of_undo_restores_forward_state(plan_dir: PlanFactory, tmp_path: Path) -> None:
+    root = plan_dir({"a.md": "---\nkind: task\neffort: S\n---\nBody.\n"})
+    client = client_for(root, tmp_path)
+    target = root / "nodes" / "a.md"
+
+    forward = client.post(
+        "/api/ops",
+        json={
+            "op": "update_node",
+            "node_id": "a",
+            "base_digest": digest_of(client, "a"),
+            "set_fields": {"effort": "L"},
+        },
+    )
+    assert forward.status_code == 200
+    after_forward = target.read_bytes()
+
+    undo = client.post("/api/ops", json=forward.json()["inverse"])
+    assert undo.status_code == 200
+    assert undo.json()["inverse"] is not None  # the undo op is itself undoable
+    assert target.read_bytes() != after_forward
+
+    redo = client.post("/api/ops", json=undo.json()["inverse"])
+    assert redo.status_code == 200
+    assert target.read_bytes() == after_forward

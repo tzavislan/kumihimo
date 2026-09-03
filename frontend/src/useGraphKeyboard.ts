@@ -7,24 +7,32 @@
  *              selected, Left/Right walk the first needs dependency/
  *              dependent, Up/Down cycle the selection's sibling ring (other
  *              nodes sharing its first `in` group, or other ungrouped
- *              nodes), F focuses, Delete/Backspace confirms and removes. A
- *              single window-level listener, mounted for as long as the
- *              caller renders — not React Flow's own per-node keyboard
- *              handling (App.tsx disables that in favor of this).
+ *              nodes), F focuses, Delete/Backspace confirms and removes.
+ *              Ctrl+Z/Cmd+Z (K32) fires the undo trail's topmost enabled
+ *              entry, regardless of selection — checked ahead of the "leave
+ *              ctrl/meta/alt chords alone" bail below, since it IS one, but
+ *              behind the same form-field guard every other binding here
+ *              already gets. A single window-level listener, mounted for as
+ *              long as the caller renders — not React Flow's own per-node
+ *              keyboard handling (App.tsx disables that in favor of this).
  * @layer       frontend
- * @tags        keyboard, navigation, hook, lenses
+ * @tags        keyboard, navigation, hook, lenses, undo
  * @related     frontend/src/App.tsx (mounts this with its selection/palette/
- *              lens state and jumpTo/focusOn/applyOp callbacks),
+ *              lens/undo-trail state and jumpTo/focusOn/applyOp callbacks),
  *              frontend/src/cones.ts (ancestorsOf/descendantsOf, what
  *              focusOn's caller builds the focus lens from),
  *              frontend/src/lenses.ts (the Lens type, LENS_ORDER — 1-4 map to
  *              it positionally so this file never hand-lists lens names),
- *              kumihimo/server/ops_api.py (remove_node, the op Delete sends)
- * @design      PLAN2.md §2.5, §2.3
+ *              frontend/src/useUndoTrail.ts (firstEnabled, UndoEntryView —
+ *              what Ctrl+Z fires),
+ *              kumihimo/server/ops_api.py (remove_node, the op Delete sends;
+ *              also every op's own inverse, what Ctrl+Z posts)
+ * @design      PLAN2.md §2.5, §2.3, queue item K32
  */
 import { useEffect } from "react";
 import { LENS_ORDER, type Lens } from "./lenses";
 import type { Payload, PlanNode } from "./types";
+import { firstEnabled, type UndoEntryView } from "./useUndoTrail";
 
 // "First" dependency/dependent is needs[0] / the first node in payload
 // order whose needs include this id — simple and deterministic rather than
@@ -70,6 +78,9 @@ export interface UseGraphKeyboardParams {
   focusOn: (id: string) => void;
   applyOp: (envelope: Record<string, unknown>) => Promise<void>;
   onLensChange: (lens: Lens) => void;
+  // K32: newest-first, enabled/reason already resolved against the live
+  // payload — see useUndoTrail.ts. Ctrl+Z fires firstEnabled(undoEntries).
+  undoEntries: UndoEntryView[];
 }
 
 // "1".."5" -> LENS_ORDER's positional entries, so this file never hand-lists
@@ -88,6 +99,7 @@ export function useGraphKeyboard({
   focusOn,
   applyOp,
   onLensChange,
+  undoEntries,
 }: UseGraphKeyboardParams): void {
   // Live with the palette closed and focus outside any form field — the tag
   // guard, same as the spec asks for — regardless of selection, since lens
@@ -97,10 +109,25 @@ export function useGraphKeyboard({
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (paletteOpen || !payload) return;
+      const tag = (event.target as HTMLElement | null)?.tagName;
+      const inFormField = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+
+      // Ctrl+Z / Cmd+Z (K32): an intentional ctrl chord, so it's handled
+      // ahead of the "leave browser/OS chords alone" bail just below rather
+      // than by it — same form-field guard as everything else here, just
+      // reached first. Shift+Ctrl+Z (a common redo chord elsewhere) is left
+      // alone on purpose: there is no redo here, only more undo entries.
+      if (!inFormField && (event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === "z") {
+        const top = firstEnabled(undoEntries);
+        if (top && top.inverse) {
+          event.preventDefault();
+          void applyOp(top.inverse);
+        }
+        return;
+      }
       // Leaves browser/OS chords (Ctrl+F, Alt+Left history-back, etc.) alone.
       if (event.ctrlKey || event.metaKey || event.altKey) return;
-      const tag = (event.target as HTMLElement | null)?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (inFormField) return;
 
       const lens = LENS_KEYS[event.key];
       if (lens) {
@@ -151,5 +178,5 @@ export function useGraphKeyboard({
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [payload, selectedId, paletteOpen, jumpTo, focusOn, applyOp, onLensChange]);
+  }, [payload, selectedId, paletteOpen, jumpTo, focusOn, applyOp, onLensChange, undoEntries]);
 }

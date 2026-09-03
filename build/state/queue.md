@@ -302,7 +302,7 @@ on a fresh scaffold; check/braid outputs are byte-identical with and
 without the log present.
 
 ### K32 — Inverse-op undo trail
-status: todo
+status: done (iteration 33)
 needs: —
 PLAN2 §2.5 Undo trail, §5 risk 4. ops_api op responses gain an `inverse`
 envelope computed from before-state: add↔remove, set-field↔set-prior (or
