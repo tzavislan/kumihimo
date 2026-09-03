@@ -1166,3 +1166,49 @@ THOMAS'S), M10-close precondition, 11 verified steps, the ⚠ Thomas-only
 tag/push/publish steps syntax-checked never executed, and the pending
 one-time PyPI trusted-publisher + gh env setup. M10 items 5/5 — the
 close ritual is next.
+
+## 2026-09-03 — retro at M10 close (iterations 32-36)
+
+Five lessons folded, one rule refined, all from this stretch's incidents:
+1. Library security defaults verified with live hostile payloads —
+   marked's defaults passed <script>; the checker clicked the
+   javascript: link and the alert fired (iteration skill).
+2. Real-browser acceptance proofs land in the smoke suite, never scratch
+   scripts — K31/K32/K33 all did; the suite is now 5 tests CI runs
+   forever (iteration skill).
+3. Never junction into a worktree you'll force-remove — K34's checker
+   wiped the real node_modules through one; npm ci restored it
+   (iteration skill, Windows note).
+4. Release verification reads the ARTIFACT — K35's local sdist was 65%
+   other sessions' worktrees; .git/info/exclude doesn't bind hatchling
+   (manage skill, Release section; the exclude fix itself in pyproject).
+5. Mutating probe scripts are torn-state hazards under cp1252 — the
+   close demo crashed printing → between an op and its undo, leaving the
+   roadmap silently edited until caught (iteration skill).
+Refined: the playwright-not-pane rule is now environment-honest (desktop
+panes composite; headless never; review EVIDENCE stays playwright).
+Nothing pruned. Training log appended; last_retro_iteration -> 36.
+
+## 2026-09-03 — M10 close: Feel
+
+**Demo, real outputs:** the five status ops wrote five actor:"cli" lines
+to plans/roadmap/.kumihimo/events.jsonl (attribution live on the real
+roadmap); an ops_api update returned label "set retro-cycle effort:
+S → M" with its inverse envelope, the posted inverse answered 200 with
+the mirrored label, and the file came back sha256-identical. The braid
+modal / bundle / dark-theme artifacts shipped inside their iterations
+(braid-modal.png shows the rendered preview; initial JS 382 kB; three
+-dark shots wired). Roadmap: 45 nodes, 0 errors, 0 warnings, M10 tasks
+done via kumihimo set. Docs gate: every M10 surface documented in its
+own commit (editor.md motion/undo/braid-preview, formats.md events,
+shortcuts Ctrl+Z), screenshots current from K34's re-shoot, README
+commands re-verified on a clean checkout in K35 (~72s ten-minute story),
+mkdocs strict green. Changelog: M10 Added entry. Retro: 5 lessons + 1
+refinement, above.
+
+**v0.2 is feature-complete.** All ten milestones M0-M10 built. The cut
+waits on Thomas: build/state/release-v0.2-checklist.md carries the
+decision point (v0.1.0 first vs straight 0.2.0), 11 verified steps, and
+the pending one-time PyPI/GitHub setup. K15 stays needs-thomas until
+that call. Pushing at close per standing say-so; the audit pass Thomas
+asked for runs after this close, findings to the journal.

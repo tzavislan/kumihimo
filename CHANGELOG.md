@@ -7,6 +7,25 @@ All notable changes to Kumihimo. Format follows
 ## [Unreleased]
 
 ### Added
+- M10, the feel: every externally-caused change on the canvas announces
+  itself — mutations append actor-tagged events to a gitignored plan-local
+  log (no timestamp; the library stays clock-free), and the editor raises
+  one attributed toast ("via MCP: crew-model updated"; "outside edit" when
+  unattributed) plus a brief pulse on the changed nodes, staying silent for
+  its own ops. A session-scoped undo trail: every op response carries its
+  inverse envelope and the digests it preconditions on; Ctrl+Z (or a click)
+  posts the inverse through the same ops door — entries invalidated by
+  later external changes gray out with the reason, removals are honestly
+  not undoable (git is). The braid modal renders the compiled prompt as a
+  styled document (Rendered/Raw switch, the plan-shape diagram folded
+  behind a line count, Copy, byte-exact Download), with the Markdown
+  renderer lazy-loaded and hostile bodies neutralized — raw HTML escapes
+  to text and link/image URLs outside http/https/mailto render as plain
+  text. elkjs and the renderer moved out of the initial bundle (1,837 →
+  382 kB minified eager payload; elk fetches only when a layout actually
+  runs); documentation screenshots ship in light and dark, paired in the
+  docs and the README hero. v0.2 release prep: a verified cut checklist,
+  and locally-built sdists no longer leak unrelated worktree contents.
 - M9, the crew: three reserved mention keys — `agents:`, `skills:`,
   `trains:` — typed like `needs` (scalar-or-list), validated as errors when
   dangling or wrong-kind, plus three engineering-pack kinds (`agent`,

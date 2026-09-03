@@ -82,6 +82,14 @@ Prepare, never execute: version bump correctness, CHANGELOG section cut,
 docs build clean, the ten-minute story timed on a clean environment, tag
 name. Thomas tags and publishes; PyPI trusted publishing runs off the tag.
 
+**Release verification reads the ARTIFACT, not the tree**: list the built
+wheel and sdist contents (zipfile/tarfile) and check what actually shipped.
+K35 found locally-built sdists 65% full of other sessions' worktrees —
+`.git/info/exclude` is local-only and build tools don't consult it — and
+re-confirmed that bare `uv build` builds the wheel FROM the sdist (no
+static/). The two explicit commands and the exclude fix live in
+RELEASING.md and pyproject; the habit of listing the artifact lives here.
+
 ## Training
 
 This skill and its two siblings are living documents, trained by
@@ -173,3 +181,17 @@ is alive, and a gap in it is itself a finding for the next retro.
   timestamps with the clock output in the same command, amended). Manage
   close checklist now names stale long-running processes in the close
   report (the live MCP server predates K28). Nothing pruned.
+- 2026-09-03 — retro at M10 close (iterations 32-36): iteration skill
+  gained verify-security-defaults-with-live-payloads (marked's defaults
+  passed <script>; the checker clicked a javascript: link and the alert
+  fired — execution claims are settled by attempting execution);
+  browser-proofs-into-the-smoke-suite (K31/K32/K33 all did, coverage
+  compounds); the worktree-junction hazard (K34's checker wiped the real
+  node_modules through a junction on worktree remove --force); the
+  mutating-probe torn-state rule (the close demo crashed on a cp1252 →
+  between an op and its undo, leaving the roadmap silently edited);
+  the playwright-not-pane rule refined to environment-honest (desktop
+  panes composite; evidence stays playwright). Manage skill's Release
+  section gained read-the-artifact (K35's sdist carried 65% other
+  sessions' worktrees — local git excludes don't bind build tools).
+  Nothing pruned.

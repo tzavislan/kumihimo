@@ -85,9 +85,11 @@ the orchestrator keeps the gates. Rules that made it work:
 - **Small items may combine checker+critic in one agent** (both hats, one
   brief) — used for K21/K22; the evidence bars still apply separately.
 - **Verification screenshots come from playwright's own chromium**, which
-  composites offscreen. The Claude Browser pane cannot screenshot in this
-  environment (hidden, no frames) — an agent told to use it will burn its
-  budget discovering that; brief the tool explicitly. The precise boundary
+  composites offscreen and reproduces in CI. The Claude Browser pane's
+  ability to screenshot is environment-dependent (headless sessions never
+  composite — iteration 14 burned three theories on that; desktop-app
+  sessions can) — so review EVIDENCE is playwright regardless, and the
+  pane is for interactive exploration only; brief the tool explicitly. The precise boundary
   (drawn at K30): CSSOM/DOM reads (`getComputedStyle`, class lists) are
   valid from any driver — no compositing involved — but any claim about
   rendered pixels is playwright-shot or it isn't evidence.
@@ -103,6 +105,30 @@ the orchestrator keeps the gates. Rules that made it work:
   shot dirs, scripts, stable names). A completed agent's transcript can be
   unresumable (K30's critic was); the fresh re-verify critic rebuilt
   nothing because the artifacts survived.
+- **A library's security defaults are verified with a live hostile
+  payload, never assumed.** K33's builder proved marked's DEFAULTS pass
+  `<script>` straight through (upstream leaves sanitization to the
+  consumer); the checker then rendered `[x](javascript:alert(1))`, CLICKED
+  it, and the alert fired — the html-escape fix had missed the link path
+  entirely. Two rules: any renderer/parser of user-authored content ships
+  only after hostile payloads run in the live surface; and an
+  executable-vector claim is settled by attempting execution, not by
+  reading the sanitizer.
+- **Real-browser acceptance proofs land in tests/test_editor_smoke.py,
+  not scratch scripts.** K31/K32/K33 each folded theirs in; the smoke
+  suite compounds coverage (and CI runs it forever) where a throwaway
+  playwright script proves once and evaporates.
+- **Never junction/symlink into a git worktree you will force-remove.**
+  The K34 checker junctioned frontend/node_modules into a baseline
+  worktree to skip an install; `git worktree remove --force` deleted
+  THROUGH the junction and wiped the real packages (npm ci restored them
+  exactly). Baseline worktrees get their own `npm ci`.
+- **A probe script that mutates then prints then mutates again is a
+  torn-state hazard on Windows.** The M10 close demo's `python -c`
+  applied an op, crashed printing a `→` under cp1252, and never posted
+  the undo — the roadmap sat silently edited. Raw python does NOT get the
+  CLI's UTF-8 reconfigure: set PYTHONIOENCODING=utf-8 on any mutating
+  probe, or print only after paired mutations complete.
 - **Reviewer scripts operate on COPIES, and every reviewer's last line
   asserts the real tree unchanged.** The K27 critic's script pointed at the
   real plans/roadmap and left collapse state behind; the builder caught the
