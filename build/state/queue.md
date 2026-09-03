@@ -412,7 +412,7 @@ CONVENTIONS.md + the battery. Accept: CI green on the bumped actions
 with zero deprecation annotations; badges render on GitHub; topics live.
 
 ### K39 — README demo GIF
-status: todo
+status: done (iteration 39)
 needs: —
 A scripted playwright drive of the real editor on a scratch plan: an
 outside CLI edit raises "via CLI: … updated" + pulse, then Ctrl+Z
@@ -423,7 +423,7 @@ optional. Accept: the GIF plays on GitHub, shows toast+pulse+undo
 legibly, README renders.
 
 ### K40 — Chip ops stop racing the echo
-status: todo
+status: done (iteration 40)
 needs: —
 Audit finding: two fast chip adds 409 (second still holds the pre-echo
 digest). ChipEditor rows disable their inputs/buttons while an op is in
@@ -433,7 +433,7 @@ document in editor.md's chip section. Accept: a scripted double-add
 lands both edges with zero conflict notices (smoke or live proof).
 
 ### K41 — Crew semantics + selection UX
-status: todo
+status: done (iteration 40)
 needs: —
 Four audit notes: (1) Crew lens outlines only UNDONE unassigned tasks
 (effective status != done); (2) adding a node centers it into view
@@ -455,7 +455,7 @@ visibly calmer mention presence; Crew lens unchanged (measured
 opacities per K30's matrix).
 
 ### K43 — Micro-hardening
-status: todo
+status: done (iteration 40)
 needs: —
 (1) braidPreview urlScheme decodes numeric/named colon entities
 (&#58; &#x3a; &colon;) before scheme classification — the checker's v13
@@ -479,7 +479,7 @@ the frontend CI job. Accept: tests fail when a formula is broken
 mention the command.
 
 ### K45 — Restore op: remove becomes undoable
-status: todo
+status: done (iteration 41)
 needs: —
 remove_node's op response gains inverse {op: restore_node, node_id,
 content: the prior file bytes (and view.yaml position if it had one)};

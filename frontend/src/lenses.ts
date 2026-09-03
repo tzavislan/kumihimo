@@ -375,8 +375,14 @@ export interface CrewResult {
   // (strong), or its first assigned agent's hue (softer) for anything that
   // mentions one.
   tint: Map<string, CrewTint>;
-  // task-kind nodes with an empty `agents` list — unassigned work, the "who
-  // does this" gap PLAN2.md §3's crew objects exist to close made visible.
+  // task-kind nodes with an empty `agents` list AND an effective status
+  // other than "done" — unassigned work, the "who does this" gap PLAN2.md
+  // §3's crew objects exist to close made visible. A finished task with no
+  // agents on file is no longer a gap worth flagging (K41 audit finding) —
+  // the exclusion checks the literal "done" value, not the broader
+  // DONE_VALUES set above, since it's scoped to task kind only (rule stays
+  // task-kind only; decision/question never populate `unassigned` either
+  // way, so their own "settled"/"answered" terminal values never come up).
   unassigned: Set<string>;
 }
 
@@ -483,7 +489,11 @@ export function crewLens(nodes: PlanNode[]): CrewResult {
       if (hue !== undefined) tint.set(node.id, crewTint(hue, 70, 45));
       continue;
     }
-    if (node.kind === "task" && node.agents.length === 0) unassigned.add(node.id);
+    // K41.1: a done task with no agents isn't outlined — see the field's own
+    // doc comment above for why "done" specifically, not DONE_VALUES.
+    if (node.kind === "task" && node.agents.length === 0 && statusOf(node) !== "done") {
+      unassigned.add(node.id);
+    }
     const first = node.agents[0];
     const hue = first !== undefined ? hueOf.get(first) : undefined;
     if (hue !== undefined) tint.set(node.id, crewTint(hue, 55, 60));

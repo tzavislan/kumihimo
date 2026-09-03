@@ -11,6 +11,8 @@ cord. This tool works the same way: you lay out a plan as a **graph of
 plain-text files**, and Kumihimo *braids* that graph into a single,
 well-ordered **prompt** an LLM or coding agent can act on.
 
+<img src="docs/assets/demo.gif" alt="A CLI edit lands while the editor is open: the canvas raises an attributed toast, pulses the changed node, and Ctrl+Z undoes an edit through the ops layer" width="100%">
+
 <img src="docs/assets/canvas-editor.png" alt="The Kumihimo editor: a plan graph with kind-colored nodes, dependency and membership edges, and the selected node's form in the sidebar" width="100%">
 
 - **See it.** `kumihimo edit` opens a live canvas — kind-colored nodes,

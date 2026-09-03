@@ -1,24 +1,43 @@
 /**
  * @file        frontend/src/useGraphKeyboard.ts
  * @purpose     Graph-directional keyboard (PLAN2.md §2.5): with the palette
- *              closed and focus outside any form field, digits 1-5 switch
- *              the lens bar (K26; 5 is Crew, K30) regardless of selection;
- *              with a node also
+ *              and braid modal both closed and focus outside any form
+ *              field, digits 1-5 switch the lens bar (K26; 5 is Crew, K30)
+ *              regardless of selection; with a node also
  *              selected, Left/Right walk the first needs dependency/
  *              dependent, Up/Down cycle the selection's sibling ring (other
  *              nodes sharing its first `in` group, or other ungrouped
- *              nodes), F focuses, Delete/Backspace confirms and removes.
- *              Ctrl+Z/Cmd+Z (K32) fires the undo trail's topmost enabled
+ *              nodes), F focuses, Delete/Backspace confirms and removes,
+ *              and Escape clears the selection (K41.4). Ctrl+Z/Cmd+Z (K32)
+ *              fires the undo trail's topmost enabled
  *              entry, regardless of selection — checked ahead of the "leave
  *              ctrl/meta/alt chords alone" bail below, since it IS one, but
  *              behind the same form-field guard every other binding here
  *              already gets. A single window-level listener, mounted for as
  *              long as the caller renders — not React Flow's own per-node
  *              keyboard handling (App.tsx disables that in favor of this).
+ *
+ *              Escape's own priority chain (K41.4, spans two listeners):
+ *              App.tsx keeps its own separate, form-field-agnostic Escape
+ *              listener that exits focus/trace first (unchanged by K41.4;
+ *              it must keep working even mid-edit in a form field, unlike
+ *              everything else here) — while EITHER is active, this hook's
+ *              own Escape branch below stays a no-op (`focusOrTraceActive`),
+ *              so a press that closes focus/trace never also clears the
+ *              selection in the same keystroke. Only once neither is
+ *              active does Escape here clear the selection — and, like
+ *              every other selection-touching key in this hook, only
+ *              outside a form field and outside the palette/modal. So:
+ *              first Escape exits focus or trace (selection untouched),
+ *              a second Escape (nothing else active) clears the selection —
+ *              peeling one layer per press, closest-thing-first.
  * @layer       frontend
- * @tags        keyboard, navigation, hook, lenses, undo
+ * @tags        keyboard, navigation, hook, lenses, undo, escape
  * @related     frontend/src/App.tsx (mounts this with its selection/palette/
- *              lens/undo-trail state and jumpTo/focusOn/applyOp callbacks),
+ *              modal/focus/trace/lens/undo-trail state and
+ *              jumpTo/focusOn/clearSelection/applyOp callbacks — also owns
+ *              the separate Escape listener that exits focus/trace, see
+ *              this file's own Escape note above),
  *              frontend/src/cones.ts (ancestorsOf/descendantsOf, what
  *              focusOn's caller builds the focus lens from),
  *              frontend/src/lenses.ts (the Lens type, LENS_ORDER — 1-4 map to
@@ -74,8 +93,20 @@ export interface UseGraphKeyboardParams {
   payload: Payload | null;
   selectedId: string | null;
   paletteOpen: boolean;
+  // K41.4: the braid preview modal — every binding here stays suspended
+  // while it's open (the canvas is fully obscured), reusing the same
+  // top-of-handler bail paletteOpen already gets rather than a narrower
+  // check on Escape alone.
+  modalOpen: boolean;
+  // K41.4: true while focus or trace is active (App.tsx's own state,
+  // untouched by this hook) — see this file's header for the priority
+  // chain this gates Escape's selection-clearing branch behind.
+  focusOrTraceActive: boolean;
   jumpTo: (nodeId: string) => void;
   focusOn: (id: string) => void;
+  // K41.4: Escape's own second layer, once neither focus nor trace claims
+  // the keystroke first — App.tsx's `() => setSelectedId(null)`.
+  clearSelection: () => void;
   applyOp: (envelope: Record<string, unknown>) => Promise<void>;
   onLensChange: (lens: Lens) => void;
   // K32: newest-first, enabled/reason already resolved against the live
@@ -95,20 +126,24 @@ export function useGraphKeyboard({
   payload,
   selectedId,
   paletteOpen,
+  modalOpen,
+  focusOrTraceActive,
   jumpTo,
   focusOn,
+  clearSelection,
   applyOp,
   onLensChange,
   undoEntries,
 }: UseGraphKeyboardParams): void {
-  // Live with the palette closed and focus outside any form field — the tag
-  // guard, same as the spec asks for — regardless of selection, since lens
-  // switching (below) doesn't need one; the rest of this handler then bails
-  // without a selection. Every arrow move also centers, via jumpTo, so
-  // keyboard and mouse selection always agree on what "selected" looks like.
+  // Live with the palette and braid modal both closed and focus outside any
+  // form field — the tag guard, same as the spec asks for — regardless of
+  // selection, since lens switching (below) doesn't need one; the rest of
+  // this handler then bails without a selection. Every arrow move also
+  // centers, via jumpTo, so keyboard and mouse selection always agree on
+  // what "selected" looks like.
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      if (paletteOpen || !payload) return;
+      if (paletteOpen || modalOpen || !payload) return;
       const tag = (event.target as HTMLElement | null)?.tagName;
       const inFormField = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
 
@@ -174,9 +209,26 @@ export function useGraphKeyboard({
         if (window.confirm(`Delete "${node.title || node.id}"?`)) {
           void applyOp({ op: "remove_node", node_id: node.id, base_digest: node.digest });
         }
+      } else if (event.key === "Escape" && !focusOrTraceActive) {
+        // K41.4: reached only once App.tsx's own Escape listener had
+        // nothing to exit this same press — see this file's header.
+        event.preventDefault();
+        clearSelection();
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [payload, selectedId, paletteOpen, jumpTo, focusOn, applyOp, onLensChange, undoEntries]);
+  }, [
+    payload,
+    selectedId,
+    paletteOpen,
+    modalOpen,
+    focusOrTraceActive,
+    jumpTo,
+    focusOn,
+    clearSelection,
+    applyOp,
+    onLensChange,
+    undoEntries,
+  ]);
 }

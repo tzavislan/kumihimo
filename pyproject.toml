@@ -45,6 +45,9 @@ dev = [
     "mypy>=1.11",
     "httpx>=0.27",
     "playwright>=1.62.0",
+    # tools/demo_gif.py's frame assembly (quantize + animated save) — no
+    # other dependency touches an image in this repo.
+    "pillow>=10.4",
     "mkdocs-material>=9.7.7",
     "mkdocstrings[python]>=1.0.6",
 ]

@@ -31,7 +31,10 @@ close a cycle; `--to`/`--rel` draws an annotation.
 
 Validate: cycles with their paths, dangling edges, unknown kinds, field
 breaches, orphans, dependencies on still-open nodes, empty bodies. Errors
-exit `1`; `--strict` makes warnings fail too.
+exit `1`; `--strict` makes warnings fail too. The closing summary's edge
+count is every `needs`, `in`, `links`, `agents`, `skills`, and `trains`
+entry across every node — mentions included, not just dependency/membership/
+annotation edges.
 
 ## `kumihimo braid PLAN [options]`
 

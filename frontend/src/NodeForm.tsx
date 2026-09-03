@@ -1,17 +1,20 @@
 /**
  * @file        frontend/src/NodeForm.tsx
- * @purpose     The selected node's editor: title, kind, schema-driven field
+ * @purpose     The selected node's editor: an identity banner ("editing
+ *              <title> · <id>", K41.3), title, kind, schema-driven field
  *              inputs (choice→select, bool→checkbox, int→number, list→comma
  *              text), chip editors for needs/agents/skills (K30 — id-
  *              autocomplete add, × to remove, each gesture its own
- *              link/unlink op rather than staged with Save), body textarea,
- *              rename, and delete — each action one op envelope carrying the
- *              node's digest. `trains` deliberately gets no chip editor: the
- *              queue text scopes chips to needs/agents/skills only — trains
- *              is the retro's edge, rare and deliberate, and stays
- *              file-edited.
+ *              link/unlink op rather than staged with Save; `chipPending`,
+ *              K40, disables all three rows together for the round trip of
+ *              whichever one is in flight, since they all race the same
+ *              node-level digest), body textarea, rename, and delete — each
+ *              action one op envelope carrying the node's digest. `trains`
+ *              deliberately gets no chip editor: the queue text scopes chips
+ *              to needs/agents/skills only — trains is the retro's edge,
+ *              rare and deliberate, and stays file-edited.
  * @layer       frontend
- * @tags        form, fields, digest, ops, chips, mentions
+ * @tags        form, fields, digest, ops, chips, mentions, race
  * @related     frontend/src/App.tsx (owns submission and errors, passes
  *              `nodes` for the chip editors' autocomplete/title lookups),
  *              frontend/src/ChipEditor.tsx (the presentational chip row this
@@ -30,7 +33,12 @@ export interface NodeFormProps {
   // source for autocomplete candidates and for resolving an id to a title;
   // nothing else in this form needs the full list.
   nodes: PlanNode[];
-  onApply: (envelope: Record<string, unknown>) => void;
+  // K40: returns App.tsx's applyOp promise (was fire-and-forget `void`)
+  // so the chip handlers below can await the response and clear their
+  // pending flag once it lands — success or failure alike. Every other
+  // caller here (save/delete/rename) still just calls it and ignores the
+  // returned promise, same as before.
+  onApply: (envelope: Record<string, unknown>) => Promise<void>;
 }
 
 // Agent/skill kind, factored out once: `needs` suggests everything BUT
@@ -92,12 +100,35 @@ export function NodeForm({ node, kinds, nodes, onApply }: NodeFormProps) {
   // read fresh at click time (this component always holds the latest
   // selected node, App.tsx recomputes it from payload.nodes every render),
   // so a second chip op after the first's payload echo carries the right
-  // base_digest without this component tracking anything itself.
+  // base_digest — PROVIDED the first has actually echoed back, which
+  // chipPending below (K40) is what guarantees.
   const titleOf = (id: string) => nodes.find((candidate) => candidate.id === id)?.title || id;
-  const linkChip = (key: "needs" | "agents" | "skills", value: string) =>
-    onApply({ op: "link", src: node.id, base_digest: node.digest, [key]: value });
-  const unlinkChip = (key: "needs" | "agents" | "skills", value: string) =>
-    onApply({ op: "unlink", src: node.id, base_digest: node.digest, [key]: value });
+  // K40: one shared in-flight flag for all three chip rows on this node —
+  // base_digest is the WHOLE node file's digest, not per-field, so a
+  // needs-add and an agents-add fired back to back would race the exact
+  // same stale digest just as much as two needs-adds would (the audit's
+  // own repro). Disabling every row together for the round trip, cleared
+  // in `finally` so a 409/400 re-enables it exactly like a success does,
+  // is the simplest fix that actually closes the race — not per-row, and
+  // not the digest-chaining alternative (ChipEditor.tsx's own header notes
+  // this is the caller's call).
+  const [chipPending, setChipPending] = useState(false);
+  const linkChip = async (key: "needs" | "agents" | "skills", value: string) => {
+    setChipPending(true);
+    try {
+      await onApply({ op: "link", src: node.id, base_digest: node.digest, [key]: value });
+    } finally {
+      setChipPending(false);
+    }
+  };
+  const unlinkChip = async (key: "needs" | "agents" | "skills", value: string) => {
+    setChipPending(true);
+    try {
+      await onApply({ op: "unlink", src: node.id, base_digest: node.digest, [key]: value });
+    } finally {
+      setChipPending(false);
+    }
+  };
 
   useEffect(() => {
     setTitle(node.title);
@@ -152,6 +183,16 @@ export function NodeForm({ node, kinds, nodes, onApply }: NodeFormProps) {
 
   return (
     <div className="kumi-detail">
+      {/* K41.3: which node this form is actually editing, at the top — title
+          falls back to id when blank, defense-in-depth: store.py's own
+          default_title already humanizes an empty title from the id before
+          this ever sees it (core/model.py — "untitled-task" -> "Untitled
+          task"), so a node loaded the normal way never actually exercises
+          this fallback, but nothing here should assume that stays true.
+          .kumi-detail-meta already existed in styles.css, unused until now. */}
+      <p className="kumi-detail-meta">
+        editing {node.title || node.id} · {node.id}
+      </p>
       <label>
         Title
         <input value={title} onChange={(event) => setTitle(event.target.value)} />
@@ -207,6 +248,7 @@ export function NodeForm({ node, kinds, nodes, onApply }: NodeFormProps) {
         titleOf={titleOf}
         onAdd={(id) => linkChip("needs", id)}
         onRemove={(id) => unlinkChip("needs", id)}
+        disabled={chipPending}
       />
       <ChipEditor
         fieldKey="agents"
@@ -216,6 +258,7 @@ export function NodeForm({ node, kinds, nodes, onApply }: NodeFormProps) {
         titleOf={titleOf}
         onAdd={(id) => linkChip("agents", id)}
         onRemove={(id) => unlinkChip("agents", id)}
+        disabled={chipPending}
       />
       <ChipEditor
         fieldKey="skills"
@@ -225,6 +268,7 @@ export function NodeForm({ node, kinds, nodes, onApply }: NodeFormProps) {
         titleOf={titleOf}
         onAdd={(id) => linkChip("skills", id)}
         onRemove={(id) => unlinkChip("skills", id)}
+        disabled={chipPending}
       />
       <label>
         Body

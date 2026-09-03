@@ -17,9 +17,14 @@
  *              html override alone left `[x](javascript:...)` and
  *              `<javascript:...>` autolinks rendering as live, clickable
  *              `<a>` elements — marked's own default link/image renderers do
- *              no scheme filtering at all).
+ *              no scheme filtering at all). urlScheme also decodes an HTML
+ *              colon-character-reference (`&#58;`/`&#x3a;`/`&colon;`) before
+ *              classifying (K43.1, checker's v13 finding: the allow-list
+ *              alone still missed `javascript&#58;alert(1)`, a live
+ *              javascript: link to a real browser with no literal ":" in
+ *              the source).
  * @layer       frontend
- * @tags        markdown, marked, lazy-load, sanitize, xss, download
+ * @tags        markdown, marked, lazy-load, sanitize, xss, download, entities
  * @related     frontend/src/BraidModal.tsx (the one caller),
  *              kumihimo/compile/templates/cord.j2 (the "## Plan shape"
  *              section and its one ```mermaid fence this folds),
@@ -92,24 +97,53 @@ function escapeHtml(raw: string): string {
 const ALLOWED_LINK_SCHEMES = new Set(["http:", "https:", "mailto:"]);
 const ALLOWED_IMAGE_SCHEMES = new Set(["http:", "https:"]);
 
+// K43.1 (checker's v13 finding): a real browser's HTML parser decodes a
+// character reference standing in for ":" — decimal (`&#58;`, or with any
+// number of leading zeros: `&#058;`, `&#0058;`), hex (`&#x3a;`/`&#x3A;`/
+// `&#X3a;`, `i` covers every letter-case combination of the "x" and the hex
+// digit alike, again with any leading zeros), or the named `&colon;` (also
+// matched case-insensitively: a form no browser actually recognizes just
+// makes classification MORE cautious, never less, since urlScheme below
+// would otherwise see it as an inert non-scheme string) — before it ever
+// looks at what comes after. `[x](javascript&#58;alert(1))` therefore reads
+// to a browser as a live `javascript:` link even though no literal ":"
+// appears in the Markdown source; decodeColonEntities closes exactly that
+// gap. Deliberately narrow: only ":" forms are decoded (not a general HTML-
+// entity decoder), and only a trailing-";" form is recognized — the legacy
+// browser quirk of a numeric reference decoding even without one
+// (e.g. bare "&#58") is a real but separate rabbit hole, out of scope here.
+const COLON_ENTITY = /&(?:#0*58|#x0*3a|colon);/gi;
+
+/** Decode HTML colon-character-reference forms (see COLON_ENTITY above) to
+ * a literal ":", once — a single non-overlapping pass, never re-run over
+ * its own output, since none of the three forms can nest or produce a new
+ * entity by decoding. Exported for the K44 vitest suite; urlScheme is the
+ * only caller in this file. */
+export function decodeColonEntities(url: string): string {
+  return url.replace(COLON_ENTITY, ":");
+}
+
 /**
  * The URL's scheme, lowercased with its trailing ":" (e.g. "javascript:"),
  * or null when there's no colon before the first `/`, `?`, or `#` — i.e. a
  * relative reference (a bare path, a `?query`, or a `#fragment`), which
  * every caller here always allows.
  *
- * @purpose  Matches the WHATWG URL parser's own preprocessing (strip every
- *           TAB/LF/CR wherever it falls, then leading C0-control-or-space)
- *           before looking for the scheme, so a scheme hidden behind
- *           "j\navascript:" or a leading control character — both still
- *           live javascript: URLs to a real browser, since that's exactly
- *           what it strips before parsing — can't slip past a check that
- *           only trims the string's own ends. A colon that shows up AFTER
- *           the first /?# (e.g. "/search?q=javascript:x") is correctly read
- *           as part of the path/query, not a scheme, and always allowed.
+ * @purpose  Matches the WHATWG URL parser's own preprocessing (decode a
+ *           colon character reference — decodeColonEntities, K43.1 — then
+ *           strip every TAB/LF/CR wherever it falls, then leading
+ *           C0-control-or-space) before looking for the scheme, so a scheme
+ *           hidden behind "j\navascript:", a leading control character, or
+ *           an entity-encoded colon — all three still live javascript: URLs
+ *           to a real browser, since that's exactly what it resolves before
+ *           parsing — can't slip past a check that only trims the string's
+ *           own ends. A colon that shows up AFTER the first /?# (e.g.
+ *           "/search?q=javascript:x") is correctly read as part of the
+ *           path/query, not a scheme, and always allowed.
  */
 function urlScheme(url: string): string | null {
-  const noTabOrNewline = url.replace(/[\t\n\r]/g, "");
+  const decoded = decodeColonEntities(url);
+  const noTabOrNewline = decoded.replace(/[\t\n\r]/g, "");
   let start = 0;
   while (start < noTabOrNewline.length && noTabOrNewline.charCodeAt(start) <= 32) start++;
   const normalized = noTabOrNewline.slice(start);

@@ -22,6 +22,8 @@ The files are the only source of truth. The editor, the CLI, and the MCP
 server are thin clients over one operations layer; everything lives in git and
 diffs cleanly.
 
+![A CLI edit lands while the editor is open: the canvas raises an attributed toast, pulses the changed node, and Ctrl+Z undoes an edit through the ops layer](assets/demo.gif)
+
 ![The Kumihimo editor: a plan graph with kind-colored nodes, three edge styles, and the selected node's form in the sidebar](assets/canvas-editor.png)
 
 ## Ten minutes to your first braid

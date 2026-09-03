@@ -460,6 +460,28 @@ def save_view(root: Path, data: CommentedMap) -> None:
     _atomic_write(root / VIEW_NAME, buffer.getvalue().encode("utf-8"))
 
 
+def write_node_text(root: Path, node_id: str, content: str) -> Path:
+    """Write `content` verbatim as one node file's bytes: no record, no re-render.
+
+    @purpose  ops.restore_node's one legitimate bypass of the record system
+              (K45): by the time it's called, `content` already IS a node
+              file's exact prior text — newline style and BOM baked in
+              exactly as this module's own `_read_text` first captured them,
+              not carried as separate fields the way a NodeRecord holds them
+              — so there is nothing to parse and nothing to re-serialize.
+              Every other writer goes through a NodeRecord + save_record
+              specifically so an *edited* file's frontmatter re-renders
+              through the round-trip map; doing that here to a file that
+              already has its final bytes would only risk reformatting it,
+              exactly what invariant 7 treats as data loss.
+    @tags     store, restore, atomic-write, fidelity
+    """
+    path = root / NODES_DIR / Path(node_id + ".md")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    _atomic_write(path, content.encode("utf-8"))
+    return path
+
+
 def new_record(root: Path, node: Node) -> NodeRecord:
     """Build a record (and canonical frontmatter) for a node that has no file yet.
 

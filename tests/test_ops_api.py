@@ -11,13 +11,18 @@
              a correctly-shaped inverse envelope, digest preconditions that
              go stale after an external edit, byte-exact round-trips
              (including through a referrer-fixing rename), and undo-of-undo.
+             (K45) remove_node's inverse is a restore_node envelope carrying
+             the exact prior bytes and position, postable straight back;
+             restore_node's own inverse is remove_node; a force-remove's
+             stripped referrers stay stripped through a restore; restoring
+             onto a still-live id is a clean 400.
 @layer       tests
 @tags        ops-envelope, digests, conflicts, view-layout, undo, inverse-ops,
-             dirty, git
+             dirty, git, restore
 @related     kumihimo/server/ops_api.py (under test),
              kumihimo/server/app.py (the routes, incl. /api/dirty)
 @design      PLAN.md §5.2-5.3, roadmap items editor-ops and editor-conflicts;
-             PLAN2.md §2.5 Undo trail, §5 risk 4, queue items K32, K37
+             PLAN2.md §2.5 Undo trail, §5 risk 4, queue items K32, K37, K45
 """
 
 import subprocess
@@ -374,18 +379,42 @@ def test_inverse_add_node_is_remove_without_force(plan_dir: PlanFactory, tmp_pat
     assert not (root / "nodes" / "fresh.md").exists()
 
 
-def test_inverse_remove_node_is_null(plan_dir: PlanFactory, tmp_path: Path) -> None:
-    root = plan_dir({"a.md": BODIED})
+def test_inverse_remove_node_is_restore_with_exact_content_and_position(
+    plan_dir: PlanFactory, tmp_path: Path
+) -> None:
+    # K45: remove_node's inverse used to be an honest None (git was the only
+    # undo for a deletion, PLAN2.md §2.5) — it is now a restore_node envelope
+    # carrying the exact prior bytes, read before the file was deleted, plus
+    # the node's view.yaml position when it had one.
+    root = plan_dir({"a.md": "---\nkind: task\neffort: S\n---\nBody.\n"})
+    (root / "view.yaml").write_bytes(b"layout:\n  a: {x: 10, y: 20}\n")
     client = client_for(root, tmp_path)
+    original = (root / "nodes" / "a.md").read_bytes()
+
     response = client.post(
         "/api/ops",
         json={"op": "remove_node", "node_id": "a", "base_digest": digest_of(client, "a")},
     )
     assert response.status_code == 200
     body = response.json()
-    assert body["inverse"] is None
+    assert body["inverse"] == {
+        "op": "restore_node",
+        "node_id": "a",
+        "content": original.decode("utf-8"),
+        "position": [10, 20],
+    }
+    # "This id is absent" can't be expressed as a {id, digest} precondition
+    # against today's frontend trail matcher without a frontend edit this
+    # round didn't make (see OpOutcome's own docstring) — empty means
+    # always-enabled, the same honest fallback set_positions/set_collapsed
+    # already use.
     assert body["preconditions"] == []
     assert body["label"] == "remove a"
+
+    undo = client.post("/api/ops", json=body["inverse"])
+    assert undo.status_code == 200
+    assert (root / "nodes" / "a.md").read_bytes() == original
+    assert "a: {x: 10, y: 20}" in (root / "view.yaml").read_text(encoding="utf-8")
 
 
 def test_inverse_update_field_restores_prior_value_and_unsets_new_field(
@@ -663,3 +692,79 @@ def test_undo_of_undo_restores_forward_state(plan_dir: PlanFactory, tmp_path: Pa
     redo = client.post("/api/ops", json=undo.json()["inverse"])
     assert redo.status_code == 200
     assert target.read_bytes() == after_forward
+
+
+# --- K45: restore_node, remove's real inverse ------------------------------
+
+
+def test_inverse_restore_node_is_remove_without_force(
+    plan_dir: PlanFactory, tmp_path: Path
+) -> None:
+    root = plan_dir({"a.md": BODIED})
+    client = client_for(root, tmp_path)
+    original = (root / "nodes" / "a.md").read_bytes()
+
+    remove = client.post(
+        "/api/ops",
+        json={"op": "remove_node", "node_id": "a", "base_digest": digest_of(client, "a")},
+    )
+    assert remove.status_code == 200
+    restore_inverse = remove.json()["inverse"]
+
+    restore = client.post("/api/ops", json=restore_inverse)
+    assert restore.status_code == 200
+    restore_body = restore.json()
+    digest = digest_of(client, "a")
+    assert restore_body["inverse"] == {"op": "remove_node", "node_id": "a", "base_digest": digest}
+    assert restore_body["preconditions"] == [{"id": "a", "digest": digest}]
+    assert restore_body["label"] == "restore a"
+    assert (root / "nodes" / "a.md").read_bytes() == original
+
+    # Undo-of-undo-of-undo: re-removing through the restore's own inverse
+    # works, completing the full add-like/remove-like cycle.
+    re_remove = client.post("/api/ops", json=restore_body["inverse"])
+    assert re_remove.status_code == 200
+    assert not (root / "nodes" / "a.md").exists()
+
+
+def test_restore_after_force_remove_does_not_resurrect_referrers(
+    plan_dir: PlanFactory, tmp_path: Path
+) -> None:
+    root = plan_dir(
+        {"target.md": BODIED, "dep.md": "---\nkind: task\nneeds: [target]\n---\nDep.\n"}
+    )
+    client = client_for(root, tmp_path)
+    dep_before = (root / "nodes" / "dep.md").read_bytes()
+
+    response = client.post(
+        "/api/ops",
+        json={
+            "op": "remove_node",
+            "node_id": "target",
+            "base_digest": digest_of(client, "target"),
+            "force": True,
+        },
+    )
+    assert response.status_code == 200
+    dep_after_strip = (root / "nodes" / "dep.md").read_bytes()
+    assert dep_after_strip != dep_before  # the referrer edge really was stripped
+    assert Plan.load(root).nodes["dep"].needs == []
+
+    undo = client.post("/api/ops", json=response.json()["inverse"])
+    assert undo.status_code == 200
+    assert (root / "nodes" / "target.md").is_file()
+    # The label/docs promise: restore returns the node file only.
+    assert (root / "nodes" / "dep.md").read_bytes() == dep_after_strip
+    assert Plan.load(root).nodes["dep"].needs == []
+
+
+def test_restore_onto_an_existing_id_is_400(plan_dir: PlanFactory, tmp_path: Path) -> None:
+    root = plan_dir({"a.md": BODIED})
+    client = client_for(root, tmp_path)
+    response = client.post(
+        "/api/ops", json={"op": "restore_node", "node_id": "a", "content": BODIED}
+    )
+    assert response.status_code == 400
+    assert "already exists" in response.json()["detail"]
+    # Refused, not clobbered.
+    assert (root / "nodes" / "a.md").read_bytes() == BODIED.encode("utf-8")

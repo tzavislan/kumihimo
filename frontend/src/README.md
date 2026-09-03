@@ -11,7 +11,7 @@
 | `KumiNode.tsx` | The leaf React Flow node: kind-colored edge stripe, title, id, and a kind pill. Renders one of three semantic-zoom tiers (far/mid/near), chosen upstream in App… |
 | `LayoutControls.tsx` | The sidebar's layout controls (PLAN2.md §2.3-2.5, K27): the Auto-layout/Use view.yaml toggle (unchanged), the new Lanes button next to it, and Re-layout branch… |
 | `LensBar.tsx` | The sidebar's lens switcher (PLAN2.md §2.3, §3): a five-way segmented control — Structure (default), Status, Flow, Risk, Crew (K30) — sitting right below the s… |
-| `NodeForm.tsx` | The selected node's editor: title, kind, schema-driven field inputs (choice→select, bool→checkbox, int→number, list→comma text), chip editors for needs/agents/… |
+| `NodeForm.tsx` | The selected node's editor: an identity banner ("editing <title> · <id>", K41.3), title, kind, schema-driven field inputs (choice→select, bool→checkbox, int→nu… |
 | `Palette.tsx` | Ctrl+K/Cmd+K command palette: one text box searching two groups — NODES (substring match over id/title/body, title-or- id hits ranked above body-only hits, the… |
 | `Toasts.tsx` | The attribution toast stack (K31): top-right, newest on top, dismiss-on-click. useAttribution.ts already caps `toasts` at 4 and expires each after ~6s, so this… |
 | `UndoPanel.tsx` | The sidebar's undo trail (K32): a collapsible section listing this session's own applied ops, newest first, each a button — enabled while its inverse's precond… |
@@ -31,7 +31,8 @@
 | `theme.ts` | Light/dark theme (PLAN2.md §2.5): init from localStorage or OS preference, persist on change, toggle. The DOM write (data-theme on <html>) is the one place tha… |
 | `types.ts` | The TypeScript mirror of the server's payload contract — one shape, defined once on each side of the wire. |
 | `useAttribution.ts` | K31: owns the plan subscription — the initial fetch plus the live socket, superseding App.tsx's old bare `openLive(setPayload)` — diffing each live push agains… |
-| `useGraphKeyboard.ts` | Graph-directional keyboard (PLAN2.md §2.5): with the palette closed and focus outside any form field, digits 1-5 switch the lens bar (K26; 5 is Crew, K30) rega… |
+| `useCenterNewNode.ts` | K41.2: center a freshly added node into view once its position actually exists. `add_node` never writes a view.yaml entry (kumihimo/core/ops.py) — a brand-new … |
+| `useGraphKeyboard.ts` | Graph-directional keyboard (PLAN2.md §2.5): with the palette and braid modal both closed and focus outside any form field, digits 1-5 switch the lens bar (K26;… |
 | `useUndoTrail.ts` | K32: the session-scoped undo trail. Every op THIS browser tab applies through App.tsx's applyOp lands here newest-first (one push() call per postOp response — … |
 <!-- END GENERATED INDEX -->
 

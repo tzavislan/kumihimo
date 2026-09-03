@@ -1,19 +1,25 @@
 """
 @file        kumihimo/core/ops.py
 @purpose     The one mutation path (invariant 1): add, update, link, unlink,
-             rename, remove — each loads fresh from disk, edits the record's
-             live frontmatter map so comments survive, refuses structural
-             nonsense (dangling or wrong-kind targets, cycles, id collisions)
-             with clean errors, saves atomically, and returns the reloaded
-             result. link/unlink cover needs, in, links, and the three
-             mention keys (agents, skills, trains — PLAN2 §3.2); mentions
-             carry no ordering, so only needs gets the cycle guard.
+             rename, remove, restore — each loads fresh from disk, edits the
+             record's live frontmatter map so comments survive, refuses
+             structural nonsense (dangling or wrong-kind targets, cycles, id
+             collisions) with clean errors, saves atomically, and returns the
+             reloaded result. link/unlink cover needs, in, links, and the
+             three mention keys (agents, skills, trains — PLAN2 §3.2);
+             mentions carry no ordering, so only needs gets the cycle guard.
+             restore_node (K45) is remove_node's real inverse: it writes a
+             prior file's exact bytes back verbatim rather than building
+             frontmatter through the record system, since there is nothing
+             to edit — content already IS the final file.
 @layer       core
-@tags        ops, mutations, invariant-1, referrer-fixup, mentions
-@related     kumihimo/core/store.py (the records and saves),
+@tags        ops, mutations, invariant-1, referrer-fixup, mentions, restore
+@related     kumihimo/core/store.py (the records and saves; write_node_text
+             is restore_node's one bypass of the record system),
              kumihimo/core/graph.py (the cycle guard on link),
              kumihimo/core/plan.py (Plan.load used before and after)
-@design      PLAN.md §7.1 invariant 1, queue item K5; PLAN2.md §3.2
+@design      PLAN.md §7.1 invariant 1, queue item K5; PLAN2.md §3.2; queue
+             item K45
 """
 
 from __future__ import annotations
@@ -23,7 +29,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from ruamel.yaml.comments import CommentedSeq
+from ruamel.yaml.comments import CommentedMap, CommentedSeq
 
 from kumihimo.core import graph, store
 from kumihimo.core.errors import KumihimoError
@@ -533,4 +539,60 @@ def remove_node(root: Path, node_id: str, *, force: bool = False, actor: str = "
             store.save_view(plan.root, view)
     result = sorted(referrers)
     _log_event(plan.root, actor, "remove_node", [node_id, *result])
+    return result
+
+
+def restore_node(
+    root: Path,
+    node_id: str,
+    content: str,
+    *,
+    position: tuple[int, int] | None = None,
+    actor: str = "api",
+) -> Node:
+    """Bring a removed node's file back, byte-for-byte.
+
+    @purpose  remove_node's real inverse (K45): writes `content` back as the
+              node's exact prior file bytes — no frontmatter parse, no
+              re-render, since `content` already IS the final text, newline
+              style and BOM baked in exactly the shape store.py's own load
+              captured them in (see store.write_node_text). Refused, cleanly,
+              when the id already exists: silently overwriting a file that
+              has since been recreated (a fresh add_node, or a second
+              restore racing the first) would be exactly the byte-fidelity
+              violation invariant 7 exists to prevent — and it is, honestly,
+              this op's own precondition failing in words: a restore trail
+              entry means "this id is absent," and this is that check.
+              `position`, when given, restores the node's prior view.yaml
+              layout entry; omitted, the node simply has none yet, same as
+              anything freshly added. Referrers a force-remove stripped are
+              never resurrected — this returns the node file only, nothing
+              else on disk is touched, so those edges stay stripped until
+              undone from their own trail entries (see ops_api's restore
+              inverse and docs/howto/editor.md's undo section). `actor`
+              (K31) — see add_node's own note.
+    @tags     ops, restore, remove-inverse, undo
+    """
+    _require_slug(node_id)
+    plan = Plan.load(root)
+    lowered = {existing.lower() for existing in plan.records}
+    if node_id.lower() in lowered:
+        raise KumihimoError(f"'{node_id}' already exists — refresh and re-check the trail")
+    store.write_node_text(plan.root, node_id, content)
+    if position is not None:
+        view = store.load_view(plan.root)
+        if view is None:
+            view = CommentedMap()
+        layout = view.get("layout")
+        if not isinstance(layout, dict):
+            layout = CommentedMap()
+            view["layout"] = layout
+        entry = CommentedMap()
+        entry["x"] = int(position[0])
+        entry["y"] = int(position[1])
+        entry.fa.set_flow_style()
+        layout[node_id] = entry
+        store.save_view(plan.root, view)
+    result = Plan.load(root).node(node_id)
+    _log_event(plan.root, actor, "restore_node", [node_id])
     return result

@@ -46,7 +46,14 @@ def check(
     errors = sum(1 for finding in findings if finding.level == "error")
     warnings = len(findings) - errors
     nodes = len(plan.nodes)
-    edges = sum(len(n.needs) + len(n.in_) + len(n.links) for n in plan.nodes.values())
+    # K43.3: needs/in/links plus the three mention keys (agents/skills/
+    # trains, kumihimo/core/model.py) — the count undercounted every mention
+    # edge since K28 (agents:/skills:/trains: are typed edges too, PLAN2
+    # §3.2, just never added here when they landed).
+    edges = sum(
+        len(n.needs) + len(n.in_) + len(n.links) + len(n.agents) + len(n.skills) + len(n.trains)
+        for n in plan.nodes.values()
+    )
     summary = f"{nodes} node(s), {edges} edge(s): {errors} error(s), {warnings} warning(s)"
     if errors or (strict and warnings):
         console.print(f"[red]{summary}[/red]")

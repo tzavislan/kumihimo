@@ -1298,3 +1298,48 @@ green is the acceptance and rides the push; SECURITY.md (advisories
 path, honest "nothing released yet", the sanitizer named in scope);
 bug/feature issue templates + a PR template pointing at CONVENTIONS.md
 and the battery. Python battery green locally.
+
+## 2026-09-03 — iterations 39-41 (M11 wave 1: K39, K40+K41+K43, K45 — three parallel builders, one commit)
+
+Three Sonnet builders ran concurrently on disjoint surfaces; the tree
+interleaves their diffs, so the wave lands as one commit with each
+iteration journaled here.
+
+**Iteration 39 — K39 (demo GIF):** tools/demo_gif.py scaffolds "Ship
+the guard" (5 nodes, a needs chain, an agents: mention), serves it, and
+choreographs the money demo — a REAL kumihimo set subprocess raising
+"via CLI: Build the middleware updated" + pulse, a GUI status edit,
+Ctrl+Z reverting it with the trail visibly graying its stale entry.
+12 frames, ~11s, 1200x750, a shared adaptive palette across phases —
+85 KB. Reproducible across three runs, zero residue. Embedded in
+README + docs/index.md above the fold. pillow joins the dev group.
+
+**Iteration 40 — K40+K41+K43 (polish batch):** chip rows share one
+pending flag (whole-node digest, so per-row would still race) —
+disabled until the echo, both-edges-land proven in a new smoke test.
+Crew lens outlines only undone unassigned tasks (27 done roadmap tasks
+dropped their noise); add centers the new node once its position exists
+(useCenterNewNode extracted to guard the cap — App.tsx 595/600); the
+form banners "editing <title> · <id>"; Esc clears selection after
+focus/trace, chain documented. braidPreview decodes colon entities
+(&#58;/&#x3A;/&colon; case variants, one pass) before scheme
+classification — the checker's v13 nuance is dead, tested; task pill
+gets a pill-only #2563eb (5.17:1, stripe/chips keep #3b82f6); the CLI
+check summary counts mention edges — the roadmap's true count is 111,
+not 64.
+
+**Iteration 41 — K45 (restore op):** remove responses now carry a
+restore inverse holding the exact prior bytes + view position;
+restore_node writes them back verbatim (store.write_node_text — a
+documented bypass of re-serialization, invariant 7 by construction),
+refuses if the file reappeared, logs its event, and carries its own
+remove inverse — undo-of-undo full cycle tested. The null-digest
+precondition idea was correctly rejected by the builder (JS undefined
+!== null would gray the entry forever); preconditions stay empty and
+the op door's refusal is the honest gate, like unlink-cycle already
+works. Force-stripped referrers stay stripped, documented plainly.
+Byte fidelity sha256-proven on a CRLF+comment fixture.
+
+Wave battery under the orchestrator's hands: 254 tests, frontend
+typecheck+build, mkdocs strict — green. Checker pass next, then K42,
+K44, and the CLI link mention flags (the K39 builder re-flagged them).

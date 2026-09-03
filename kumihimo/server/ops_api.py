@@ -10,11 +10,16 @@
              client can POST back verbatim to undo it, the node digest(s) it
              preconditions on (so a later external edit grays the trail entry
              instead of silently mis-undoing), and one human-readable label.
-             remove_node is the honest exception — its inverse is None; git is
-             the real undo for a deletion (PLAN2.md §2.5, §5 risk 4).
+             remove_node's inverse (K45) is a restore_node envelope carrying
+             the exact prior file bytes, read before the file is deleted, and
+             the prior view.yaml position when it had one; restore_node's own
+             inverse is in turn a remove_node envelope, the same shape
+             add_node's already is. The one honest null left is set_positions
+             on a node's first-ever placement — no prior position exists to
+             restore.
 @layer       server
 @tags        ops-envelope, digests, single-writer, view-layout, containers,
-             mentions, undo, inverse-ops
+             mentions, undo, inverse-ops, restore
 @related     kumihimo/core/ops.py (every mutation lands there),
              kumihimo/server/app.py (mounts apply() at POST /api/ops, merges
              OpOutcome's fields into the response payload),
@@ -22,7 +27,8 @@
              also the inverse's precondition unit; also reads `collapsed`
              back out of view.yaml for the payload),
              frontend/src/useUndoTrail.ts (the client-side trail this feeds)
-@design      PLAN.md §5.2-5.3, PLAN2.md §2.5 Undo trail, §5 risk 4
+@design      PLAN.md §5.2-5.3, PLAN2.md §2.5 Undo trail, §5 risk 4, queue
+             item K45
 """
 
 from __future__ import annotations
@@ -98,11 +104,31 @@ class RemoveNodeOp(_Op):
     """Envelope for ops.remove_node.
 
     @purpose  Deletion; digest-gated so a stale delete cannot take fresh work.
+              Its own inverse (K45) is a restore_node envelope — see
+              OpOutcome's docstring for the full reasoning, including why its
+              preconditions stay empty.
     """
 
     op: Literal["remove_node"]
     node_id: str
     force: bool = False
+
+
+class RestoreNodeOp(_Op):
+    """Envelope for ops.restore_node (K45).
+
+    @purpose  remove_node's real inverse: recreates the file from the exact
+              bytes remove_node read just before deleting it. No base_digest
+              — there is no file yet to gate on; the op's own already-exists
+              refusal is what stops a stale replay instead. `position`
+              restores the node's prior view.yaml layout entry when it had
+              one.
+    """
+
+    op: Literal["restore_node"]
+    node_id: str
+    content: str
+    position: tuple[int, int] | None = None
 
 
 class LinkOp(_Op):
@@ -182,6 +208,7 @@ OpRequest = Annotated[
     AddNodeOp
     | UpdateNodeOp
     | RemoveNodeOp
+    | RestoreNodeOp
     | LinkOp
     | UnlinkOp
     | RenameNodeOp
@@ -197,17 +224,30 @@ class OpOutcome:
 
     @purpose  `inverse` is a full OpRequest-shaped envelope (JSON, by alias)
               the client can POST back to `/api/ops` verbatim to undo this
-              op, or None when the op is honestly not reversible this way
-              (remove_node — git is the real undo, PLAN2.md §2.5). Every op
-              here executed while already holding a node's own digest check,
-              so the inverse's `base_digest` and this same value in
-              `preconditions` are always the SAME post-op digest: undoing an
-              undo works for exactly the reason applying the original op did.
-              `preconditions` is empty for set_positions/set_collapsed — those
-              touch view.yaml, which carries no digest of its own in this
-              contract (forward set_positions/set_collapsed have no digest
-              gate either, today), so their trail entries stay enabled always.
-              `label` is one human sentence for the trail.
+              op, or None when the op is honestly not reversible this way —
+              today that's only set_positions on a node's first-ever
+              placement, where no prior position exists to restore. Every op
+              that touches exactly one existing node file executes while
+              already holding that node's own digest check, so the inverse's
+              `base_digest` and this same value in `preconditions` are always
+              the SAME post-op digest: undoing an undo works for exactly the
+              reason applying the original op did. Three documented
+              exceptions to that digest-precondition pattern: `preconditions`
+              is empty for set_positions/set_collapsed, since those touch
+              view.yaml, which carries no digest of its own in this contract
+              (forward set_positions/set_collapsed have no digest gate
+              either, today); and empty for remove_node (K45) too, for a
+              different reason — its restore_node inverse's own real
+              precondition is honestly "this id is absent," a state today's
+              frontend trail matcher (useUndoTrail.ts's {id, digest}
+              comparison, where a missing id reads as JS `undefined`, never
+              a distinguishable "must be absent") cannot express without a
+              frontend edit this round didn't make. In all three cases the
+              trail entry stays enabled unconditionally; for remove_node's
+              restore, restore_node's own already-exists refusal is what
+              actually stops a stale click, surfacing as the ordinary error
+              notice instead of a silently wrong undo. `label` is one human
+              sentence for the trail.
     """
 
     inverse: dict[str, Any] | None
@@ -248,6 +288,22 @@ def _precondition(node_id: str, digest: str) -> list[dict[str, str]]:
               same node's post-op digest.
     """
     return [{"id": node_id, "digest": digest}]
+
+
+def _prior_position(root: Path, node_id: str) -> list[int] | None:
+    """This id's current view.yaml position, as [x, y], or None if it has none.
+
+    @purpose  RemoveNodeOp's restore-inverse (K45) needs the position read
+              before the file — and its layout entry — are gone.
+    """
+    view = store.load_view(root)
+    layout = view.get("layout") if view is not None else None
+    if not isinstance(layout, dict):
+        return None
+    entry = layout.get(node_id)
+    if isinstance(entry, dict) and "x" in entry and "y" in entry:
+        return [int(entry["x"]), int(entry["y"])]
+    return None
 
 
 def _edge_key_target(
@@ -481,8 +537,54 @@ def apply(root: Path, request: OpRequest) -> OpOutcome:
 
         elif isinstance(request, RemoveNodeOp):
             _check_digest(root, request.node_id, request.base_digest)
+            # Before-state for the restore inverse (K45), read the same way
+            # store.py's own load does — raw bytes decoded, no universal-
+            # newline translation — so a CRLF file's inverse carries the
+            # exact bytes remove_node is about to delete, not a mangled copy.
+            prior_path = _node_path(root, request.node_id)
+            prior_content: str | None = None
+            if prior_path.is_file():
+                prior_content = prior_path.read_bytes().decode("utf-8")
+            prior_position = _prior_position(root, request.node_id)
             ops.remove_node(root, request.node_id, force=request.force, actor="editor")
-            return OpOutcome(None, [], f"remove {request.node_id}")
+            label = f"remove {request.node_id}"
+            if prior_content is None:
+                # Unreachable in practice — ops.remove_node above would have
+                # raised "no node" first — but honest rather than a
+                # fabricated restore envelope if some future caller (no
+                # base_digest given, so _check_digest never confirmed the
+                # file existed) ever gets here anyway.
+                return OpOutcome(None, [], label)
+            inverse = {
+                "op": "restore_node",
+                "node_id": request.node_id,
+                "content": prior_content,
+            }
+            if prior_position is not None:
+                inverse["position"] = prior_position
+            # preconditions stays [] — see OpOutcome's own docstring for why
+            # "this id is absent" can't be expressed as a {id, digest} check
+            # against today's frontend trail matcher without a frontend
+            # edit. The entry is enabled unconditionally; restore_node's own
+            # already-exists refusal catches a stale click instead.
+            return OpOutcome(inverse, [], label)
+
+        elif isinstance(request, RestoreNodeOp):
+            ops.restore_node(
+                root,
+                request.node_id,
+                request.content,
+                position=request.position,
+                actor="editor",
+            )
+            digest = file_digest(_node_path(root, request.node_id))
+            inverse = {
+                "op": "remove_node",
+                "node_id": request.node_id,
+                "base_digest": digest,
+            }
+            label = f"restore {request.node_id}"
+            return OpOutcome(inverse, _precondition(request.node_id, digest), label)
 
         elif isinstance(request, LinkOp):
             _check_digest(root, request.src, request.base_digest)

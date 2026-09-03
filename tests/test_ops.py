@@ -4,19 +4,23 @@
              updates, cycle-refusing links, tidy unlinks, mention edges
              (agents/skills/trains — existence and kind enforced, no cycle
              guard), renames that fix every referrer and the view layout
-             without touching the renamed file's bytes, and removes that
-             refuse or strip references.
+             without touching the renamed file's bytes, removes that refuse
+             or strip references, and restores that bring a removed file
+             back byte-for-byte.
 @layer       tests
-@tags        ops, mutations, referrer-fixup, cycle-guard, mentions
+@tags        ops, mutations, referrer-fixup, cycle-guard, mentions, restore
 @related     kumihimo/core/ops.py (under test)
 @design      PLAN.md §7.1 invariant 1, queue item K5; PLAN2.md §3.2, queue
-             item K28
+             item K28; queue item K45
 """
+
+import hashlib
+import json
 
 import pytest
 
 from kumihimo import KumihimoError, Plan
-from kumihimo.core import ops
+from kumihimo.core import ops, store
 from tests.conftest import PlanFactory
 
 BODIED = "---\nkind: task\n---\nBody.\n"
@@ -322,3 +326,81 @@ def test_path_traversal_ids_are_rejected(plan_dir: PlanFactory) -> None:
             ops.add_node(root, bad, "task")
         with pytest.raises(KumihimoError, match="not a valid id"):
             ops.rename_node(root, "a", bad)
+
+
+# --- K45: restore_node, remove's real inverse ------------------------------
+
+
+def test_restore_round_trips_exact_bytes(plan_dir: PlanFactory) -> None:
+    # A comment-laden, CRLF fixture: remove reads a file's exact prior bytes
+    # before deleting it (mirrored here by reading the file ourselves the
+    # same way store.py does), and restore must reproduce them precisely
+    # enough that a fresh sha256 matches — not just "loads the same," but
+    # byte-exact, including the \r\n line endings and the comment.
+    text = (
+        "---\r\n"
+        "kind: task\r\n"
+        "# why: keep this reviewer honest\r\n"
+        "title: CRLF fixture\r\n"
+        "---\r\n"
+        "Body with a trailing comment.\r\n"
+    )
+    root = plan_dir({"crlf.md": text})
+    path = root / "nodes" / "crlf.md"
+    before = path.read_bytes()
+    before_hash = hashlib.sha256(before).hexdigest()
+
+    ops.remove_node(root, "crlf")
+    assert not path.exists()
+
+    node = ops.restore_node(root, "crlf", before.decode("utf-8"))
+    assert node.id == "crlf"
+    after = path.read_bytes()
+    assert after == before
+    assert hashlib.sha256(after).hexdigest() == before_hash
+
+
+def test_restore_refuses_when_the_id_already_exists(plan_dir: PlanFactory) -> None:
+    root = plan_dir({"a.md": BODIED})
+    with pytest.raises(KumihimoError, match="already exists"):
+        ops.restore_node(root, "a", BODIED)
+    # Refused, not clobbered: the existing file is untouched.
+    assert (root / "nodes" / "a.md").read_bytes() == BODIED.encode("utf-8")
+
+
+def test_restore_brings_back_the_view_yaml_position(plan_dir: PlanFactory) -> None:
+    root = plan_dir({"a.md": BODIED})
+    (root / "view.yaml").write_bytes(b"layout:\n  a: {x: 10, y: 20}\n")
+    content = (root / "nodes" / "a.md").read_bytes().decode("utf-8")
+
+    ops.remove_node(root, "a")
+    assert "a: {x: 10, y: 20}" not in (root / "view.yaml").read_text(encoding="utf-8")
+
+    ops.restore_node(root, "a", content, position=(10, 20))
+    view = (root / "view.yaml").read_text(encoding="utf-8")
+    assert "a: {x: 10, y: 20}" in view
+
+
+def test_restore_without_a_position_leaves_view_yaml_alone(plan_dir: PlanFactory) -> None:
+    root = plan_dir({"a.md": BODIED})
+    content = (root / "nodes" / "a.md").read_bytes().decode("utf-8")
+    ops.remove_node(root, "a")
+    ops.restore_node(root, "a", content)
+    assert not (root / "view.yaml").exists()
+
+
+def test_restore_logs_event_with_default_actor_api(plan_dir: PlanFactory) -> None:
+    root = plan_dir({"a.md": BODIED})
+    content = (root / "nodes" / "a.md").read_bytes().decode("utf-8")
+    ops.remove_node(root, "a")
+    ops.restore_node(root, "a", content)
+    events_path = root / store.EVENTS_DIR / store.EVENTS_FILE
+    lines = [json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines()]
+    assert lines[-1] == {"actor": "api", "op": "restore_node", "targets": ["a"]}
+
+
+def test_restore_rejects_invalid_slugs(plan_dir: PlanFactory) -> None:
+    root = plan_dir({"a.md": BODIED})
+    for bad in ("Bad_Name", "../escape", ".hidden"):
+        with pytest.raises(KumihimoError, match="not a valid id"):
+            ops.restore_node(root, bad, BODIED)

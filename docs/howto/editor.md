@@ -25,9 +25,15 @@ Everything you do writes through the same operations layer as the CLI:
   kind's schema), chip rows for `needs`/`agents`/`skills` (see "Chip
   editors"), and body; **Save** writes the file, preserving any hand-
   written comments in its frontmatter. Rename fixes every referrer; Delete
-  refuses while referenced, naming the referrers.
+  refuses while referenced, naming the referrers. The form banners which
+  node it's editing at the top ("editing *title* · *id*", title falling
+  back to id before one's set).
 - **Click an edge** — opens the edge panel in the sidebar (see "Reading
   edges" below).
+- **Add a node** — the sidebar's id/kind/title form (id required, the rest
+  optional); once it lands, the new node is selected and centered into
+  view (the same select-and-center every jump on this page already does),
+  not left wherever the canvas happened to be scrolled.
 - **Braid** — compiles the current plan and shows it styled, in both themes,
   with Copy and Download (see "Braid preview" below).
 
@@ -65,7 +71,15 @@ The sidebar's node form carries three chip rows — **Needs**, **Agents**,
 clicking **Add**, posts a `link` op immediately; clicking a chip's **×**
 posts `unlink` — neither is staged behind the form's Save button, the same
 "the gesture is the op" model drawing or removing a canvas edge already
-uses. The add input suggests ids from a plan-wide list, filtered per field:
+uses. All three rows share one node: the moment any of them has a chip op in
+flight, every row's add input and every chip's **×** disable — for that
+gesture's whole round trip, re-enabling only once the response comes back,
+success or failure alike — since a `link`/`unlink` op carries the *whole
+node file's* digest, not one per field, and two fast chip gestures on the
+same node (even on two different rows) would otherwise race that same
+digest and land a false conflict notice. One chip gesture at a time per
+node; the row(s) tell you by disabling. The add input suggests ids from a
+plan-wide list, filtered per field:
 **Needs** suggests every non-crew node (not itself an `agent` or `skill`),
 **Agents** suggests only `agent`-kind nodes, **Skills** only `skill`-kind
 ones — but the suggestion list is a convenience, not a gate: typing an id
@@ -226,8 +240,11 @@ a payload echo untouched.
   An `agent` node gets its own hue at full strength; anything that merely
   mentions one gets a softer tint of that same hue, so a source and its
   mentioners visibly share a color family without being confused for each
-  other. A `task`-kind node with no `agents:` at all — unassigned work — gets
-  a dashed cyan outline instead of a tint. `skill:` mentions get no color of
+  other. A `task`-kind node with no `agents:` at all, and whose own
+  effective status isn't `done` — unassigned work still worth flagging —
+  gets a dashed cyan outline instead of a tint; a done task with no agents
+  no longer outlines, since there's no live gap left to point at. `skill:`
+  mentions get no color of
   their own (there's no "first skill" the way there's a first agent); at the
   near zoom tier they instead render as small read-only chips on the card
   naming each one. Edges invert Flow's emphasis: `trains:` mentions bold and
@@ -267,7 +284,10 @@ Toggle auto-layout, Lanes layout, Re-layout branch). With the palette closed
 and focus outside any form
 field, `1`-`5` switch the lens bar above from anywhere on the canvas; with a
 node also selected, arrow keys walk the graph itself rather than the screen,
-F focuses, and Delete or Backspace removes with a confirmation. The full
+F focuses, and Delete or Backspace removes with a confirmation. Escape peels
+off one layer at a time: exit focus or trace first if either is active
+(above), otherwise — with the palette and braid modal also both closed —
+clear the current selection (K41.4). The full
 gesture-by-gesture table — this and everything above — lives in the
 [shortcuts reference](../reference/shortcuts.md).
 
@@ -310,13 +330,22 @@ enough in between that redrawing it would now close a dependency cycle, the
 op door says so and the entry stays on the trail, still enabled, for another
 attempt.
 
-**Removing a node has no inverse.** Undoing a delete would mean recreating a
-file from memory the disk no longer has any trace of — dishonest for a tool
-whose whole model is "files are the only truth." The trail still logs that
-the removal happened, just permanently grayed, with no button that does
-anything. For that, and for anything from outside this one browser tab's own
-session, undo is git: every session's worth of edits is a reviewable diff,
-and `git checkout -- .` is a bigger undo than any editor ships.
+**Removing a node restores the file, not its referrers.** The trail's own
+inverse of a delete brings the node's file back exactly as it read the
+instant before removal — same bytes, same comments, same position on the
+canvas if it had one — because the server reads and holds that file before
+it deletes it. What it does *not* do is redraw edges a **force**-remove
+stripped: those referrer files were rewritten as part of the original
+removal, and restoring the removed node's own file doesn't touch them again
+— undo those individually from their own trail entries instead. Since a
+restore's only real precondition is "no file already sits at this id," the
+entry has no digest to gray on and stays enabled for the rest of the
+session; if something else recreates that id first (a fresh add, another
+restore, an outside edit), clicking it is refused with a plain notice rather
+than overwriting whatever is there. For anything from outside this one
+browser tab's own session, undo is still git: every session's worth of edits
+is a reviewable diff, and `git checkout -- .` is a bigger undo than any
+editor ships.
 
 ## Layout
 

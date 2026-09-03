@@ -6,9 +6,12 @@
  *              show, `onAdd`/`onRemove` are the caller's own link/unlink
  *              callbacks — this component knows nothing about payloads or
  *              ops envelopes, the same "primitives and callbacks in, JSX
- *              out" shape LensBar.tsx already uses.
+ *              out" shape LensBar.tsx already uses. `disabled` (K40) is also
+ *              the caller's own call: this component just applies it to the
+ *              add input, every chip's ×, and the Add button — NodeForm.tsx
+ *              is the one deciding WHEN, off its own in-flight op state.
  * @layer       frontend
- * @tags        form, chips, autocomplete, ops, mentions
+ * @tags        form, chips, autocomplete, ops, mentions, race
  * @related     frontend/src/NodeForm.tsx (the sole caller — one instance per
  *              field, building `options`/`titleOf` from its own `nodes` prop
  *              and turning onAdd/onRemove into link/unlink op envelopes),
@@ -37,13 +40,32 @@ export interface ChipEditorProps {
   titleOf: (id: string) => string;
   onAdd: (id: string) => void;
   onRemove: (id: string) => void;
+  // K40: true while NodeForm.tsx has a link/unlink op in flight for THIS
+  // node — one shared flag across all three of its ChipEditor rows (not a
+  // per-row one), since base_digest is the whole node file's digest, not
+  // per-field: a needs-add and an agents-add fired back to back race the
+  // exact same stale digest just as much as two needs-adds would. Disables
+  // the add input and every chip's × for the round trip, re-enabled only
+  // once the op's response — success or failure alike — comes back, which
+  // is what actually kills the race the audit found (two fast adds, the
+  // second still holding the pre-echo digest, 409ing).
+  disabled: boolean;
 }
 
 /** A removable-chip row for one edge field, with a datalist-backed add
  * input: Enter or the Add button commits the typed id, each chip's ×
  * removes it immediately (no staged/Save step — same "gesture is the op"
  * model drawing or removing a canvas edge already uses). */
-export function ChipEditor({ fieldKey, label, values, options, titleOf, onAdd, onRemove }: ChipEditorProps) {
+export function ChipEditor({
+  fieldKey,
+  label,
+  values,
+  options,
+  titleOf,
+  onAdd,
+  onRemove,
+  disabled,
+}: ChipEditorProps) {
   const [draft, setDraft] = useState("");
   const listId = `kumi-chip-options-${fieldKey}`;
 
@@ -65,6 +87,7 @@ export function ChipEditor({ fieldKey, label, values, options, titleOf, onAdd, o
               type="button"
               className="kumi-chip-remove"
               aria-label={`Remove ${titleOf(id)}`}
+              disabled={disabled}
               onClick={() => onRemove(id)}
             >
               ×
@@ -76,6 +99,7 @@ export function ChipEditor({ fieldKey, label, values, options, titleOf, onAdd, o
           list={listId}
           placeholder={`add ${label.toLowerCase()}…`}
           aria-label={`Add ${label.toLowerCase()}`}
+          disabled={disabled}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Enter") {
@@ -98,7 +122,12 @@ export function ChipEditor({ fieldKey, label, values, options, titleOf, onAdd, o
        * a live regression on the editor-smoke Playwright test caught
        * get_by_role("button", name="Add", exact=True) resolving to all four
        * once a node was selected and every ChipEditor mounted alongside it. */}
-      <button type="button" aria-label={`Add ${label.toLowerCase()}`} onClick={commit} disabled={!draft.trim()}>
+      <button
+        type="button"
+        aria-label={`Add ${label.toLowerCase()}`}
+        onClick={commit}
+        disabled={disabled || !draft.trim()}
+      >
         Add
       </button>
     </div>

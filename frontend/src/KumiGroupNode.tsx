@@ -34,6 +34,13 @@ import type { PlanNode } from "./types";
 export interface KumiGroupNodeData extends Record<string, unknown> {
   node: PlanNode;
   color: string;
+  // The kind pill's own background (K43.2, containers.ts's
+  // buildContainerNode) — identical to `color` except for the kinds in
+  // canvasBuild.ts's PILL_COLOR_OVERRIDES (today just "task", whose plain
+  // KIND_COLORS entry fails white-text contrast): the frame's border/
+  // background below keeps reading `color` untouched, so only the pill
+  // itself gets the darkened variant.
+  pillColor: string;
   // Readable text color for the kind pill's background when `color` is a
   // Crew-lens tint (fix round, containers.ts's buildContainerNode) —
   // undefined otherwise, so the pill falls back to its usual
@@ -53,7 +60,7 @@ export interface KumiGroupNodeData extends Record<string, unknown> {
 /** Render one container, expanded (a frame around its members) or collapsed
  * (a chip standing in for all of them). */
 export function KumiGroupNode(props: NodeProps) {
-  const { node, color, pillText, collapsed, done, total, onToggle, onPulseEnd } =
+  const { node, color, pillColor, pillText, collapsed, done, total, onToggle, onPulseEnd } =
     props.data as KumiGroupNodeData;
   const kind = node.kind || "?";
   const progress = `${done}/${total} done`;
@@ -75,8 +82,10 @@ export function KumiGroupNode(props: NodeProps) {
       {collapsed ? null : (
         <>
           {/* pillText undefined outside a Crew-lens tint -> falls through
-              to the CSS token, same as KumiNode.tsx's leaf pill. */}
-          <span className="kumi-pill" style={{ background: color, color: pillText }}>
+              to the CSS token, same as KumiNode.tsx's leaf pill. pillColor
+              (K43.2) is `color` itself except for the rare kind whose plain
+              color fails white-text contrast. */}
+          <span className="kumi-pill" style={{ background: pillColor, color: pillText }}>
             {kind}
           </span>
           <span className="kumi-group-progress">{progress}</span>
@@ -95,7 +104,7 @@ export function KumiGroupNode(props: NodeProps) {
         <EdgeHandles />
         {header}
         <div className="kumi-meta">
-          <span className="kumi-pill" style={{ background: color, color: pillText }}>
+          <span className="kumi-pill" style={{ background: pillColor, color: pillText }}>
             {kind}
           </span>
           <span className="kumi-group-progress">{progress}</span>

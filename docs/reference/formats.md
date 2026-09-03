@@ -264,10 +264,13 @@ demand by the first op that runs against the plan:
 `"editor"` (the running canvas's own HTTP ops API) — and defaults to `"api"`
 for a raw library call with none of those in front of it. `op` is the
 mutation's name (`add_node`, `update_node`, `link`, `unlink`, `rename_node`,
-`remove_node`); `targets` is every node id a fresh payload digest diff would
-see change — for `rename_node`, the old id, the new id, and every referrer
-whose file got rewritten; for `remove_node` with `force`, the removed id plus
-every referrer stripped. **No timestamp, ever** — this library has no clock
+`remove_node`, `restore_node`); `targets` is every node id a fresh payload
+digest diff would see change — for `rename_node`, the old id, the new id, and
+every referrer whose file got rewritten; for `remove_node` with `force`, the
+removed id plus every referrer stripped; for `restore_node`, just the
+restored id — referrers a force-remove stripped are never resurrected by a
+restore (see [the editor guide](../howto/editor.md#undo)). **No timestamp,
+ever** — this library has no clock
 (PLAN2 §3.6, the same guarantee `crew`'s `trained` dates rely on); the
 running editor correlates purely by tailing the file from its own last-seen
 byte offset, which is all its attribution toasts need. The log grows to 400

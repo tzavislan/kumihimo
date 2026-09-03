@@ -583,3 +583,200 @@ def test_cold_load_with_full_positions_skips_elk_until_layout_runs(tmp_path: Pat
         except subprocess.TimeoutExpired:
             process.kill()
             process.wait(timeout=10)
+
+
+def test_chip_add_disables_during_flight_then_second_add_lands_clean(editor: Path) -> None:
+    """K40's acceptance line, proven in a real browser: two fast chip adds on
+    the same node must not 409 each other. ChipEditor.tsx's add input
+    disables the instant a chip op posts (checked immediately below, before
+    any wait, so this fails if the guard were only a post-hoc cleanup) and
+    re-enables only once that op's response — success or failure alike —
+    echoes back; a script that waits for the re-enable before its second
+    click therefore lands both edges with zero conflict notices, closing the
+    race the audit found (the second add firing while the first still held
+    the pre-echo digest, 409ing)."""
+    with playwright_api.sync_playwright() as pw:
+        try:
+            browser = pw.chromium.launch()
+        except playwright_api.Error as err:
+            pytest.skip(f"chromium not launchable: {err}")
+        try:
+            page = browser.new_page(viewport={"width": 1400, "height": 900})
+            page.goto(URL)
+            page.wait_for_selector(".kumi-side h1")
+
+            for node_id, title in (("alpha", "Alpha"), ("bravo", "Bravo"), ("charlie", "Charlie")):
+                page.fill('input[placeholder="id-slug"]', node_id)
+                page.fill('input[placeholder="title (optional)"]', title)
+                page.get_by_role("button", name="Add", exact=True).click()
+                page.wait_for_selector(f'.react-flow__node[data-id="{node_id}"]')
+
+            page.locator('.react-flow__node[data-id="alpha"] .kumi-node').click()
+            page.wait_for_selector(".kumi-detail")
+
+            needs_input = page.locator('input[aria-label="Add needs"]')
+            needs_add = page.locator('button[aria-label="Add needs"]')
+
+            needs_input.fill("bravo")
+            needs_add.click()
+            # Disabled the instant the gesture posts (K40) — not a later,
+            # eventual state; the row's own input carries no other reason to
+            # ever be disabled, so this alone proves the guard fired.
+            assert needs_input.is_disabled()
+
+            # Re-enabled once the response lands; only then does the script
+            # fire the second add — the exact "wait for enable, then add"
+            # proof the acceptance line asks for.
+            page.wait_for_selector('input[aria-label="Add needs"]:not([disabled])', timeout=5000)
+            assert page.locator(".kumi-notice").count() == 0  # no conflict notice from the first
+
+            needs_input.fill("charlie")
+            needs_add.click()
+            assert needs_input.is_disabled()
+            page.wait_for_selector('input[aria-label="Add needs"]:not([disabled])', timeout=5000)
+
+            page.wait_for_selector('.kumi-chip-pill:has-text("Bravo")')
+            page.wait_for_selector('.kumi-chip-pill:has-text("Charlie")')
+            assert page.locator(".kumi-notice").count() == 0  # zero conflict notices throughout
+        finally:
+            browser.close()
+
+    assert Plan.load(editor).nodes["alpha"].needs == ["bravo", "charlie"]
+
+
+def test_crew_lens_status_gate_form_banner_and_esc_clears_selection(editor: Path) -> None:
+    """Three of K41's four audit fixes, proven in a real browser.
+    (1) Crew lens: a task with no agents outlines as unassigned only while
+    its effective status isn't done — the same task loses the outline the
+    instant its status flips to done, agents still empty. (3) The node form
+    banners which node it's editing at the top. (4) With nothing else active
+    (no palette, no braid modal, no focus, no trace), Esc clears the current
+    selection."""
+    with playwright_api.sync_playwright() as pw:
+        try:
+            browser = pw.chromium.launch()
+        except playwright_api.Error as err:
+            pytest.skip(f"chromium not launchable: {err}")
+        try:
+            page = browser.new_page(viewport={"width": 1400, "height": 900})
+            page.goto(URL)
+            page.wait_for_selector(".kumi-side h1")
+
+            page.fill('input[placeholder="id-slug"]', "untitled-task")
+            page.get_by_role("button", name="Add", exact=True).click()
+            page.wait_for_selector('.react-flow__node[data-id="untitled-task"]')
+
+            # (3) Banner, given no title: store.py's own default_title already
+            # humanizes an empty title from the id before this form ever sees
+            # it ("untitled-task" -> "Untitled task", core/model.py), so this
+            # proves the banner reads live off `node.title`/`node.id`, not
+            # NodeForm's OWN `|| node.id` fallback specifically — nothing in
+            # the normal load path ever hands it a genuinely blank title to
+            # exercise that branch on (store.py:238's own default-at-parse
+            # guarantee), so that fallback stays defense-in-depth, unproven
+            # here on purpose rather than faked via a hand-written file.
+            page.locator('.react-flow__node[data-id="untitled-task"] .kumi-node').click()
+            page.wait_for_selector(".kumi-detail")
+            assert (
+                page.locator(".kumi-detail-meta").inner_text()
+                == "editing Untitled task · untitled-task"
+            )
+
+            page.fill('.kumi-detail label:has-text("Title") input', "Named now")
+            page.get_by_role("button", name="Save", exact=True).click()
+            page.wait_for_timeout(400)
+            assert (
+                page.locator(".kumi-detail-meta").inner_text()
+                == "editing Named now · untitled-task"
+            )
+
+            # (1) Crew lens: no agents, status "todo" (the field's own
+            # default) -> outlined unassigned.
+            page.get_by_role("tab", name="Crew", exact=True).click()
+            page.wait_for_selector(
+                '.react-flow__node[data-id="untitled-task"].kumi-crew-unassigned'
+            )
+
+            # Flip status to done, no agents added — the outline must drop.
+            page.select_option('.kumi-detail label:has-text("status") select', "done")
+            page.get_by_role("button", name="Save", exact=True).click()
+            page.wait_for_timeout(600)
+            assert (
+                page.locator(
+                    '.react-flow__node[data-id="untitled-task"].kumi-crew-unassigned'
+                ).count()
+                == 0
+            )
+
+            # (4) Esc with nothing else active (no palette, no braid modal,
+            # no focus, no trace) clears the selection: the sidebar form
+            # closes. Focus is on the Save button just clicked, not a form
+            # field, so this Esc isn't swallowed by the form-field guard.
+            page.keyboard.press("Escape")
+            page.wait_for_selector(".kumi-detail", state="detached")
+        finally:
+            browser.close()
+
+    plan = Plan.load(editor)
+    assert plan.nodes["untitled-task"].title == "Named now"
+    assert plan.nodes["untitled-task"].fields["status"] == "done"
+
+
+def test_braid_preview_decodes_colon_entities_before_scheme_check(editor: Path) -> None:
+    """K43.1's acceptance line: an HTML colon-character-reference hiding the
+    scheme separator — decimal `&#58;`, or hex `&#x3a;`/`&#x3A;` — must not
+    slip a javascript: link past braidPreview.ts's urlScheme allow-list the
+    way it did before the checker's v13 finding. Decode once, then classify:
+    the exact same denied-scheme-degrades-to-plain-text result the plain
+    `javascript:` vectors already get in the main XSS sweep
+    (test_braid_preview_escapes_html_and_filters_link_schemes above)."""
+    body = "\n\n".join(
+        [
+            "Checker vector v13: decimal entity colon: "
+            "[entity colon click](javascript&#58;alert(1))",
+            "Checker vector v13: hex entity colon lowercase: "
+            "[hex colon click lower](javascript&#x3a;alert(1))",
+            "Checker vector v13: hex entity colon uppercase: "
+            "[hex colon click upper](javascript&#x3A;alert(1))",
+            "Legit https link unaffected: [anthropic](https://www.anthropic.com)",
+        ]
+    )
+    completed = subprocess.run(
+        kumihimo_argv(
+            "add", str(editor), "entity-payload", "--title", "Entity payload", "--body", body
+        ),
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert completed.returncode == 0, completed.stderr
+
+    with playwright_api.sync_playwright() as pw:
+        try:
+            browser = pw.chromium.launch()
+        except playwright_api.Error as err:
+            pytest.skip(f"chromium not launchable: {err}")
+        try:
+            page = browser.new_page(viewport={"width": 1400, "height": 900})
+            page.goto(URL)
+            page.wait_for_selector(".kumi-side h1")
+            page.get_by_role("button", name="Braid", exact=True).click()
+            page.wait_for_selector(".kumi-braid-rendered h1")
+            rendered = page.eval_on_selector(
+                ".kumi-braid-rendered",
+                "(el) => ({"
+                " html: el.innerHTML,"
+                " anchors: [...el.querySelectorAll('a')].map(a => a.getAttribute('href')),"
+                "})",
+            )
+        finally:
+            browser.close()
+
+    html = rendered["html"]
+    anchors = rendered["anchors"]
+    # Not one entity-obscured vector produced a live anchor — only the
+    # ordinary https link did.
+    assert anchors == ["https://www.anthropic.com"]
+    assert "entity colon click" in html  # label visible, no <a> wrapper
+    assert "hex colon click lower" in html
+    assert "hex colon click upper" in html

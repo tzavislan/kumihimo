@@ -169,6 +169,7 @@ import { useTheme } from "./theme";
 import type { Payload, Position } from "./types";
 import { UndoPanel } from "./UndoPanel";
 import { useAttribution } from "./useAttribution";
+import { useCenterNewNode } from "./useCenterNewNode";
 import { useGraphKeyboard } from "./useGraphKeyboard";
 import { useUndoTrail } from "./useUndoTrail";
 
@@ -578,6 +579,10 @@ export default function App() {
     },
     [payload, positions, grouping, collapsedSet],
   );
+  // K41.2: centers a freshly added node once its layout position actually
+  // exists (useCenterNewNode.ts — add_node always starts as a gap elk/Lanes
+  // fills in afterwards); the Add button's onClick below is the one caller.
+  const centerWhenAdded = useCenterNewNode(positions, jumpTo);
 
   // Shared by the sidebar Braid button and the palette's "Braid" command.
   const runBraid = useCallback(() => {
@@ -655,15 +660,19 @@ export default function App() {
   }, []);
 
   // Graph-directional keyboard (PLAN2.md §2.5): arrows walk needs/in edges,
-  // F focuses, Delete/Backspace removes, digits 1-4 switch the lens bar
-  // (K26) — see useGraphKeyboard.ts for the key bindings and the form-field
-  // guard.
+  // F focuses, Delete/Backspace removes, Escape clears the selection once
+  // focus/trace/palette/modal are all already out of its way (K41.4),
+  // digits 1-5 switch the lens bar (K26) — see useGraphKeyboard.ts for the
+  // key bindings, the Escape priority chain, and the form-field guard.
   useGraphKeyboard({
     payload,
     selectedId,
     paletteOpen,
+    modalOpen: braidText !== null,
+    focusOrTraceActive: !!focus || !!trace,
     jumpTo,
     focusOn,
+    clearSelection: () => setSelectedId(null),
     applyOp,
     onLensChange: setLens,
     undoEntries: undoTrail.entries,
@@ -837,6 +846,7 @@ export default function App() {
               }).then(() => {
                 setSelectedId(newNode.id);
                 setNewNode({ id: "", kind: newNode.kind, title: "" });
+                centerWhenAdded(newNode.id); // K41.2
               });
             }}
           >
@@ -869,7 +879,7 @@ export default function App() {
           })}
         </ul>
         {selected ? (
-          <NodeForm node={selected} kinds={payload.kinds} nodes={payload.nodes} onApply={(env) => void applyOp(env)} />
+          <NodeForm node={selected} kinds={payload.kinds} nodes={payload.nodes} onApply={applyOp} />
         ) : (
           <p className="kumi-hint">Click a node to edit it; drag between handles to draw an edge.</p>
         )}

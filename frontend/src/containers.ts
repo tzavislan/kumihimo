@@ -262,6 +262,10 @@ export function containerEdges(
 export interface ContainerNodeParams {
   node: PlanNode;
   color: string;
+  // The kind pill's own background (K43.2) — see KumiGroupNodeData's own
+  // note; identical to `color` except for canvasBuild.ts's
+  // PILL_COLOR_OVERRIDES kinds.
+  pillColor: string;
   // Readable text color for the kind pill's background when `color` is a
   // Crew-lens tint (fix round) — undefined otherwise, so KumiGroupNode.tsx's
   // pill falls back to its usual --kumi-pill-text token unchanged.
@@ -297,6 +301,7 @@ export function buildContainerNode(params: ContainerNodeParams): Node {
   const {
     node,
     color,
+    pillColor,
     pillText,
     collapsed,
     memberIds,
@@ -328,7 +333,17 @@ export function buildContainerNode(params: ContainerNodeParams): Node {
       }
     }
   }
-  const data: KumiGroupNodeData = { node, color, pillText, collapsed, done, total, onToggle, onPulseEnd };
+  const data: KumiGroupNodeData = {
+    node,
+    color,
+    pillColor,
+    pillText,
+    collapsed,
+    done,
+    total,
+    onToggle,
+    onPulseEnd,
+  };
   return {
     id: node.id,
     type: "kumiGroup",

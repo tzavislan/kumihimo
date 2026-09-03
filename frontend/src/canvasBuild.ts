@@ -76,19 +76,39 @@ import {
 } from "./lenses";
 import type { Payload, PlanNode, Position } from "./types";
 
+// K43.2: kinds whose bare KIND_COLORS entry fails white pill-text contrast —
+// task's #3b82f6 measured 3.68:1, below the 4.5:1 AA floor. Darkened ONLY
+// for the pill background text actually sits on: KIND_COLORS itself (via
+// colorFor) is untouched, so the border-left stripe, far-tier chip, and
+// minimap dot all keep the familiar lighter blue, since none of those
+// render fixed-white text on top of it — only the pill does. #2563eb
+// (Tailwind's own one-step-darker neighbor of #3b82f6 on the same blue
+// ramp) measures 5.17:1 against #ffffff (relativeLuminance/contrastRatio,
+// lenses.ts's own formulas), comfortably above the floor without leaving
+// the "blue" family. Sparse on purpose: every other kind's default pill
+// still reads the plain colorFor value below.
+const PILL_COLOR_OVERRIDES: Record<string, string> = { task: "#2563eb" };
+
 /** Crew lens tint (K30) when active, else the ordinary kind color — see the
  * file header's note on `color` being the one channel both read. `pillText`
  * (fix round) rides alongside: undefined outside a crew tint, so the kind
  * pill's CSS token (var(--kumi-pill-text)) applies untouched everywhere
  * else; only a crew-tinted pill gets its own computed, contrast-checked
- * color instead. */
+ * color instead. `pillColor` (K43.2) is the SAME value as `color` for every
+ * kind except the PILL_COLOR_OVERRIDES entries above, and identical to
+ * `color` again whenever a crew tint is active — crewLens's own tint/text
+ * pair (lenses.ts's crewTextColor) already resolves contrast for an
+ * arbitrary runtime hue, so there's nothing for a static per-kind override
+ * to add there. */
 function crewColor(
   payload: Payload,
   node: PlanNode,
   crew: CrewResult | null,
-): { color: string; pillText: string | undefined } {
+): { color: string; pillColor: string; pillText: string | undefined } {
   const tint = crew?.tint.get(node.id);
-  return { color: tint?.color ?? colorFor(payload, node), pillText: tint?.text };
+  const color = tint?.color ?? colorFor(payload, node);
+  const pillColor = tint?.color ?? PILL_COLOR_OVERRIDES[node.kind] ?? color;
+  return { color, pillColor, pillText: tint?.text };
 }
 
 export interface BuildCanvasNodesParams {
@@ -161,6 +181,7 @@ export function buildCanvasNodes(params: BuildCanvasNodesParams): Node[] {
       ...buildContainerNode({
         node: containerNode,
         color: containerTint.color,
+        pillColor: containerTint.pillColor,
         pillText: containerTint.pillText,
         collapsed,
         memberIds,
@@ -188,6 +209,7 @@ export function buildCanvasNodes(params: BuildCanvasNodesParams): Node[] {
     const data: KumiNodeData = {
       node,
       color: leafTint.color,
+      pillColor: leafTint.pillColor,
       pillText: leafTint.pillText,
       tier,
       memberCount: grouping.counts.get(node.id) ?? 0,

@@ -56,8 +56,9 @@ for what the last two do). Results are capped around 12 with a trailing
 
 ## Graph keyboard
 
-Active on the canvas whenever the palette is closed and focus isn't in a
-text field; the arrow/F/Delete rows below additionally need a node selected.
+Active on the canvas whenever the palette and braid modal are both closed
+and focus isn't in a text field; the arrow/F/Delete rows below additionally
+need a node selected.
 
 | Key | Does |
 |---|---|
@@ -68,7 +69,7 @@ text field; the arrow/F/Delete rows below additionally need a node selected.
 | F | Enter focus mode on the selection (same as double-click; a container focuses the union of its members' cones) |
 | Delete / Backspace | Confirm, then remove the node; a referenced node's removal is refused, naming the referrers — same rule as the sidebar's Delete button, and there's no auto-force from the keyboard |
 | Ctrl+Z (Cmd+Z on macOS) | Undo: post the inverse of the sidebar's topmost *enabled* trail entry — works with or without a selection. A no-op when every entry is grayed (or the trail is empty); see [The editor](../howto/editor.md#sync-conflicts-and-undo) for what grays an entry and why removal has no entry to undo at all |
-| Esc | Exit focus or trace |
+| Esc | Priority chain (K41.4): exit focus or trace if either is active (works even in a text field, unlike every other row here — a separate, form-field-agnostic listener); otherwise, with the palette and braid modal also closed, clear the current selection |
 
 **A direction note.** PLAN2.md's design prose says up = dependency,
 down = dependent. This editor maps **left = dependency, right = dependent**
@@ -88,6 +89,11 @@ rules and why there's no **Trains** row.
 |---|---|
 | Type an id, press Enter or click Add | Post a `link` op immediately for that field — no Save needed |
 | Click a chip's × | Post an `unlink` op immediately for that chip |
+
+All three rows share one in-flight guard (K40): once any of them posts, every
+row's add input and every × disable until that op's response lands — success
+or failure alike — since a chip op carries the whole node file's digest, not
+one per field.
 
 ## Elsewhere in the sidebar
 

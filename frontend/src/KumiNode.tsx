@@ -57,6 +57,12 @@ const STATUS_GLYPH: Record<string, string> = {
 export interface KumiNodeData extends Record<string, unknown> {
   node: PlanNode;
   color: string;
+  // The kind pill's own background (K43.2) — identical to `color` except
+  // for kinds in canvasBuild.ts's PILL_COLOR_OVERRIDES (today just "task",
+  // whose plain KIND_COLORS entry fails white-text contrast): the border-
+  // left stripe and far-tier chip keep reading `color` untouched, so only
+  // the pill itself gets the darkened variant.
+  pillColor: string;
   // Readable text color for the kind pill's background, when `color` is a
   // Crew-lens tint whose luminance would fail contrast against the pill's
   // usual fixed white token (fix round, critic-caught) — undefined outside
@@ -117,7 +123,7 @@ export function EdgeHandles() {
 
 /** Render one plan node on the canvas, at the tier App.tsx has picked. */
 export function KumiNode(props: NodeProps) {
-  const { node, color, pillText, tier, memberCount, acceptance, crewSkills, onPulseEnd } =
+  const { node, color, pillColor, pillText, tier, memberCount, acceptance, crewSkills, onPulseEnd } =
     props.data as KumiNodeData;
   const isMilestone = node.kind === "milestone";
   const status = typeof node.effective.status === "string" ? node.effective.status : null;
@@ -161,8 +167,10 @@ export function KumiNode(props: NodeProps) {
       <div className="kumi-meta">
         {/* pillText is undefined outside a Crew-lens tint, so `color`
             (React ignores an undefined style value) falls through to the
-            CSS token, unchanged from before the fix round. */}
-        <span className="kumi-pill" style={{ background: color, color: pillText }}>
+            CSS token, unchanged from before the fix round. pillColor
+            (K43.2) is `color` itself except for the rare kind whose plain
+            color fails white-text contrast — see KumiNodeData's own note. */}
+        <span className="kumi-pill" style={{ background: pillColor, color: pillText }}>
           {node.kind || "?"}
         </span>
         {/* Additive, not a replacement (PLAN2.md §2.2 mid tier): the glyph
