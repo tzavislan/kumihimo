@@ -5,18 +5,22 @@
              pass, positions and container collapse go to view.yaml only
              (sorted, flow-style, the latter's key dropped when empty),
              errors keep their messages at 400, the braid endpoint compiles,
-             and (K32) every op response carries a correctly-shaped inverse
-             envelope, digest preconditions that go stale after an external
-             edit, byte-exact round-trips (including through a referrer-
-             fixing rename), and undo-of-undo.
+             /api/dirty gates tracked=true on the enclosing repo actually
+             tracking at least one file under the plan root rather than
+             merely enclosing it (K37), and (K32) every op response carries
+             a correctly-shaped inverse envelope, digest preconditions that
+             go stale after an external edit, byte-exact round-trips
+             (including through a referrer-fixing rename), and undo-of-undo.
 @layer       tests
-@tags        ops-envelope, digests, conflicts, view-layout, undo, inverse-ops
+@tags        ops-envelope, digests, conflicts, view-layout, undo, inverse-ops,
+             dirty, git
 @related     kumihimo/server/ops_api.py (under test),
-             kumihimo/server/app.py (the routes)
+             kumihimo/server/app.py (the routes, incl. /api/dirty)
 @design      PLAN.md §5.2-5.3, roadmap items editor-ops and editor-conflicts;
-             PLAN2.md §2.5 Undo trail, §5 risk 4, queue item K32
+             PLAN2.md §2.5 Undo trail, §5 risk 4, queue items K32, K37
 """
 
+import subprocess
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -194,6 +198,49 @@ def test_dirty_endpoint_reports_untracked_gracefully(plan_dir: PlanFactory, tmp_
     body = client.get("/api/dirty").json()
     assert body["tracked"] in (True, False)
     assert isinstance(body["dirty"], list)
+
+
+def _git(*args: str, cwd: Path) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True, text=True)
+
+
+def test_dirty_endpoint_false_when_enclosing_repo_does_not_track_the_plan(
+    plan_dir: PlanFactory, tmp_path: Path
+) -> None:
+    # Trigger (K37): tmp_path becomes a real git repo — exactly what happens
+    # when a plan is scaffolded somewhere under the user's home directory,
+    # which can itself be a repo root — but the plan is never `git add`-ed.
+    # An enclosing .git must not be enough on its own: this used to answer
+    # tracked=true with every scaffold file listed as eternally "??" dirty.
+    root = plan_dir({"a.md": BODIED})
+    _git("init", "-q", cwd=tmp_path)
+    _git("config", "user.email", "test@example.com", cwd=tmp_path)
+    _git("config", "user.name", "Test", cwd=tmp_path)
+    client = client_for(root, tmp_path)
+    assert client.get("/api/dirty").json() == {"tracked": False, "dirty": []}
+
+
+def test_dirty_endpoint_true_when_the_repo_tracks_the_plan(
+    plan_dir: PlanFactory, tmp_path: Path
+) -> None:
+    # Non-trigger: a scratch repo that genuinely tracks the plan (init, add,
+    # commit) must still answer tracked=true and name a file dirtied after —
+    # the K37 gate must not swallow the real case (plans/roadmap's own
+    # indicator depends on exactly this path; not exercised here directly to
+    # keep this test hermetic, per the builder's instruction not to mutate
+    # it).
+    root = plan_dir({"a.md": BODIED})
+    _git("init", "-q", cwd=tmp_path)
+    _git("config", "user.email", "test@example.com", cwd=tmp_path)
+    _git("config", "user.name", "Test", cwd=tmp_path)
+    _git("add", "-A", cwd=tmp_path)
+    _git("commit", "-q", "-m", "scaffold", cwd=tmp_path)
+    (root / "nodes" / "a.md").write_text(BODIED.replace("Body", "Changed"), encoding="utf-8")
+
+    client = client_for(root, tmp_path)
+    body = client.get("/api/dirty").json()
+    assert body["tracked"] is True
+    assert any("a.md" in line for line in body["dirty"])
 
 
 def test_link_and_unlink_mention_edges(plan_dir: PlanFactory, tmp_path: Path) -> None:

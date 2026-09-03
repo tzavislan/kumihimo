@@ -8,8 +8,10 @@ The canvas renders the plan live: kind-colored nodes, solid arrows for
 `needs`, dashed edges for membership, dotted labeled edges for annotations,
 and thin dotted labeled edges for mentions (who's assigned, what skill, who
 trains it). The sidebar carries the live `check` findings, an add-node form,
-the braid button, a session-scoped [undo trail](#undo), and — when the plan
-lives in git — a dirty-vs-HEAD indicator.
+the braid button, a session-scoped [undo trail](#undo), and — when the
+enclosing repo actually tracks the plan (not merely encloses it — a plan
+scaffolded under a repo root that was never `git add`-ed shows nothing) — a
+dirty-vs-HEAD indicator.
 
 Everything you do writes through the same operations layer as the CLI:
 

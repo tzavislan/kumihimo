@@ -5,10 +5,10 @@
              frontend served from static/ — with an honest fallback page when
              the frontend has not been built.
 @layer       server
-@tags        fastapi, websocket, static, localhost
+@tags        fastapi, websocket, static, localhost, dirty, git
 @related     kumihimo/server/watch.py (the live loop),
              kumihimo/cli/edit_cmd.py (runs this under uvicorn)
-@design      PLAN.md §5.1-5.2
+@design      PLAN.md §5.1-5.2, queue item K37 (dirty indicator tracked-gate)
 """
 
 from __future__ import annotations
@@ -39,6 +39,33 @@ _UNBUILT = """<!doctype html><meta charset="utf-8"><title>kumihimo</title>
 from a source checkout:
 <code>cd frontend &amp;&amp; npm install &amp;&amp; npm run build</code>,
 then restart.</p></body>"""
+
+
+def _run_git(root: Path, *args: str) -> str | None:
+    """Run one git subcommand scoped to `root`; stdout on success, else None.
+
+    @purpose  Shared by /api/dirty's two invocations (K37): both always fully
+              capture stdout AND stderr, so a warning git prints on the way
+              (a permission-denied directory elsewhere in a large enclosing
+              repo, say) never leaks to the server's own console — it's
+              simply discarded along with everything else on any failure.
+              Anything short of a clean exit (git missing, not a repo,
+              timeout, non-zero exit) collapses to the same None; callers
+              treat that as "can't tell, assume untracked" rather than
+              inspecting stderr text themselves.
+    """
+    try:
+        completed = subprocess.run(
+            ["git", *args, "--", str(root)],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=True,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return completed.stdout
 
 
 def build_app(root: Path, static_dir: Path | None = None) -> FastAPI:
@@ -134,23 +161,28 @@ def build_app(root: Path, static_dir: Path | None = None) -> FastAPI:
 
     @app.get("/api/dirty")
     def get_dirty() -> dict[str, Any]:
-        """Which plan files differ from git HEAD, when git tracks the plan.
+        """Which plan files differ from git HEAD, when the enclosing repo
+        actually tracks the plan.
 
         @purpose  The editor's dirty indicator: git is the undo, so show what a
-                  commit would sweep. Untracked setups answer tracked=false.
+                  commit would sweep. An *enclosing* repo isn't enough (K37):
+                  a plan merely scaffolded somewhere under a repo root (a
+                  home directory, say) that was never `git add`-ed would
+                  otherwise report every one of its own files as "??"
+                  untracked forever — permanently dirty, never actually in
+                  git. tracked=true only once `git ls-files` names at least
+                  one file already tracked under this root (the manifest
+                  included, since it sits at the root itself); otherwise
+                  tracked=false with an empty dirty list, same as no repo at
+                  all.
         """
-        try:
-            completed = subprocess.run(
-                ["git", "status", "--porcelain", "--", str(root)],
-                cwd=root,
-                capture_output=True,
-                text=True,
-                timeout=5,
-                check=True,
-            )
-        except (OSError, subprocess.SubprocessError):
+        tracked_files = _run_git(root, "ls-files")
+        if not tracked_files or not tracked_files.strip():
             return {"tracked": False, "dirty": []}
-        lines = [line[3:] for line in completed.stdout.splitlines() if line.strip()]
+        status = _run_git(root, "status", "--porcelain")
+        if status is None:
+            return {"tracked": False, "dirty": []}
+        lines = [line[3:] for line in status.splitlines() if line.strip()]
         return {"tracked": True, "dirty": lines}
 
     @app.websocket("/api/ws")

@@ -369,7 +369,7 @@ nothing tagged, nothing published.
 ## v0.3 candidates (discovered in the 2026-09-03 hands-on audit)
 
 ### K36 — MCP link/unlink grow the three mention kwargs
-status: todo
+status: done (iteration 37; extended in-pass to _summary readback — get_plan/get_node now carry the keys)
 needs: —
 Discovered auditing the MCP surface: the link/unlink MCP tools still
 accept only needs/in_/to+rel — K29 added the crew READ surfaces and K30
@@ -382,7 +382,7 @@ wording as the HTTP layer; extend tests/test_mcp.py trigger+non-trigger;
 docs/reference/mcp-tools.md updated. Small, well-bounded.
 
 ### K37 — Dirty indicator only counts a repo that actually tracks the plan
-status: todo
+status: done (iteration 37)
 needs: —
 Discovered in the audit: a plan scaffolded under the user's home
 directory (which happens to be a git repo root on this machine) shows

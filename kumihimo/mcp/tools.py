@@ -32,10 +32,15 @@ DONE_VALUES = frozenset({"done", "settled", "answered"})
 
 
 def _summary(node: Node) -> dict[str, Any]:
-    """The shape every mutating tool returns.
+    """The shape every read and mutating tool returns.
 
     @purpose  Enough to confirm what happened without re-fetching: identity,
-              edges, and fields as written.
+              edges, mentions, and fields as written. agents/skills/trains
+              (K36) mirror needs/in/links exactly: always present as a list,
+              empty rather than omitted when the node mentions nothing —
+              the same shape kumihimo/server/payload.py already gives the
+              HTTP editor, so an MCP reader and the canvas never disagree on
+              what a node carries.
     """
     return {
         "id": node.id,
@@ -44,6 +49,9 @@ def _summary(node: Node) -> dict[str, Any]:
         "needs": list(node.needs),
         "in": list(node.in_),
         "links": [{"to": link.to, "rel": link.rel} for link in node.links],
+        "agents": list(node.agents),
+        "skills": list(node.skills),
+        "trains": list(node.trains),
         "priority": node.priority,
         "fields": dict(node.fields),
     }
@@ -151,13 +159,32 @@ def link(
     in_: str | None = None,
     to: str | None = None,
     rel: str = "see-also",
+    agents: str | None = None,
+    skills: str | None = None,
+    trains: str | None = None,
 ) -> dict[str, Any]:
-    """Draw one edge (dependency, membership, or annotation).
+    """Draw one edge: a dependency, a membership, an annotation, or a mention.
 
-    @purpose  ops.link over MCP; a needs-edge that would close a cycle is
-              refused with the path.
+    @purpose  ops.link over MCP, all six kwargs carried through unchanged
+              (K36): a needs-edge that would close a cycle is refused with
+              the path, and a mention (agents=/skills=/trains=) whose target
+              is the wrong kind is refused naming the kind it expected —
+              exactly ops.link's own rules, never a second copy of them.
     """
-    return _summary(ops.link(root, src, needs=needs, in_=in_, to=to, rel=rel, actor="mcp"))
+    return _summary(
+        ops.link(
+            root,
+            src,
+            needs=needs,
+            in_=in_,
+            to=to,
+            rel=rel,
+            agents=agents,
+            skills=skills,
+            trains=trains,
+            actor="mcp",
+        )
+    )
 
 
 def unlink(
@@ -166,13 +193,29 @@ def unlink(
     needs: str | None = None,
     in_: str | None = None,
     to: str | None = None,
+    agents: str | None = None,
+    skills: str | None = None,
+    trains: str | None = None,
 ) -> dict[str, Any]:
-    """Remove one edge.
+    """Remove one edge, mentions included.
 
-    @purpose  ops.unlink over MCP; removing an absent edge errors so stale
-              agent state gets noticed.
+    @purpose  ops.unlink over MCP; removing an absent edge errors — agents=/
+              skills=/trains= included (K36) — so stale agent state gets
+              noticed.
     """
-    return _summary(ops.unlink(root, src, needs=needs, in_=in_, to=to, actor="mcp"))
+    return _summary(
+        ops.unlink(
+            root,
+            src,
+            needs=needs,
+            in_=in_,
+            to=to,
+            agents=agents,
+            skills=skills,
+            trains=trains,
+            actor="mcp",
+        )
+    )
 
 
 def rename_node(root: Path, old: str, new: str) -> dict[str, Any]:

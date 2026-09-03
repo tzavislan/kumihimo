@@ -91,11 +91,17 @@ def build_server(root: Path) -> MCPServer:
         in_: str | None = None,
         to: str | None = None,
         rel: str = "see-also",
+        agents: str | None = None,
+        skills: str | None = None,
+        trains: str | None = None,
     ) -> dict[str, Any]:
         """Draw exactly one edge from src: needs= (dependency; refused with the
-        path if it closes a cycle), in_= (membership), or to=/rel=
-        (annotation)."""
-        return tools.link(root, src, needs, in_, to, rel)
+        path if it closes a cycle), in_= (membership), to=/rel= (annotation),
+        agents= (assigns an agent; target must be kind agent), skills=
+        (target must be kind skill), or trains= (target must be kind agent or
+        skill) — a wrong-kind mention target is refused naming the kind it
+        expected."""
+        return tools.link(root, src, needs, in_, to, rel, agents, skills, trains)
 
     @server.tool()
     def unlink(
@@ -103,9 +109,13 @@ def build_server(root: Path) -> MCPServer:
         needs: str | None = None,
         in_: str | None = None,
         to: str | None = None,
+        agents: str | None = None,
+        skills: str | None = None,
+        trains: str | None = None,
     ) -> dict[str, Any]:
-        """Remove exactly one edge from src (absent edges error rather than shrug)."""
-        return tools.unlink(root, src, needs, in_, to)
+        """Remove exactly one edge from src: needs=/in_=/to= or a mention
+        (agents=/skills=/trains=) — absent edges error rather than shrug."""
+        return tools.unlink(root, src, needs, in_, to, agents, skills, trains)
 
     @server.tool()
     def rename_node(old: str, new: str) -> dict[str, Any]:

@@ -1255,3 +1255,30 @@ browser pane's synthetic left_click moves React Flow's internal
 selection but never dispatches the click event React handlers need —
 el.click()/playwright/real mice all behave; explains the audit's early
 mis-edits.
+
+## 2026-09-03 — iteration 37 (K36+K37: the audit's two finds, one pass)
+
+**Built (one Sonnet builder, both items):** MCP link/unlink grow
+agents=/skills=/trains=, forwarded RAW to core.ops so refusal wording
+can never drift from the HTTP layer (checker proved byte-equality
+against a TestClient 400); tool docstrings name the kind rules. Mid-
+build the builder caught the read half of the same hole — _summary()
+omitted the mention keys, so MCP could newly WRITE crew but not read it
+back — folded in on ruling: the keys sit after links, always lists,
+field-for-field with payload.py (checker verified the key-order mirror
+three ways, types.ts included). /api/dirty now gates tracked:true on
+git ls-files finding at least one tracked file under the plan root, via
+a _run_git() that captures both streams — the home-dir-repo false
+positive ("N file(s) differ from HEAD" on every temp plan, with AppData
+permission noise underneath) is dead on the exact machine that
+exhibited it; a repo that merely encloses a plan no longer counts as
+"lives in git". docs: mcp-tools.md (plus a pre-existing one-word lie —
+get_plan never carried digest — fixed by the orchestrator), editor.md.
+
+**Checker: APPROVE.** Mention loops legal (A agents B agents A both
+land — no cycle guard, by design); actor "mcp" in the events log;
+tracked-gate matrix a-through-e held including plan-in-no-repo and the
+real roadmap read-only; stderr suppression proven structurally
+(monkeypatched a permission-denied warning through the real helper —
+zero leakage). 242 tests. The audit's queue is clear; K15/pypi-release
+remains the one needs-thomas item.

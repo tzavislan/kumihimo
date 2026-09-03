@@ -2,16 +2,23 @@
 @file        tests/test_mcp.py
 @purpose     The MCP tools behave identically to their ops/CLI twins: reads
              carry the right shapes, mutations land on disk, errors keep their
-             KumihimoError messages, ready implements the satisfaction rule
-             (its for_agent filter validated exactly like braid's --for),
-             crew lists the roster (consult counts scoped to reference
-             targets only), braid's for_agent matches the CLI's --for, and
-             the server registers all twelve tools.
+             KumihimoError messages, link/unlink grow the three mention
+             kwargs exactly like ops.link/unlink (K36: kind-checked,
+             exactly-one-of, same wording as the HTTP layer since both are
+             thin, unwrapped callers of the same ops functions), get_plan/
+             get_node surface those same mentions on read (K36 extension:
+             _summary's shape mirrors payload.py's — agents/skills/trains
+             always present as a list, empty rather than omitted), ready
+             implements the satisfaction rule (its for_agent filter validated
+             exactly like braid's --for), crew lists the roster (consult
+             counts scoped to reference targets only), braid's for_agent
+             matches the CLI's --for, and the server registers all twelve
+             tools.
 @layer       tests
-@tags        mcp, tools, ready, crew, for-agent
+@tags        mcp, tools, ready, crew, for-agent, mentions
 @related     kumihimo/mcp/tools.py (under test),
              kumihimo/mcp/server.py (registration smoke)
-@design      PLAN.md §6.1, PLAN2.md §3.3 §3.6, roadmap item mcp-tools
+@design      PLAN.md §6.1, PLAN2.md §3.3 §3.6, roadmap item mcp-tools, K36
 """
 
 import asyncio
@@ -64,6 +71,88 @@ def test_mutations_land_on_disk_and_errors_keep_messages(plan_dir: PlanFactory) 
     tools.unlink(root, "c", needs="a")
     assert tools.remove_node(root, "c")["removed"] == "c"
     assert set(Plan.load(root).nodes) == {"a"}
+
+
+def test_link_and_unlink_mention_edges(plan_dir: PlanFactory) -> None:
+    # Trigger: agents=/skills=/trains= round-trip through link then unlink,
+    # mirroring test_ops_api.py's HTTP-layer coverage of the same three keys
+    # (K36) — both are thin, unwrapped callers of core.ops.link/unlink.
+    root = plan_dir(
+        {
+            "wright.md": "---\nkind: agent\n---\nWright.\n",
+            "iteration.md": "---\nkind: skill\n---\nIteration.\n",
+            "a.md": "---\nkind: task\n---\nA.\n",
+        }
+    )
+    for key, target in (("agents", "wright"), ("skills", "iteration"), ("trains", "wright")):
+        tools.link(root, "a", **{key: target})
+    node = Plan.load(root).nodes["a"]
+    assert node.agents == ["wright"]
+    assert node.skills == ["iteration"]
+    assert node.trains == ["wright"]
+
+    tools.unlink(root, "a", agents="wright")
+    assert Plan.load(root).nodes["a"].agents == []
+
+
+def test_link_mention_wrong_kind_names_the_kind(plan_dir: PlanFactory) -> None:
+    # Non-trigger for the kind rule: "b" exists but isn't kind agent.
+    root = plan_dir({"a.md": "---\nkind: task\n---\nA.\n", "b.md": "---\nkind: task\n---\nB.\n"})
+    with pytest.raises(KumihimoError, match="'agents' target 'b' is kind task, expected agent"):
+        tools.link(root, "a", agents="b")
+
+
+def test_unlink_absent_mention_errors(plan_dir: PlanFactory) -> None:
+    root = plan_dir(
+        {"wright.md": "---\nkind: agent\n---\nWright.\n", "a.md": "---\nkind: task\n---\nA.\n"}
+    )
+    with pytest.raises(KumihimoError, match="'a' has no agents entry 'wright'"):
+        tools.unlink(root, "a", agents="wright")
+
+
+def test_link_exactly_one_of_grows_to_six_kwargs(plan_dir: PlanFactory) -> None:
+    # The kwarg list grew from three (needs/in_/to) to six (K36); core.ops
+    # still enforces exactly one being set, MCP's tool just forwards all six.
+    root = plan_dir(
+        {"wright.md": "---\nkind: agent\n---\nWright.\n", "a.md": "---\nkind: task\n---\nA.\n"}
+    )
+    with pytest.raises(KumihimoError, match="give exactly one of needs=, in_=, to=, agents="):
+        tools.link(root, "a", agents="wright", trains="wright")
+    with pytest.raises(KumihimoError, match="give exactly one of needs=, in_=, to=, agents="):
+        tools.unlink(root, "a")
+
+
+def test_get_node_and_get_plan_carry_mention_edges(plan_dir: PlanFactory) -> None:
+    # Trigger: a node with all three mention keys populated, read back
+    # through both get_node and get_plan — the K36 read-side extension,
+    # mirroring test_server.py's test_payload_carries_mention_edges so an
+    # MCP reader and the HTTP canvas never disagree on a node's shape.
+    root = plan_dir(
+        {
+            "wright.md": "---\nkind: agent\n---\nWright.\n",
+            "iteration.md": "---\nkind: skill\n---\nIteration.\n",
+            "build.md": (
+                "---\nkind: task\nagents: [wright]\nskills: [iteration]\n"
+                "trains: [wright, iteration]\n---\nBuild.\n"
+            ),
+        }
+    )
+    node = tools.get_node(root, "build")
+    assert node["agents"] == ["wright"]
+    assert node["skills"] == ["iteration"]
+    assert node["trains"] == ["wright", "iteration"]
+
+    plan = tools.get_plan(root)
+    build_summary = next(n for n in plan["nodes"] if n["id"] == "build")
+    assert build_summary["agents"] == ["wright"]
+    assert build_summary["skills"] == ["iteration"]
+    assert build_summary["trains"] == ["wright", "iteration"]
+    # Non-trigger: a node that mentions nothing gets empty lists, not
+    # missing keys.
+    agent_summary = next(n for n in plan["nodes"] if n["id"] == "wright")
+    assert agent_summary["agents"] == []
+    assert agent_summary["skills"] == []
+    assert agent_summary["trains"] == []
 
 
 def test_check_and_braid_match_library_behavior() -> None:
