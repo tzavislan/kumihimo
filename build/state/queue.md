@@ -281,12 +281,13 @@ lens; chip edit round-trips through ops; lens count stays capped at five.
 status: todo
 needs: —
 PLAN2 §2.5 Motion & attribution. Ops layer appends one JSON line per
-mutation to `<plan>/.kumihimo/events.jsonl` — {ts, actor, op, targets} —
-actor set explicitly by each thin client (CLI "cli", MCP "mcp", HTTP ops
-API from the editor "editor"); the dir is created on demand, gitignored by
-scaffold (and .gitignore gains it for existing plans), log truncated to the
-last 200 events on write; the LIBRARY never reads the clock for semantics —
-ts is data for the editor, never compared in check/braid. Editor: the
+mutation to `<plan>/.kumihimo/events.jsonl` — {actor, op, targets}, NO
+timestamp: the library stays absolutely clock-free (zero datetime imports
+today, zero after; the editor correlates by tailing from its last file
+offset, which is all attribution needs) — actor set explicitly by each
+thin client (CLI "cli", MCP "mcp", HTTP ops API from the editor "editor");
+the dir is created on demand, gitignored by scaffold (and .gitignore gains
+it for existing plans), log truncated to the last 200 events on write. Editor: the
 watcher-driven payload refresh diffs node digests old→new; changed/added/
 removed nodes raise ONE toast naming the source when known ("via MCP:
 crew-model updated"; unattributed = "outside edit") and pulse the changed
