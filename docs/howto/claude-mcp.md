@@ -53,9 +53,9 @@ until the decision is settled.
 This repository maintains its own roadmap as a Kumihimo plan
 (`plans/roadmap/`), wired through the repo's `.mcp.json`. Milestone prompts
 for building the tool are braided from it — the tool eats its own cooking.
-Here is that roadmap on the canvas today — v0.1's threads done, the v0.2
-milestones landing, the crew on the canvas, and the release node still
-blocked on a human with a tag:
+Here is that roadmap on the canvas today — v0.1 and v0.2 built end to
+end, the crew on the canvas, and the release node still blocked on a
+human with a tag:
 
-![Kumihimo's own roadmap: milestones M3-M9 done, the release node blocked, the crew — agents, skills, the training log — on the canvas](../assets/canvas-roadmap.png#only-light)
-![Kumihimo's own roadmap: milestones M3-M9 done, the release node blocked, the crew — agents, skills, the training log — on the canvas](../assets/canvas-roadmap-dark.png#only-dark)
+![Kumihimo's own roadmap: milestones M3-M10 done, the release node blocked, the crew — agents, skills, the training log — on the canvas](../assets/canvas-roadmap.png#only-light)
+![Kumihimo's own roadmap: milestones M3-M10 done, the release node blocked, the crew — agents, skills, the training log — on the canvas](../assets/canvas-roadmap-dark.png#only-dark)

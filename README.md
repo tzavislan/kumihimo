@@ -21,9 +21,9 @@ well-ordered **prompt** an LLM or coding agent can act on.
   agent can maintain the plan it executes. This repo's own roadmap is a
   Kumihimo plan ([plans/roadmap](plans/roadmap)), its milestone prompts were
   braided, not hand-written, and the canvas below is that roadmap today —
-  v0.1's threads done, the v0.2 milestones landing, the crew (agents,
-  skills, the training log) on the canvas, the release node still blocked
-  on a human with a tag:
+  v0.1 and v0.2 built end to end, the crew (agents, skills, the training
+  log) on the canvas, the release node still blocked on a human with a
+  tag:
 
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/assets/canvas-roadmap-dark.png">

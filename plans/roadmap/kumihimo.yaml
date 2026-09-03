@@ -1,9 +1,9 @@
 format: 1
-plan: Kumihimo v0.1 roadmap
+plan: Kumihimo roadmap
 description: >-
-  Milestones M3-M6 of PLAN.md, maintained as a Kumihimo plan in Kumihimo
-  itself. From here on, iteration prompts for these milestones are braided,
-  not hand-written.
+  Kumihimo's own roadmap — v0.1 (PLAN.md M3-M6) and v0.2 (PLAN2.md M7-M10)
+  — maintained as a Kumihimo plan in Kumihimo itself, crew included. Every
+  milestone's iteration prompts were braided from here, not hand-written.
 kinds:
   from: engineering
 compile:
