@@ -1389,3 +1389,16 @@ Three lessons folded, one battery growth, all from this stretch:
    — iteration skill.
 4. Step 5's battery formally names the frontend chain incl. npm test.
 Nothing pruned. Training log appended; last_retro_iteration -> 42.
+
+## 2026-09-03 — red CI after the M11 push, fixed (top of the queue rule)
+
+The action bump broke four of five jobs at "Set up job": astral-sh/
+setup-uv@v10 does not exist as a ref — their releases run to v10.0.1
+but the FLOATING major tags stop at v7 (verified via matching-refs;
+unlike actions/checkout, newer majors ship without a bare-major tag).
+The green frontend job was the one with no setup-uv. K38's lesson
+sharpened: "latest release tag" and "referencable action ref" are
+different facts — resolve the REF (matching-refs), not the release
+name, before bumping. Fixed by pinning setup-uv@v10.0.1 exactly
+(dependabot, added in the same K38, owns bumps from here). Verified
+the tag ref exists before pushing this time.
