@@ -93,9 +93,10 @@ function escapeHtml(raw: string): string {
 // the html escape above. Images additionally exclude mailto: (meaningless
 // there) and, per the checker's own call, data: too — a data: image is a
 // legitimate case in general, but this preview holds a stricter line on
-// purpose rather than special-casing it back in.
-const ALLOWED_LINK_SCHEMES = new Set(["http:", "https:", "mailto:"]);
-const ALLOWED_IMAGE_SCHEMES = new Set(["http:", "https:"]);
+// purpose rather than special-casing it back in. Exported for the K44
+// vitest suite's allow/deny table, alongside urlScheme/isSafeUrl below.
+export const ALLOWED_LINK_SCHEMES = new Set(["http:", "https:", "mailto:"]);
+export const ALLOWED_IMAGE_SCHEMES = new Set(["http:", "https:"]);
 
 // K43.1 (checker's v13 finding): a real browser's HTML parser decodes a
 // character reference standing in for ":" — decimal (`&#58;`, or with any
@@ -140,8 +141,11 @@ export function decodeColonEntities(url: string): string {
  *           own ends. A colon that shows up AFTER the first /?# (e.g.
  *           "/search?q=javascript:x") is correctly read as part of the
  *           path/query, not a scheme, and always allowed.
+ *
+ * @purpose  Exported for the K44 vitest suite; isSafeUrl below is the only
+ *           in-file caller.
  */
-function urlScheme(url: string): string | null {
+export function urlScheme(url: string): string | null {
   const decoded = decodeColonEntities(url);
   const noTabOrNewline = decoded.replace(/[\t\n\r]/g, "");
   let start = 0;
@@ -153,7 +157,9 @@ function urlScheme(url: string): string | null {
   return colon === -1 ? null : head.slice(0, colon + 1).toLowerCase();
 }
 
-function isSafeUrl(url: string, allowed: Set<string>): boolean {
+/** Exported for the K44 vitest suite; renderBraidMarkdown's link/image
+ * renderer overrides are the only in-file callers. */
+export function isSafeUrl(url: string, allowed: Set<string>): boolean {
   const scheme = urlScheme(url);
   return scheme === null || allowed.has(scheme);
 }

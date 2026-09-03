@@ -18,11 +18,17 @@
  *              nodes also carry `crewSkills` (K30): the node's own `skills`
  *              mentions, only while the Crew lens is active — KumiNode.tsx
  *              renders them as chips, but only at the near zoom tier.
- *              buildCanvasEdges reroutes/dedupes via containers.ts, then
- *              dims by focus/trace (judging each edge by its ORIGINAL
- *              endpoints when containers.ts rerouted it — Inherited fix B),
- *              bolds/faints by the Flow lens's critical path, or (K30) pops
- *              trains-mention edges and fades every other kind under Crew.
+ *              buildCanvasEdges reroutes/dedupes via containers.ts, strips a
+ *              mention edge's key label at the far semantic-zoom tier (K42,
+ *              every lens alike — an orthogonal zoom concern, checked before
+ *              any lens branch below), then dims by focus/trace (judging each
+ *              edge by its ORIGINAL endpoints when containers.ts rerouted it
+ *              — Inherited fix B), bolds/faints by the Flow lens's critical
+ *              path, or (K30) pops trains-mention edges and fades every other
+ *              kind under Crew. Outside the Crew lens a mention edge's
+ *              resting opacity is just styles.css's own
+ *              --kumi-edge-mention-quiet token (K42) — a plain CSS default,
+ *              nothing to compute here.
  *              buildCanvasNodes also folds in the K31 attribution pulse: a
  *              "kumi-pulse" class (CSS-animated, styles.css) for any node/
  *              container whose id is in `pulsingIds` (already resolved by
@@ -258,6 +264,15 @@ export interface BuildCanvasEdgesParams {
   trace: TraceState | null;
   flow: FlowResult | null;
   crew: CrewResult | null;
+  // Semantic zoom tier (PLAN2.md §2.2, K42): a mention edge's key label
+  // ("agents"/"skills"/"trains") hides at the far tier, reusing the exact
+  // signal App.tsx already tracks off React Flow's viewport for KumiNode.tsx
+  // — not a second zoom listener, so a node's own collapse to a bare
+  // silhouette chip and its edges' labels vanish at precisely the same
+  // boundary. Unconditional across every lens (Crew included): a text label
+  // on a hairline dotted edge reads as noise at that scale regardless of
+  // which lens is emphasizing the edge itself.
+  tier: ZoomTier;
 }
 
 /**
@@ -269,10 +284,13 @@ export interface BuildCanvasEdgesParams {
  * everything-else-recedes split. Never more than one at once: focus/trace
  * suspends lens emphasis (PLAN2.md §2.3), so `flow`/`crew` are already null
  * whenever `focus`/`trace` is non-null, and only one lens is ever active at
- * a time (both from App.tsx's computeLensContext call site).
+ * a time (both from App.tsx's computeLensContext call site). Mention edges'
+ * key label is stripped at the far tier (K42, see `tier`'s own doc comment)
+ * BEFORE any of those three branches — it's an orthogonal zoom concern, not
+ * a lens one, so every branch below carries it the same way.
  */
 export function buildCanvasEdges(params: BuildCanvasEdgesParams): Edge[] {
-  const { payload, grouping, collapsedSet, focus, trace, flow, crew } = params;
+  const { payload, grouping, collapsedSet, focus, trace, flow, crew, tier } = params;
   const built = containerEdges(payload, grouping.assignments, collapsedSet);
   const highlighted = focus
     ? new Set([focus.id, ...focus.ancestors.keys(), ...focus.descendants.keys(), ...(focus.members ?? [])])
@@ -280,21 +298,23 @@ export function buildCanvasEdges(params: BuildCanvasEdgesParams): Edge[] {
 
   return built.map((edge) => {
     const className = edge.className ?? "";
+    const label =
+      tier === "far" && className.includes("kumi-edge-mention") ? undefined : edge.label;
     if (highlighted) {
       const data = edge.data as OriginalEndpoints | undefined;
       const from = data?.originalSource ?? edge.source;
       const to = data?.originalTarget ?? edge.target;
       const full = highlighted.has(from) && highlighted.has(to);
-      return { ...edge, className: `${className} ${full ? "" : "kumi-edge-dim"}`.trim() };
+      return { ...edge, label, className: `${className} ${full ? "" : "kumi-edge-dim"}`.trim() };
     }
     if (flow) {
       const isNeeds = className.includes("kumi-edge-needs");
       const flowClass = flowEdgeClassName(edge.source, edge.target, isNeeds, flow);
-      return { ...edge, className: `${className} ${flowClass}`.trim() };
+      return { ...edge, label, className: `${className} ${flowClass}`.trim() };
     }
     if (crew) {
-      return { ...edge, className: `${className} ${crewEdgeClassName(className)}`.trim() };
+      return { ...edge, label, className: `${className} ${crewEdgeClassName(className)}`.trim() };
     }
-    return edge;
+    return label === edge.label ? edge : { ...edge, label };
   });
 }

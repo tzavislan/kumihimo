@@ -53,8 +53,15 @@ sort never looks at it).
 
 Mentions render thinner and more sparingly-styled than the other three kinds
 — they're meant to recede until you go looking for them, or switch to the
-[Crew lens](#lenses) below, which is built for exactly that. Each carries a
-small label naming which key it is: "agents", "skills", or "trains".
+[Crew lens](#lenses) below, which is built for exactly that. Outside that
+lens every mention edge additionally sits at a quiet resting opacity (its
+own token, calmer than a plain dim), so Structure/Status/Flow/Risk read as
+their own signal rather than a canvas thick with crew threads; the Crew
+lens keeps its usual full treatment — faint non-`trains` mentions, bold
+`trains` ones — untouched. Each carries a small label naming which key it
+is — "agents", "skills", or "trains" — that hides entirely at the far
+zoom tier (the same zoomed-out view where every node itself collapses to
+a bare silhouette chip) and reappears once you zoom back in.
 
 Hovering an edge thickens and brightens its stroke and shows a small tooltip
 naming it in words — "rate-limit-core needs pick-algorithm" — using titles,

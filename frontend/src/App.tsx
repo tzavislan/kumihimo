@@ -464,11 +464,13 @@ export default function App() {
   // Focus/trace dim edges; the Flow lens bolds/faints them instead, only
   // while neither is active (PLAN2.md §2.3 — computeLensContext already
   // nulls lensCtx.flow whenever focus/trace is set, so buildCanvasEdges
-  // never has to choose between the two itself).
+  // never has to choose between the two itself). `tier` (K42) rides along so
+  // a mention edge's label can hide at the far tier — the same state the
+  // nodes-rebuild effect above already depends on, not a second listener.
   const edges = useMemo(() => {
     if (!payload) return [];
-    return buildCanvasEdges({ payload, grouping, collapsedSet, focus, trace, flow: lensCtx.flow, crew: lensCtx.crew });
-  }, [payload, focus, trace, grouping, collapsedSet, lensCtx]);
+    return buildCanvasEdges({ payload, grouping, collapsedSet, focus, trace, flow: lensCtx.flow, crew: lensCtx.crew, tier });
+  }, [payload, focus, trace, grouping, collapsedSet, lensCtx, tier]);
 
   // A live payload update can remove the hovered edge with the cursor still
   // parked on where it was — no DOM leave event ever fires, and the tooltip

@@ -33,6 +33,7 @@ React Flow; same `@file`/`@purpose` headers in `/** */` blocks):
 cd frontend
 npm ci
 npm run typecheck
+npm test                               # vitest over the pure functions
 npm run build                          # writes kumihimo/server/static
 cd ..
 uv run playwright install chromium     # once

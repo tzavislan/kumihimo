@@ -195,3 +195,12 @@ is alive, and a gap in it is itself a finding for the next retro.
   section gained read-the-artifact (K35's sdist carried 65% other
   sessions' worktrees — local git excludes don't bind build tools).
   Nothing pruned.
+- 2026-09-03 — retro at M11 close (iterations 38-42): iteration skill
+  gained the parallel-builders rule (disjoint surfaces, briefs name
+  ownership and off-limits files, append-only shared tests, one battery
+  over the combined tree — ran clean twice), the mutation-proof rule for
+  new test infrastructure (K44's vitest, proven independently by builder
+  and checker), the probe-side extension of the independent-oracle rule
+  (the checker's own harness double-decoded and false-alarmed; settled
+  against the real bundled module and DOM), and the frontend battery
+  formally grew `npm test`. Nothing pruned.

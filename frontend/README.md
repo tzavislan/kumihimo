@@ -4,6 +4,7 @@
 | file | purpose |
 |---|---|
 | `vite.config.ts` | Build config: bundle into kumihimo/server/static with relative asset paths so the wheel-served page works from any mount, proxy /api (including the WebSocket) … |
+| `vitest.config.ts` | vitest config for the pure-function test suite (K44): the "node" test environment — every target (lenses.ts's WCAG/hue math, attributionDiff.ts's diff/claim lo… |
 <!-- END GENERATED INDEX -->
 
 ## What this is

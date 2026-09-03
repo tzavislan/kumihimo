@@ -16,9 +16,12 @@
 | `Toasts.tsx` | The attribution toast stack (K31): top-right, newest on top, dismiss-on-click. useAttribution.ts already caps `toasts` at 4 and expires each after ~6s, so this… |
 | `UndoPanel.tsx` | The sidebar's undo trail (K32): a collapsible section listing this session's own applied ops, newest first, each a button — enabled while its inverse's precond… |
 | `api.ts` | The wire: fetch the initial payload, then hold a WebSocket that delivers every change, reconnecting quietly when the server restarts. postOp's success shape al… |
+| `attributionDiff.test.ts` | vitest coverage for attributionDiff.ts's diffLivePayload (K44): added/updated/removed classification, per-event claiming in file order with title-based dedupe … |
 | `attributionDiff.ts` | Pure classification for K31 attribution: diff two payloads' node digests into added/removed/updated, match the newly shipped `events` (kumihimo/core/ops.py's a… |
+| `braidPreview.test.ts` | vitest coverage for braidPreview.ts's pure helpers (K44): decodeColonEntities' three entity forms (decimal/hex/named, case and leading-zero variants), urlSchem… |
 | `braidPreview.ts` | Pure/async support for BraidModal.tsx (K33): fold the braid's one "Plan shape" mermaid fence to a one-line affordance (Raw and Rendered share this transform), … |
 | `canvasBuild.ts` | Turn one payload plus the current view state into React Flow's nodes and edges arrays — the two bodies App.tsx's nodes-rebuild effect and edges memo used to ca… |
+| `cones.test.ts` | vitest coverage for cones.ts's pure BFS graph math (K44, "cones/lanes if cheap" — cones.ts has no DOM/React and no container substitution to fake, so it's chea… |
 | `cones.ts` | Pure graph math over the payload's needs edges: ancestor and descendant cones (BFS hop-distance) for focus mode, and the node set lying on any needs-path betwe… |
 | `containers.ts` | Container math for PLAN2.md §2.3 lens 1: which nodes are containers and who belongs to which (first `in`-target that is itself a container — mirrors kumihimo/c… |
 | `derive.ts` | Pure functions turning one payload (or one payload plus an active lens) into the small per-node facts App.tsx and KumiNode need to render: node title/color loo… |
@@ -26,6 +29,7 @@
 | `elk.d.ts` | Types for the bundled elkjs entry point, which ships without its own declaration for this subpath. |
 | `lanes.ts` | The Lanes layout option (PLAN2.md §2.3-2.5, K27; restructured in the K27 fix round after critic9 found two container frames/headers landing pixel-identical and… |
 | `layout.ts` | Auto-layout: run elk's layered algorithm over the needs edges (order-carrying edges only) and return positions per node id, plus computed sizes for expanded co… |
+| `lenses.test.ts` | vitest coverage for lenses.ts's pure crew math (K44): crewTextColor checked against an INDEPENDENT WCAG relative- luminance/contrast-ratio implementation (re-d… |
 | `lenses.ts` | The lens bar's math (PLAN2.md §2.3, §3): pure functions computing which visual treatment each node/edge gets under Status, Flow, Risk, or Crew — Structure is t… |
 | `main.tsx` | Entry point: mount App under #root. |
 | `theme.ts` | Light/dark theme (PLAN2.md §2.5): init from localStorage or OS preference, persist on change, toggle. The DOM write (data-theme on <html>) is the one place tha… |

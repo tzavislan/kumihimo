@@ -22,10 +22,17 @@ Update a node: `--title`, `--kind`, `--body`, `--priority`, `--field
 key=value`, `--unset key`. Hand-written comments in the file's frontmatter
 survive.
 
-## `kumihimo link PLAN SRC (--needs|--in|--to) TARGET [--rel REL]`
+## `kumihimo link PLAN SRC (--needs|--in|--to|--agents|--skills|--trains) TARGET [--rel REL]`
 
-Draw exactly one edge. `--needs` is refused (with the path) when it would
-close a cycle; `--to`/`--rel` draws an annotation.
+Draw exactly one edge — the CLI carries no separate check for this, so a
+call that gives more than one (or none) surfaces `ops.link`'s own "give
+exactly one of…" refusal untouched. `--needs` is refused (with the path)
+when it would close a cycle; `--to`/`--rel` draws an annotation;
+`--agents`/`--skills`/`--trains` draws a mention (PLAN2 §3.2) — `--agents`
+wants an `agent`-kind target, `--skills` a `skill`-kind one, `--trains`
+either — refused naming the kind it expected when the target is the wrong
+one. There is no CLI `unlink` verb yet; removing an edge from the shell
+means hand-editing the node file (the editor and MCP server both have one).
 
 ## `kumihimo check PLAN [--strict]`
 

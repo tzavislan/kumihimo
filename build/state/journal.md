@@ -1343,3 +1343,49 @@ Byte fidelity sha256-proven on a CRLF+comment fixture.
 Wave battery under the orchestrator's hands: 254 tests, frontend
 typecheck+build, mkdocs strict — green. Checker pass next, then K42,
 K44, and the CLI link mention flags (the K39 builder re-flagged them).
+
+## 2026-09-03 — iteration 42 (K42+K44+CLI link flags) and the M11 close
+
+**Built (one Sonnet builder):** mention edges outside the Crew lens calm
+down — base opacity 0.6→0.3 via --kumi-edge-mention-quiet, key labels
+stripped at far zoom in every lens (an orthogonal zoom concern, the
+builder ruled, and rightly) — while the K30/K30fix compounds hold by
+specificity construction: checker re-measured the whole matrix live
+(Structure far 0.3/zero labels of 47; near 47/47 labels; Crew faint
+0.15, trains 1.0/3px EXACT; Flow 0.25). vitest 5.0.0 lands with 82
+tests across four files — crewTextColor checked against an
+independently re-derived WCAG formula over a 360-point grid,
+attributionDiff, braidPreview's full allow/deny table, cones — wired
+into CI between typecheck and build; the mutation proof ran TWICE
+(builder flipped the contrast comparison: exactly the three formula
+tests failed; the checker then did its own flip-and-see and left the
+file byte-identical). And the last CLI gap closed: kumihimo link grows
+--agents/--skills/--trains passing straight through to ops (refusal
+wording is ops's own, live-proven exit 2). The builder caught itself
+pushing App.tsx to 604 mid-edit and trimmed back to 595.
+
+**M11 close:** all eight roadmap tasks done via kumihimo set — the
+check summary itself now says "54 node(s), 111 edge(s)" with the
+mention edges it learned to count in this very milestone. Screenshots
+re-shot with the calmed Structure lens and the AA task pill; demo.gif
+regenerated on current pixels. Changelog entry added. CI on the pushed
+SHA is the K38 action-bump acceptance — watched by full SHA as always.
+
+## 2026-09-03 — retro at M11 close (iterations 38-42)
+
+Three lessons folded, one battery growth, all from this stretch:
+1. Parallel builders on disjoint surfaces — briefs name ownership AND
+   off-limits files, shared tests append-only, ONE battery over the
+   combined tree, the wave commits together with each iteration
+   journaled (ran clean twice: three concurrent builders, then
+   builder+checker) — iteration skill.
+2. New test infrastructure ships with a mutation proof — K44's vitest
+   flip-and-see, done independently by builder and checker; a suite
+   that has never failed proves nothing — iteration skill.
+3. The independent-oracle rule now cuts both ways: when a PROBE
+   disagrees with shipped code, suspect the probe — the M11 checker's
+   entity harness double-decoded (the exact anti-pattern under test)
+   and false-alarmed; settled against the real bundled module and DOM
+   — iteration skill.
+4. Step 5's battery formally names the frontend chain incl. npm test.
+Nothing pruned. Training log appended; last_retro_iteration -> 42.

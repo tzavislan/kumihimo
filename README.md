@@ -104,7 +104,7 @@ custom kinds, MCP setup, file formats.
 uv sync
 uv run pytest -q
 uv run python tools/lint.py            # the conventions linter CI runs
-cd frontend && npm install && npm run build   # only if you work on the canvas
+cd frontend && npm install && npm test && npm run build   # only if you work on the canvas
 ```
 
 Conventions (enforced in CI): [CONVENTIONS.md](CONVENTIONS.md). Contributions:

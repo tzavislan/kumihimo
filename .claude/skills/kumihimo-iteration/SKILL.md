@@ -138,7 +138,23 @@ the orchestrator keeps the gates. Rules that made it work:
   The K26 risk-shadow dispute (reviewer saw 1 node, builder claimed 5) was
   settled by running the Python twin (core.graph.descendants) on the
   reviewer's exact fixture — most canvas math has a server-side sibling;
-  use it.
+  use it. The oracle rule cuts both ways: when a PROBE disagrees with the
+  shipped code, suspect the probe first — the M11 checker's entity-decode
+  harness double-decoded (the exact anti-pattern under test) and produced
+  a false "vulnerable" verdict; it was settled by bundling the real
+  shipped module and reading the real DOM.
+- **Builders may run in parallel ONLY on disjoint surfaces, with every
+  brief naming its own files AND the other builders' files as
+  off-limits** (shared test files: append-only at EOF). Ran clean twice
+  at M11 (three concurrent, zero collisions). The orchestrator's battery
+  gates the COMBINED tree; the wave commits together with each iteration
+  journaled by name — reviewers probing a shared tree are told which
+  dirty files are not theirs.
+- **New test infrastructure ships with a mutation proof**: break one
+  covered formula, watch exactly the expected tests fail, restore,
+  confirm the file diff-clean. K44's vitest suite did it twice (builder
+  and checker independently). A suite that has never failed proves
+  nothing.
 - **A written-down "accepted" visual tradeoff expires at the next critic
   pass.** The near-tier overlap was pre-accepted in a CSS comment and died
   the moment someone looked at real pixels. Comments don't outrank eyes.
@@ -167,6 +183,11 @@ code with tail's.** To quiet output, silence it (`>/dev/null`); never pipe it:
 ```bash
 uv run ruff format . >/dev/null && uv run ruff check . && uv run mypy && uv run pytest -q >/dev/null && uv run python tools/lint.py --fix >/dev/null && uv run python tools/lint.py
 ```
+
+Frontend-touching items append (cd form, never --prefix):
+`npm run typecheck && npm test && npm run build` — `npm test` is the
+82-test vitest suite added at M11; a frontend change that alters pure
+math without touching its test is a red flag, not a pass.
 
 On any failure, re-run the failing gate alone with full output.
 

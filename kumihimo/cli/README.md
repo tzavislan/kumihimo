@@ -12,7 +12,7 @@
 | `crew_cmd.py` | `kumihimo crew` — list every agent/skill/reference node as a plain aligned table: its informative fields, its `trained` date (printed verbatim), and how many n… |
 | `edit_cmd.py` | `kumihimo edit` — serve the plan's live canvas on localhost and open the browser. Read-only through M4; the write path is M5. |
 | `export_cmd.py` | `kumihimo export` — the plan as a diagram source (Mermaid, GitHub-native, or Graphviz DOT) or as JSON Lines, the RAG ingestion shape (PLAN2 §3.7), to stdout or… |
-| `link_cmd.py` | `kumihimo link` — draw one edge: --needs for dependency, --in for membership, --to/--rel for annotation. Cycle refusals surface with their path. |
+| `link_cmd.py` | `kumihimo link` — draw one edge: --needs for dependency, --in for membership, --to/--rel for annotation, or a crew mention (--agents/--skills/--trains, K28/K36… |
 | `mcp_cmd.py` | `kumihimo mcp` — serve one plan over MCP stdio so an agent can inspect, restructure, and braid it. Blocks until the client disconnects. |
 | `new_cmd.py` | `kumihimo new` — scaffold a plan directory with the engineering pack and a starter node, then say what to do next. |
 | `set_cmd.py` | `kumihimo set` — update a node from the shell: title, kind, body, priority, fields (coerced through the kind's specs), and unsets. The verb dogfooding found mi… |

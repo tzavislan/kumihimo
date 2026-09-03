@@ -4,10 +4,13 @@
              link → check, plus field coercion, error exit codes, --strict, and
              the cycle named in check output. Also covers K29's CLI surface:
              `braid --for`, `kumihimo crew`, `export --format jsonl` (gated on
-             check errors like braid; mermaid stays ungated), and a real
-             subprocess check that stdout redirect emits LF, not CRLF.
+             check errors like braid; mermaid stays ungated), a real
+             subprocess check that stdout redirect emits LF, not CRLF, and
+             `link`'s --agents/--skills/--trains mention flags (fold-in
+             alongside K42/K44): each lands on disk, a wrong-kind target and a
+             mixed-flag call both surface ops.link's own wording untouched.
 @layer       tests
-@tags        cli, verbs, integration, crew, for-agent, jsonl, encoding
+@tags        cli, verbs, integration, crew, for-agent, jsonl, encoding, mentions
 @related     kumihimo/cli/app.py (the app under test),
              kumihimo/cli/common.py (the stdout/stderr reconfigure under test),
              tests/conftest.py (plan factory for pre-broken fixtures)
@@ -206,6 +209,69 @@ def test_export_jsonl_gates_on_check_errors_through_the_cli(plan_dir: PlanFactor
     # mermaid stays ungated on the same broken plan.
     mermaid_result = runner.invoke(app, ["export", str(root), "--format", "mermaid"], env=WIDE)
     assert mermaid_result.exit_code == 0
+
+
+def test_link_agents_flag_lands_on_disk(plan_dir: PlanFactory) -> None:
+    root = plan_dir(
+        {
+            "t.md": "---\nkind: task\n---\nBody.\n",
+            "bot.md": "---\nkind: agent\n---\nBody.\n",
+        }
+    )
+    result = runner.invoke(app, ["link", str(root), "t", "--agents", "bot"], env=WIDE)
+    assert result.exit_code == 0
+    assert "now mentions agent" in result.output
+    node = Plan.load(root).nodes["t"]
+    assert node.agents == ["bot"]
+
+
+def test_link_skills_and_trains_flags_land_on_disk(plan_dir: PlanFactory) -> None:
+    root = plan_dir(
+        {
+            "t.md": "---\nkind: task\n---\nBody.\n",
+            "sk.md": "---\nkind: skill\n---\nBody.\n",
+            "bot.md": "---\nkind: agent\n---\nBody.\n",
+        }
+    )
+    skills_result = runner.invoke(app, ["link", str(root), "t", "--skills", "sk"], env=WIDE)
+    assert skills_result.exit_code == 0
+    assert "now mentions skill" in skills_result.output
+    trains_result = runner.invoke(app, ["link", str(root), "t", "--trains", "bot"], env=WIDE)
+    assert trains_result.exit_code == 0
+    assert "now trains" in trains_result.output
+    node = Plan.load(root).nodes["t"]
+    assert node.skills == ["sk"]
+    assert node.trains == ["bot"]
+
+
+def test_link_agents_wrong_kind_exits_2_with_ops_wording(plan_dir: PlanFactory) -> None:
+    root = plan_dir(
+        {
+            "t.md": "---\nkind: task\n---\nBody.\n",
+            "other.md": "---\nkind: task\n---\nBody.\n",
+        }
+    )
+    result = runner.invoke(app, ["link", str(root), "t", "--agents", "other"], env=WIDE)
+    assert result.exit_code == 2
+    assert "is kind task, expected agent" in result.output
+
+
+def test_link_mixing_needs_and_agents_exits_2_with_ops_wording(plan_dir: PlanFactory) -> None:
+    # The CLI carries no second copy of the "exactly one" rule (link_cmd.py's
+    # own header note) — this proves ops.link's own refusal reaches the shell
+    # unchanged when a caller gives two mutually exclusive flags at once.
+    root = plan_dir(
+        {
+            "t.md": "---\nkind: task\n---\nBody.\n",
+            "u.md": "---\nkind: task\n---\nBody.\n",
+            "bot.md": "---\nkind: agent\n---\nBody.\n",
+        }
+    )
+    result = runner.invoke(
+        app, ["link", str(root), "t", "--needs", "u", "--agents", "bot"], env=WIDE
+    )
+    assert result.exit_code == 2
+    assert "give exactly one of" in result.output
 
 
 def test_braid_stdout_redirect_has_no_crlf_and_matches_the_api_bytes() -> None:

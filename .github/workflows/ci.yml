@@ -43,6 +43,8 @@ jobs:
         run: npm --prefix frontend ci
       - name: Typecheck
         run: npm --prefix frontend run typecheck
+      - name: Test (vitest)
+        run: npm --prefix frontend test
       - name: Build
         run: npm --prefix frontend run build
 

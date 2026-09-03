@@ -444,7 +444,7 @@ documented in useGraphKeyboard). docs: editor.md + shortcuts.md.
 Accept: each behavior proven in the smoke or live; lens docs updated.
 
 ### K42 — Structure-lens mention calm
-status: todo
+status: done (iteration 42)
 needs: —
 Outside the Crew lens, mention edges fade harder (own non-Crew opacity
 token) and their labels hide below a zoom threshold (reuse the semantic
@@ -468,7 +468,7 @@ since K28). Accept: measured contrast >=4.5; entity vectors render as
 plain text; check on the roadmap prints the true edge count.
 
 ### K44 — Vitest for the pure TS math
-status: todo
+status: done (iteration 42; the CLI link mention flags folded in the same pass)
 needs: —
 vitest (pinned) + tests for the pure functions: lenses (crew hue/tint/
 text-contrast math vs the WCAG formula), attributionDiff (grouping,
