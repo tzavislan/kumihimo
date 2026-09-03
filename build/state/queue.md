@@ -365,3 +365,31 @@ still needs-thomas) first, or straight to v0.2.0?
 Accept: a "cut v0.2.0" checklist in the close report Thomas can execute
 in under ten minutes; every command in it verified run on this machine;
 nothing tagged, nothing published.
+
+## v0.3 candidates (discovered in the 2026-09-03 hands-on audit)
+
+### K36 — MCP link/unlink grow the three mention kwargs
+status: todo
+needs: —
+Discovered auditing the MCP surface: the link/unlink MCP tools still
+accept only needs/in_/to+rel — K29 added the crew READ surfaces and K30
+gave the HTTP envelopes agents=/skills=/trains= for the chip editors, but
+the MCP twins were skipped. Claude driving over MCP cannot assign crew at
+all today (agents: is a reserved key, so update_node can't carry it
+either) — a real hole in "the agent maintains the plan it executes."
+Mirror ops.link/unlink exactly (kind-checked, no cycle guard), same
+wording as the HTTP layer; extend tests/test_mcp.py trigger+non-trigger;
+docs/reference/mcp-tools.md updated. Small, well-bounded.
+
+### K37 — Dirty indicator only counts a repo that actually tracks the plan
+status: todo
+needs: —
+Discovered in the audit: a plan scaffolded under the user's home
+directory (which happens to be a git repo root on this machine) shows
+"1 file(s) differ from HEAD" forever — /api/dirty walks up, finds ANY
+enclosing repo, and reports the untracked plan dir as dirt, with
+permission-denied noise from AppData in the underlying git call. "Lives
+in git" should mean the discovered repo tracks at least one file under
+the plan root (or the manifest itself); otherwise report tracked: false
+and show nothing. Trigger test: plan in a temp dir nested under a repo
+that doesn't track it; non-trigger: plans/roadmap keeps its indicator.

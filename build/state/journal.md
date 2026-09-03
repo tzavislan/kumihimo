@@ -1212,3 +1212,46 @@ decision point (v0.1.0 first vs straight 0.2.0), 11 verified steps, and
 the pending one-time PyPI/GitHub setup. K15 stays needs-thomas until
 that call. Pushing at close per standing say-so; the audit pass Thomas
 asked for runs after this close, findings to the journal.
+
+## 2026-09-03 — hands-on audit (post-M10, Thomas's ask)
+
+Drove the whole product as a person: scaffolded a fresh plan via the
+CLI, opened the real editor in a live browser pane, built a three-node
+plan through the add form and chip editors, made a genuine mistake and
+recovered through the product's own affordances, then exercised the MCP
+surface. What a user actually meets:
+
+**Worked, felt right:** add form → node + auto-select + trail entry;
+chip editors with kind-filtered suggestions; the cycle refusal names its
+path ("build-it -> design -> build-it"); duplicate-id and
+delete-referenced refusals precise; the CLI mutation raised exactly one
+"via CLI: Design the audit updated" toast with a pulse on the right
+node while self-ops stayed silent; the undo panel reversed my
+mis-placed edge and grayed its own stale entries with reasons; unicode
+(組紐 → ✓) round-tripped the body form; Crew lens + dark theme legible;
+the braid modal rendered with Cast and the folded diagram; MCP crew/
+ready(for_agent)/braid --for thomas compiled his two real work orders.
+The events.jsonl read back as an honest flight recorder of the whole
+session, mistake and undo included. The MCP server turned out to be
+running CURRENT code (relaunched with the session) — the M9 stale-server
+warning is moot.
+
+**Real findings → queue:** K36 (MCP link/unlink never grew the mention
+kwargs — Claude over MCP cannot assign crew at all); K37 (the dirty
+indicator counts ANY enclosing repo — a home-dir repo makes every temp
+plan claim "1 file(s) differ from HEAD" with AppData permission noise
+under it).
+
+**Polish notes (journal only, M11/v0.3 fodder):** two chip ops in quick
+succession 409 because the second still holds the pre-echo digest —
+chain digests from op responses or disable inputs until the echo; the
+Crew lens outlines DONE unassigned tasks (semantic noise for "who still
+needs an owner"); a newly added node isn't scrolled into view; the
+sidebar form never banners WHICH node it edits (my mis-selection went
+unnoticed until chips landed on the wrong node — the canvas ring and
+the form can visually disagree at a glance); selection never clears
+(known). One automation-only note, not a product issue: the desktop
+browser pane's synthetic left_click moves React Flow's internal
+selection but never dispatches the click event React handlers need —
+el.click()/playwright/real mice all behave; explains the audit's early
+mis-edits.
